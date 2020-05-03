@@ -1,0 +1,351 @@
+---
+title: 'Risk factors for severe COVID-19 in Scotland: a population-based case-control study'
+
+author: 
+  - name: Paul M McKeigue
+    email: paul.mckeigue@ed.ac.uk
+    affiliation: Usher
+  - name: Amanda Weir 
+    affiliation: HPS
+  - name: Jen Bishop
+    affiliation: HPS
+  - name: Stuart McGurnaghan
+    affiliation: IGMM
+  - name: Sharon Kennedy
+    affiliation: HPS
+  - name: Sharon Hutchinson 
+    affiliation: GCU
+  - name: David McAllister 
+    affiliation: Glasgow
+  - name: Chris Robertson 
+    affiliation: Strathclyde
+  - name: Rachael Wood
+    affiliation: ISD
+  - name: Nazir Lone
+    affiliation: Usher
+  - name: Tom Caparrotta 
+    affiliation: IGMM
+  - name: Helen M Colhoun
+    affiliation: IGMM
+address: 
+   - code: Usher
+     address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland. PM - Professor of Genetic Epidemiology and Statistical Genetics. NL - Clinical Senior Lecturer in Critical Care
+   - code: IGMM
+     address: Institute of Genetics and Molecular Medicine, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland. HC - Axa Chair in Medical Informatics and Epidemiology. TC - Sir George Alberti Doctoral Fellow in Pharmacoepidemiology. 
+   - code: Glasgow
+     address: Institute of Health and Wellbeing, University of Glasgow, 1 Lilybank Gardens, Glasgow G12 8RZ. DM - Senior Clinical Lecturer in Public Health 
+   - code: HPS
+     address: Health Protection Scotland (Public Health Scotland), Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+   - code: Strathclyde
+     address: Department of Mathematics and Statistics, University of Strathclyde, 16 Richmond Street, Glasgow G1 1XQ. CR - Professor of Public Health Epidemiology
+   - code: GCU
+     address: School of Health and Life Sciences, Glasgow Caledonian University. SH - Professor of Epidemiology and Population Health 
+   - code: ISD
+     address: NHS Information Services Division (Public Health Scotland), Gyle Square, 1 South Gyle Crescent, Edinburgh, EH12 9EB.  RW - Consultant in Maternal and Child Health. 
+   
+geometry: margin=1in
+fontsize: 11pt
+linenumbers: true
+bibliography: ../covid.bib
+date: "This version compiled `r gsub('^0', '', format(Sys.time(), '%d %B %Y'))`"
+ 
+header-includes: |
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \usepackage{array}
+output: 
+#  pdf_document:
+  rticles::plos_article:
+    latex_engine: lualatex
+    fig_caption: true
+    keep_tex: true
+#    toc: true
+#    toc_depth: 2
+csl: ../plos.csl
+urlcolor: red
+
+# rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
+
+---
+
+```{r functions, echo=FALSE}
+
+pvalue.latex <- function(x, n=1, nexp=1) {
+  sapply(x, function(z) {
+    if (is.na(z)) {
+        return(NA)
+    } else if(z > 0.001) {
+        return(signif(z, 1))
+    } else {
+    z <- sprintf("%.*E", 0, signif(z, n)) # default is 1 sig fig
+#    z <- sprintf("%.*E", n, signif(z, n + 1))
+    z <- as.numeric(unlist(strsplit(z, "E"))) # split z at E
+    sprintf("\\ensuremath{%.*f\\times 10^{%0*d}}", 0, z[1], nexp, z[2])
+                                        #    sprintf("\\ensuremath{%.*f\\times 10^{%0*d}}", n, z[1], nexp + 1, z[2])
+    }
+  })
+}
+
+## create and format a 95% confidence interval around an odds/hazard ratio
+or.ci <- function(coeff, se, ndigits=2) {
+  ci.lo <- exp(coeff - 1.96 * se)
+  ci.up <- exp(coeff + 1.96 * se)
+  sprintf("%.*f (%.*f, %.*f)", ndigits, exp(coeff), ndigits, ci.lo, ndigits, ci.up)
+}
+
+```
+\newpage
+
+# Background
+Case series data from hospitals has suggested a preponderance of certain conditions including diabetes and cardiovascular disease, and elevated risks in those of non-European ethnic origin. Quantification of the risk associated with these characteristics and co-morbidities has been limited by the lack of an appropriate background population comparator. Furthermore it has not been possible to disentangle whether drug effects may underlie the apparent association with certain co-morbid groups. 
+
+In Scotland the existence of a laboratory database with nationwide coverage and a unique health care identifier on all health records has enabled us to ascertain all those with tests positive for SARS-CoV-2 and link to other health records.  Here we describe a population wide case-control study of test confirmed COVID-19 disease in Scotland. From this we report the demographic factors, co-morbidities and concurrent medications associated with being hospitalised for COVID-19 and for becoming a severe COVID-19 case i.e. either warranting critical care support or dying within 28 days of a positive test. This study is intended to inform policy on defining vulnerable groups, identify any drug classes that influence risk of severe disease, and lay a basis for evaluating the feasibility of risk-stratified control measures. 
+
+# Methods
+## Data sources 
+The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally.  .This allowed all those with a positive viral nucleic acid test for SARS-CoV-2 to be ascertained, hereafter denoted as test positive cases.  At the time writing, serology testing results for auto-antibodies indicating prior infection with SARS-CoV-2 are not yet available. 
+
+The National Community Health Index (CHI) database assigns a unique health care identifier to everyone in the population, and is used in all care systems in Scotland.  Using the CHI identifier, records from ECOSS were linked to hospitalization and discharge data from the weekly updated Scottish Morbidity Record 01 and the daily updated RAPID-24 databases. Admission to critical care was ascertained from the national audit database of critical care units (SICSAG). Death registrations and cause of death were obtained from linkage to the National Register of Scotland.  All these databases have nationwide coverage. At the time of writing the national policy on testing has evolved since the start of the epidemic with testing initially being restricted to possible cases that required hospital admission but widening to a "four-pillar" approach that has increased testing in health care workers residential care home settings. Accordingly the probability of being tested has changed over time.  For each test-positive case, we ascertained ten matched controls of the same sex, one year age band and attending the same General Practice as each case alive on the same day as the date of test in the case. Note that this is an incidence density sampling design i.e. a control who becomes a case at a later point is retained in the control set. With this design, the odds ratios in a conditional logistic regression model are equivalent to rate ratios.  
+
+For all cases and controls co-morbid conditions, the Charlson Comorbidity Index and drug exposure data were available from i) a five year look back query of the Scottish Morbidity Record 01 for sets of International Classification of Disease (ICD)-10 codes for various conditions ii) querying the national prescribing records for exposure to various drug classes iii) linkage to the national diabetes register SCI-diabetes.  
+
+We initially examined history of a specific list of conditions and drug classes that have been advised as high risk conditions for COVID-19 by Public Health England, World Health organisation or the US Centres for Disease Control. ICD-10 codes for the conditions are listed in Supplementary Materials.  
+
+Ethnicity was ascertained from ethnic group coding on prior SMR records and from applying the ONOMAP algorithm to names available in the CHI database. All cases and controls were assigned to a quintile of the Scottish Index of Multiple Deprivation- this is a residential postcode based indicator of socioeconomic status.
+
+## Case definition
+We classified test-positive cases into three groups: 
+
+1. Severe or fatal COVID-19, defined by entering critical care in the Scottish Intensive Care Society and Audit Group database (SICSAG) OR death within 28 days of a positive nucleic acid test (regardless of the cause of death given on the death certificate). 
+
+2. Hospitalised but not severe as defined above
+
+3. Not hospitalized
+
+The focus on severe disease is relevant to policy makers because decisions about control measures have been based on projections of the requirement for critical care. By restricting the case definition to this group, which combines those receiving critical care with those who died without receiving critical care, we ensure complete ascertainment of test-positive cases, whatever triage procedures may have been in place to exclude those assessed as unlikely to benefit from critical care.  
+
+The proportion of fatal cases that were not tested can be examined in national mortality data ...
+
+
+# Statistical methods
+We used  the R statistical package. We calculated the sex and age band specific cumulative incidence of severe COVID-19 disease using the age and sex distribution of those alive in the population as of March 1st 2020. (CHECK)  
+
+We tabulated the prevalence of co-morbidities and current drug use by case status.  We used conditional logistic regression to estimate the univariate odds associated with each covariate of interest conditioned on age sex and GP practice. 
+We also report a conditional logistic regression with all covariates entered simultaneously.  
+
+We tested each effect for interaction with age and sex.  
+
+Models were run overall and by age band. 
+
+To select variables to be retained in the model, we used backward selection with a termination criterion that the reduction in deviance is less than the value corresponding to a threshold p-value of 0.01 
+Data were split into a 70:30 training:test sets. 
+We evaluated the performance of the resulting backward selection model for predicting severe COVID-19 disease in the test set. For this we used the expected information for discrimination as described and used previously 
+
+### The initial demographic vars of interest are ( give that age and sex is matched)
+
+ ethnic group
+ SIMD
+
+### The initial comorbidities of interest are listed below 
+
+- Circulatory Disorders
+  - Ischaemic heart disease
+  - Other heart disease
+  - Cerebrovascular Disease
+  - Other circulatory system diseases
+- Neurological diseases except inflammatory
+  - Epilepsy
+  - Mono and  polyneuropathies
+  - Other neurological conditions
+- Respiratory diseases
+  -  Acute respiratory infections
+  -  Asthma
+  -  Other Chronic lower respiratory disease
+- Tuberculosis 
+- Connective tissue diseases
+- Decompensated liver disease
+- Kidney disease
+  - Advanced Chronic kidney disease or RRT
+  - Other chronic kidney disease
+- Diabetes
+  - type 1
+  - type 2
+- Malignant neoplasms
+  - Lung cancers
+  - Blood cancers
+  - Other cancers
+- Immunological diseases
+  - HIV
+  - Certain disorders involving the immune system
+- Sickle cell disease
+- Cystic fibrosis
+- Organ transplantation other than kidney
+- Treated hypertension (on any antihypertensive drugs in past year)
+- Charlson comorbidity index   
+
+​
+### Other recent health care exposure variables of interest are 
+
+- Any inpatient admission in past year and excluding the three weeks prior to testing 
+- Any emergency admission in past year and excluding the three weeks prior to testing
+- Any ICU/HDU/Admission in past year and excluding the three weeks prior to testing 
+
+### Initial drug exposures of interest are 
+
+- Any lipid  drug 
+- Any anticoag or platelet  
+- Any Antihypertensive drugs disaggregated to: 
+  - Vasodilator antihypertensive drugs
+  - Centrally-acting antihypertensive drugs
+  - Adrenergic neurone blocking drugs
+  - Alpha-adrenoceptor blocking drugs
+  - Angiotensin-converting enzyme inhibitors
+  - Angiotensin-II receptor antagonists
+  - Renin inhibitors
+  - Thiazides and related diuretics
+  - Calcium-channel blocker
+- Any prescribed NSAID
+- Any cytotoxic or immunosuppressant drug 
+- Any chloroquine drug or derivatives of chloroquine
+
+Derivations ICD10 and BNF codes for these comorbidities / drugs are in the appendix 
+
+Further comorbidities will be included in future protocol versions
+
+Note that at this point we are not including high risk of exposure as covariates ie HCW, residential care home, prisoner etc this will form part of future work. 
+
+# Information governance
+This research was conducted under approvals A(i) PBPP approvals for accessing ?????; (ii) existing PBPP approval that allows HPS staff to link any PHI controlled datasets; (janet to add detail and reference numbers?) (iii) PBPP amendment (1617-0147) that covers inward transfer of diabetes data. Datasets were de-identified before analysis.  
+
+# Results
+## Comparison of severe cases with others who tested positive 
+We emphasize that because testing was used selectively over this period, those who tested positive and were never hospitalised are unlikely to be representative of never-hospitalized cases in the population.  
+
+## Association of demographic factors with severe disease
+Table \ref{tab:demog} shows univariate associations of demographic factors with disease.  Higher risk of severe disease was associated with socioeconomic deprivation and with residence in a care home (rate ratio 8.6).  In comparison with those classified as White, South Asians and other non-White ethnic minorities were at lower risk of severe disease.  
+
+
+```{r demog, echo=FALSE, warning=FALSE, message=FALSE}
+pvalue <- pvalue.latex(univariate.demog[, 5])
+ci <- or.ci(univariate.demog[, 1], univariate.demog[, 3]) 
+table.demog.aug <- data.frame(table.demog,
+                                   ci, 
+                                   pvalue)
+colnames(table.demog.aug) <- c("Controls", "Cases", "Rate ratio (95% CI)", "p-value")
+rownames(table.demog.aug) <- replace.names(rownames(table.demog.aug))
+ 
+pander(table.demog.aug, 
+       digits=c(0, 0, 3, 3, 3, 1),
+       round=c(0, 0, 3, 3, 3, 10),
+	   split.tables="Inf",
+       split.cells=c(15, 15, 25, 8),
+       caption="\\label{tab:demog}Univariate associations of severe disease with demographic factors")
+
+```
+
+## Associations of comorbid conditions with severe disease
+In univariate logistic regression models, both Type 1 and Type 2 diabetes were associated with severe disease (Table \ref{tab:conditions}. There were strong associations with circulatory disease, respiratory disease, kidney disease and neurological disease.  No association of severe disease with cystic fibrosis was detected.  A possible explanation for this may be that this group was effectively shielded from infection in accordance with official guidance.
+
+```{r conditions, echo=FALSE, warning=FALSE, message=FALSE}
+
+pvalue <- pvalue.latex(univariate.conditions[, 5])
+ci <- or.ci(univariate.conditions[, 1], univariate.conditions[, 3]) 
+table.conditions.aug <- data.frame(table.conditions,
+                                   ci, 
+                                   pvalue)
+colnames(table.conditions.aug) <- c("Controls", "Cases", "Rate ratio (95% CI)", "p-value")
+rownames(table.conditions.aug) <- replace.names(rownames(table.conditions.aug))
+
+pander(table.conditions.aug, 
+       digits=c(0, 0, 3, 3, 3, 1),
+       round=c(0, 0, 3, 3, 3, 10),
+	   split.tables="Inf",
+       split.cells=c(20, 20, 20, 7),
+       caption="\\label{tab:conditions}Univariate association of severe disease with comorbid conditions")
+
+```
+
+Further analyses to adjust for co-morbidity ...
+
+
+### Counts of co-morbid conditions
+
+Table xx shows the distribution of numbers of the co-morbid conditions listed by WHO or CDC or PHE by age band in severe cases versus their controls. 
+Across each age band there were people with severe COVID-19 who did not appear to have any of these co-morbid conditions.
+
+## Associations of prescribed drugs with severe disease 
+Table \ref{tab:drugs} shows that severe disease was associated with use of antihypertensive agents, anticoagulants, and lipid-lowering agents.  Use of ACE inhibitors or angiotensin receptor blockers was not associated with higher risk than use of other classes of antihypertensive agent.  Use of non-steroidal anti-inflammatory agents was weakly associated with severe disease.  Use of hydroxychloroquine was associated with severe disease.  
+
+Further analyses to adjust for co-morbidity ...
+
+```{r drugs, echo=FALSE, warning=FALSE, message=FALSE}
+
+pvalue <- pvalue.latex(univariate.drugs[, 5])
+ci <- or.ci(univariate.drugs[, 1], univariate.drugs[, 3]) 
+table.drugs.aug <- data.frame(table.drugs,
+                                   ci, 
+                                   pvalue)
+colnames(table.drugs.aug) <- c("Controls", "Cases", "Rate ratio (95% CI)", "p-value")
+rownames(table.drugs.aug) <- replace.names(rownames(table.drugs.aug))
+
+pander(table.drugs.aug, 
+       digits=c(0, 0, 3, 3, 3, 1),
+       round=c(0, 0, 3, 3, 3, 10),
+	   split.tables="Inf",
+       split.cells=c(20, 20, 20, 7), 
+       caption="\\label{tab:drugs}Univariate association of severe disease with drugs prescribed in last year")
+
+```
+
+## Examining those with no apparent co-morbid conditions
+
+A more in depth focus on severe cases at younger ages 
+
+As shown in table  among severe case below age 50  xxx% had either xxx or xxx or xxx but in xxx% none of these comorbid conditions were found. Among severe case below age 50-70  xxx% had either xxx or xxx or xxx but in xxx% none of these comorbid conditions were found.  However in those with none of these co morbid conditions xx% were on   drugs for xxx xxx and xxx.
+
+## Multivariate analysis of risk factors for severe disease 
+
+A stepwise regression procedure was carried out with all demographic, morbidity and drug exposure variables, using alternating forward-backward selection.  The `r nrow(stepwise.all)` variables retained are shown in Table \ref{tab:stepwise}
+
+```{r model, echo=FALSE, warning=FALSE, message=FALSE}
+
+table.stepwise <- as.data.frame(stepwise.all[, c(1, 3, 5)])
+colnames(table.stepwise) <- c("Coefficient (log rate ratio)", "Standard error", "p.value")
+rownames(table.stepwise) <- replace.names(rownames(table.stepwise))
+
+table.stepwise$p.value <- pvalue.latex(table.stepwise$p.value)
+
+pander(table.stepwise, table.style="multiline",
+       # split.cells=c(5, 5, 5, 5, 5, 5, 5), 
+	   digits=c(3, 3, 1), 
+	   split.table="Inf",
+       caption="\\label{tab:stepwise}Stepwise regression: variables retained in model for severe disease")
+ 
+```
+
+## Predictive performance of a risk classifier
+
+The predictive performance of the model chosen by stepwise regression was estimated by `r nfold`-fold cross-validation, and comparing observed and predicted case status over all test folds.  Table \ref{tab:wevid} shows that the C-statistic was `r summary(stepwise.densities)[3]` and the expected information for discrimination was  `r summary(stepwise.densities)[5]` bits. 
+
+show incremental comparison of different models ...
+
+
+```{r infodiscrim, echo=FALSE, warning=FALSE, message=FALSE}
+
+pander(summary(stepwise.densities), table.style="multiline",
+       split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
+       caption="\\label{tab:wevid}Prediction of severe COVID-19: cross-validation of model chosen by stepwise regression" )
+ 
+```
+
+```{r plotwdists, echo=FALSE, fig.cap="Cross-validation of model chosen by stepwise regression: distributions of weight of evidence", out.width="0.8\\textwidth"}
+
+plotWdists(stepwise.densities) + theme_grey(base_size = 18) + 
+	theme(legend.title=element_blank())
+
+```
+

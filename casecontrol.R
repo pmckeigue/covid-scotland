@@ -1,77 +1,5 @@
 ## analysis script for case-control study
 
-replace.names <- function(varnames) {
-    names <- varnames
-    found <- names %in% lookup.names$varname
-    names[found] <- as.character(lookup.names$longname[match(names[found],
-                                                             lookup.names$varname)])
-    return(names)
-}
-
-traintest.fold <- function(train.data, test.data, start.model,
-                           lower.formula, upper.formula) { # stepwise clogit on training fold, predicted probs on test fold
-    start.model <- clogit(formula=upper.formula, data=train.data)
-    stepwise.model <- step(start.model,
-                           scope=list(lower=lower.formula, upper=upper.formula),
-                           direction="both", trace=-1, method="approximate")
-    ## use reference=sample, then normalize separately within each stratum
-    unnorm.p <- predict(object=stepwise.model, newdata=test.data,
-                        na.action="na.pass", 
-                        type="risk", reference="sample")
-    norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
-                                            stratum=test.data$stratum,
-                                            y=test.data$CASE)
-}
-
-nonmissing.obs <- function(x, varnames) { ## subset rows nonmissing for varnames
-    keep <- rep(TRUE, nrow(x))
-    for(j in 1:length(varnames)) {
-        keep[is.na(x[, match(varnames[j], colnames(x))])] <- FALSE
-    }
-    return(x[keep, ])
-}
-
-normalize.predictions <- function(unnorm.p, stratum, y) { # format a pvalue in latex
-    ## normalize probs so that they sum to 1 within each stratum
-    ## also compute prior probs
-    ## this is appropriate if there is only 1 case per stratum
-    unnorm.p <- as.numeric(unnorm.p)
-    stratum <- as.factor(as.integer(as.character(stratum)))
-    nonmissing <- !is.na(unnorm.p)
-
-    unnorm.p <- unnorm.p[nonmissing]
-    stratum <- stratum[nonmissing]
-    y <- y[nonmissing]
-
-    ## compute normalizing constant and prior for each stratum, then merge
-    norm.constant <- as.numeric(tapply(unnorm.p, stratum, sum))
-    stratum.size <- as.numeric(tapply(unnorm.p, stratum, length))
-    print(table(stratum.size))
-    prior.p <- 1/stratum.size
-    norm.constant <- data.frame(stratum=levels(stratum),
-                                normconst=norm.constant,
-                                prior.p=as.numeric(prior.p))
-    
-    norm.predicted <- data.frame(unnorm.p, y, stratum)
-    norm.predicted <- merge(norm.predicted, norm.constant, by="stratum")
-    # normalize probs
-    norm.predicted$posterior.p <- norm.predicted$unnorm.p / norm.predicted$normconst
-    return(norm.predicted)
-}
-
-append.emptyrow <- function(x) {
-    empty=matrix(c(rep.int(NA, length(x))), nrow=1, ncol=ncol(x))  
-    colnames(empty) = colnames(x)
-    return(rbind(x, empty))
-}
-
-paste.colpercent <- function(x, digits=0) { # paste column percentages into freq table
-    x.colpct <- paste0("(", round(100 * prop.table(x, 2), digits), "%)")
-    z <- matrix(paste(x, x.colpct), nrow=nrow(x),
-                dimnames=dimnames(x))
-    return(z)
-}
-
 library(car)
 library(survival)
 library(MASS)
@@ -79,53 +7,110 @@ library(wevid)
 library(rmarkdown)
 library(pander)
 library(ggplot2)
+library(doParallel)
+registerDoParallel(cores=2)
+library(reshape2)
+library(readxl)
+library(DescTools)
+library(icd.data)
+
+source("helperfunctions.R")
         
-cc.all <- readRDS("./cc_linked_file_20200417_onomap.rds")
+cc.all <- readRDS("./data/CC_linked_ANON_20200501.rds")
+
+diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200501.rds") # 842 records ? excluded
+procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200501.rds")
+scrips <- readRDS("./data/CC_PIS_x15_ANON_20200501.rds")
+bnfcodes <- read_excel("./data/BNF_Code_Information.xlsx", sheet=4)
+
+bnfchapters <- bnfcodes[, 1:2]
+bnfchapters <- base::unique(bnfchapters)
+colnames(bnfchapters) <- c("fullname", "chapternum")
+truncate.at <- StrPos(bnfchapters$fullname, " |,|-") -1
+truncate.at[is.na(truncate.at)] <- nchar(bnfchapters$fullname[is.na(truncate.at)])
+bnfchapters$shortname <- substr(bnfchapters$fullname, 1, truncate.at) 
+
 names(cc.all) <- gsub("CASE_NO", "stratum", names(cc.all))
 names(cc.all) <- gsub("^SEX$", "sex", names(cc.all))
 names(cc.all) <- gsub("imumune", "immune", names(cc.all))
 names(cc.all) <- gsub("^ethnic$", "ethnic.old", names(cc.all))
 names(cc.all) <- gsub("^CAREHOME$", "care.home", names(cc.all))
+names(cc.all) <- gsub("^simd$", "SIMD.quintile", names(cc.all))
 
 cc.all$stratum <- as.integer(cc.all$stratum)
-simd.missing <- is.na(cc.all$simd2020_sc_quintile)
-cc.all$SIMD_quintile <- as.factor(cc.all$simd2020_sc_quintile)
-#cc.all$simd2020_sc_quintile[simd.missing] <- NA
 
-cc.all$PIS <- as.factor(cc.all$PIS)
-cc.all$SMR01 <- as.factor(cc.all$SMR01)
+## check that each stratum contains a single case
+table.strata <- tapply(cc.all$CASE, cc.all$stratum, sum) == 1
+strata.onecase <- as.integer(names(table.strata)[as.integer(table.strata)==1])
+keep <- cc.all$stratum %in% strata.onecase
+cc.all <- cc.all[keep, ]
+cat(length(which(!keep)), "observations dropped because stratum does not contain one case\n")
+
+cc.all$SIMD.quintile <- recode(cc.all$SIMD.quintile, "'Unknown'=NA")
+
+cc.all$scrip.any <- as.factor(as.integer(cc.all$ANON_ID %in% scrips$ANON_ID))
+cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
+
+cc.all$emerg <- as.factor(cc.all$emerg.x25)
+cc.all$icu.hdu.ccu <- as.factor(cc.all$icu.hdu.ccu.x25)
+cc.all$inpat <- as.factor(cc.all$inpat.x25)
 
 ######## coding ethnicity ##############################
 
+OnolyticsType <- cc.all$OnolyticsType
+GeographicalArea <- cc.all$GeographicalArea
+ethnic.smr <- cc.all$ETHNIC_SMR_LAST
+
 source("ethnic_assign.R")
 
-## variable ETHNIC_smr is based on SMR, collapsed to 5 categories
-## variable eth5 is based on Onomap only
-## classifies all those with non-local Muslim names as South Asian, and misclassifies most  Black Caribbean as White
+cc.all$ethnic5.smr <- ethnic5.smr
+cc.all$ethnic5 <- ethnic5
 
-cc.all$ethnic <- as.factor(cc.all$eth5) 
+## tabulate ONOMAP ethnicity against SMR ethnicity
+table.ethnic <- table(cc.all$ethnic5, cc.all$ethnic5.smr, exclude=NULL)
+table.ethnic <- paste.colpercent(table.ethnic)
+
+## recode to 4 categories to pool groups not distinguished by name
+cc.all$ethnic4 <- car::recode(cc.all$ethnic5, "'Black'='Other'; 'Chinese'='Other'")
+cc.all <- within(cc.all, ethnic4 <- relevel(as.factor(ethnic4), ref="White"))
 
 ####################################################################
 
-cc.all$sex <- recode(as.factor(cc.all$sex), "1='Male'; 2='Female'")
+cc.all$sex <- car::recode(as.factor(cc.all$sex), "1='Male'; 2='Female'")
 cc.all <- within(cc.all, sex <- relevel(sex, ref="Female"))
 
-cc.all$care.home <- recode(as.factor(cc.all$care.home), "0='Independent'; 1='Care home resident'")
+cc.all$care.home <- car::recode(as.factor(cc.all$care.home), "0='Independent'; 1='Care home resident'")
 cc.all <- within(cc.all, care.home <- relevel(care.home, ref="Independent"))
 
-## assign controls to same group as cases i.e. A, B, C
+## all cases have nonmissing SPECDATE
+cc.all$deathwithin28 <- with(cc.all,
+                             CASE==1 &
+                             Date.Death - SPECDATE >= 0 &
+                             Date.Death - SPECDATE <= 28)
+cc.all$deathwithin28[is.na(cc.all$deathwithin28)] <- 0
+
+## integer values > 1 for icu and inhosp may represent days from test to admission
+## values of 0 must be for those not admitted, as there are no missing values
+with(cc.all[cc.all$CASE==1, ], table(inhosp, exclude=NULL))
+with(cc.all[cc.all$CASE==1, ], table(icu, exclude=NULL))
+
+## temporary coding of case groups -- check this is correct
+## integer values 0 for icu and inhosp may represent days from test to entry
+cc.all$group <- NA
+cc.all$group[cc.all$CASE==1 & cc.all$inhosp== 0] <- "C"
+cc.all$group[cc.all$CASE==1 & cc.all$inhosp > 0] <- "B"
+cc.all$group[(cc.all$CASE==1 & cc.all$icu > 0) | cc.all$deathwithin28==1]  <- "A"
+table(cc.all$deathwithin28, cc.all$group, exclude=NULL)
+
+## assign controls to same group as cases i.e. A, B, C and create a new variable named casegroup
 casegroups <- cc.all[cc.all$CASE==1, ][, c("stratum", "group")]
-colnames(casegroups)[2]<-"casegroup"
+colnames(casegroups)[2] <- "casegroup"
 cc.all <- merge(cc.all, casegroups, by=c("stratum"), all.x=T)
 table(cc.all$CASE, cc.all$casegroup)
 
-with(cc.all[cc.all$CASE==0, ], table(casegroup, dead28, exclude=NULL))
-with(cc.all[cc.all$CASE==1, ], table(casegroup, dead28, exclude=NULL))
+with(cc.all[cc.all$CASE==1, ], table(casegroup, deathwithin28, exclude=NULL))
 
-with(cc.all[cc.all$CASE==1 & cc.all$icu.hdu.ccu==1, ], table(ethnic, dead28, exclude=NULL))
-
-                                   
-cc.all$casegroup <- recode(cc.all$casegroup,
+cc.all$casegroup <- car::recode(cc.all$casegroup,
                            "'A'='Critical care or fatal'; 'B'='Hospitalised, not severe'; 'C'='Test-positive, not hospitalised'")
 cc.all$casegroup <- as.factor(cc.all$casegroup)
 cc.all <- within(cc.all, casegroup <- relevel(casegroup, ref="Critical care or fatal"))
@@ -136,9 +121,87 @@ cc.all$dm.type <- as.integer(cc.all$dm.type)
 cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
 cc.all$dm.type <- 
   car::recode(cc.all$dm.type, 
-              "0='Not diabetic'; 1='Type 1'; 2='Type 2'; 3:hi='Other DM'")
+              "0='Not diabetic'; 1='Type 1'; 2='Type 2'; 3:hi='Other diabetes type'")
 
-## anticoagulants6 same as anticoagulants_protamine6
+########################################################################
+
+## tabulate ethnicity by case group
+testpositives.ethnic <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
+                                              table(ethnic5, casegroup)), 1)
+testpositives.ethnic.smr <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
+                                                  table(ethnic5.smr, casegroup)), 1)
+
+########### restrict to severe cases and matched controls ###################### 
+ 
+cc.severe <- cc.all[cc.all$casegroup=="Critical care or fatal", ]
+cc.severe <- cc.severe[cc.severe$AGE < 70, ] ## restrict by age 
+
+## merge drugs
+length(table(substr(scrips$bnf_paragraph_code, 1, 2))) # chapter
+length(table(substr(scrips$bnf_paragraph_code, 1, 4))) # chapter, section
+length(table(substr(scrips$bnf_paragraph_code, 1, 6)))  # chapter, section, paragraph
+length(table(scrips$bnf_paragraph_code)) # 537 groups
+
+scrips$bnf.chapter <- substr(scrips$bnf_paragraph_code, 1, 2)
+scrips.wide <- reshape2::dcast(scrips, ANON_ID ~ bnf.chapter, fun.aggregate=length, 
+                               value.var="bnf.chapter")
+shortnames.cols <-  bnfchapters$shortname[match(as.integer(colnames(scrips.wide)[-1]),
+                                                as.integer(bnfchapters$chapternum))]
+colnames(scrips.wide)[-1] <- paste("BNF", colnames(scrips.wide)[-1], shortnames.cols,
+                                   sep="_")
+
+cc.severe <- merge(cc.severe, scrips.wide, by="ANON_ID", all.x=TRUE)
+bnfcols <- grep("^BNF", colnames(cc.severe))
+for(j in bnfcols) {
+    cc.severe[, j][is.na(cc.severe[, j])] <- 0
+    cc.severe[, j][cc.severe[, j] > 1] <- 1
+    cc.severe[, j] <- as.factor(cc.severe[, j])
+}
+
+icdchapters <- data.frame(names(icd10_chapters),
+                             t(matrix(as.character(unlist(icd10_chapters)), nrow=2)))
+colnames(icdchapters) <- c("name", "start", "end")
+icdchapters$shortname <- gsub("Diseases of the ", "", icdchapters$name)
+icdchapters$shortname <- gsub("Certain ", "", icdchapters$shortname)
+icdchapters$shortname <- gsub("conditions originating in the ", "",
+                              icdchapters$shortname)
+icdchapters$shortname <- gsub("Factors influencing ", "", icdchapters$shortname)
+truncate.at <- StrPos(icdchapters$shortname, " |,|-") - 1
+truncate.at[is.na(truncate.at)] <- nchar(icdchapters$shortname[is.na(truncate.at)])
+icdchapters$shortname <- substr(icdchapters$shortname, 1, truncate.at) 
+icdchapters$start <- as.character(icdchapters$start)
+icdchapters$end <- as.character(icdchapters$end)
+
+## chapter is assigned as the position of the first element in icdchapters$start that x is greater than or equal to
+
+unique.diagnoses <- as.character(unique(diagnoses$ICD10))
+chapter <- integer(length(unique.diagnoses))
+for(i in 1:length(unique.diagnoses)) {
+    chapter[i] <- min(which(substr(unique.diagnoses[i], 1, 3) <= icdchapters$end))
+}
+unique.diagnoses <- data.frame(ICD10=unique.diagnoses, chapter=chapter)
+diagnoses <- merge(diagnoses, unique.diagnoses, by="ICD10", all.x=TRUE)
+
+diagnoses.wide <- reshape2::dcast(diagnoses, ANON_ID ~ chapter, fun.aggregate=length,
+                                  value.var="chapter")
+
+colnames(diagnoses.wide)[-1] <-
+    paste0("ICD10_",
+           icdchapters$shortname[as.integer(colnames(diagnoses.wide)[-1])])
+
+## drop rare chapters
+diagnoses.wide <- diagnoses.wide[, colSums(diagnoses.wide) > 20]
+
+cc.severe <- merge(cc.severe, diagnoses.wide, by="ANON_ID", all.x=TRUE)
+icdcols <- grep("^ICD10", colnames(cc.severe))
+for(j in icdcols) {
+    cc.severe[, j][is.na(cc.severe[, j])] <- 0
+    cc.severe[, j][cc.severe[, j] > 1] <- 1
+    cc.severe[, j] <- as.factor(cc.severe[, j])
+}
+
+if(FALSE) {
+    ## anticoagulants6 same as anticoagulants_protamine6
 
 cc.all$kidney.any <- as.integer(cc.all$kidney.advanced==1 | cc.all$kidney.other==1)
 
@@ -168,6 +231,8 @@ cc.all$IHD.any <- as.integer(cc.all$ihd12.bnf==1 | cc.all$IHD==1)
 
 cc.all$connectivetissue.any <- as.integer(cc.all$connective_tissue12.bnf==1 | cc.all$connective==1)
 
+cc.all$epilepsy.any <- as.integer(cc.all$epilepsy12.bnf==1 | cc.all$epilepsy==1)
+
 cc.all$otherneuro.any <- as.integer(cc.all$ms12.bnf==1 | cc.all$neuro.other==1)
 
 cc.all$antihypertensive.any <- with(cc.all,
@@ -195,15 +260,22 @@ antihypertensive.classes <- c("vasodilator_ah6.bnf",
                               "calcium_channel6.bnf")
 
 antihypertensives <- c(antihypertensive.classes[4:9], "antihypertensive.other")
+}
 
-demog <- c("ethnic", "simd2020_sc_decile", "care.home", "PIS", "SMR01")
+demog <- c("ethnic4", "SIMD.quintile", "care.home")
+
+drugs <- c("scrip.any", colnames(cc.severe)[bnfcols])
+conditions <- c("diag.any", "dm.type", colnames(cc.severe)[icdcols])
+
+if(FALSE) {
 demog.smr <- c("ETHNIC_smr", "simd2020_sc_decile", "care.home")
 
-conditions <- c("dm.type", "antihypertensive.any", "IHD.any", "CVD", "heart.other", "circulatory.other",
+conditions <- c("dm.type", "antihypertensive.any", "IHD.any", "heart.other",
+                "CVD",  "circulatory.other",
                 "asthma.any", "respinf.orTB", "resp.other",
                 "cysticfibrosis.any",
                 "kidney.any", "connectivetissue.any", 
-                "epilepsy", "mono.poly.neuro", "otherneuro.any",
+                "epilepsy.any", "mono.poly.neuro", "otherneuro.any",
                 "blood.cancer", "lung.cancer", "other.cancer",
                 "immune.any") # , "HIV.any")
 
@@ -214,129 +286,103 @@ drugs <- eval(c("antihypertensive.any",
                 "hydroxychloroquine6.bnf"))
 
 admissions <- "SMR01"
+}
 
 lookup.names <- data.frame(varname=c("PIS", "SMR01", "simd2020_sc_decile",
-                                     "ace6.bnf", "angio6.bnf"),
+                                     "emerg", "icu.hdu.ccu", "inpat",
+                                     "antihypertensive.any",
+                                     "IHD.any",
+                                     "CVD",
+                                     "heart.other",
+                                     "circulatory.other",
+                                     "asthma.any",
+                                     "respinf.orTB",
+                                     "resp.other",
+                                     "cysticfibrosis.any",
+                                     "kidney.any",
+                                     "connectivetissue.any",
+                                     "mono.poly.neuro",
+                                     "epilepsy.any",
+                                     "otherneuro.any",
+                                     "blood.cancer",
+                                     "lung.cancer",
+                                     "other.cancer",
+                                     "immune.any",
+                                     "alpha_adrenoreceptor6.bnf",
+                                     "ace6.bnf", "angio6.bnf",
+                                     "renin_angiotensin6.bnf",
+                                     "thiazides6.bnf",
+                                     "calcium_channel6.bnf",
+                                     "antihypertensive.other",
+                                     "anticoagulants6.bnf",
+                                     "nsaids6.bnf",
+                                     "lipid_regulating6.bnf",
+                                     "statins6.bnf",
+                                     "hydroxychloroquine6.bnf"
+                                     ),
                            longname=c("Any prescription", "Any admission", "SIMD decile",
-                                      "ACE inhibitor", "Angiotensin-II receptor blocker"))
+                                      "Emergency admission last year",
+                                      "Critical care admission last year",
+                                      "Any admission last year",
+                                      "Any antihypertensive",
+                                      "Ischaemic heart disease",
+                                      "Cerebrovascular disease",
+                                      "Other heart disease",
+                                      "Other circulatory disease",
+                                      "Asthma",
+                                      "Respiratory infections",
+                                      "Other respiratory disease",
+                                      "Cystic fibrosis",
+                                      "Kidney disease",
+                                      "Connective tissue disease",
+                                      "Neuropathy (mono- or poly-)",
+                                      "Epilepsy",
+                                      "Other neurological conditions",
+                                      "Cancer of blood-forming organs",
+                                      "Lung cancer",
+                                      "Other cancer",
+                                      "Any immune deficiency / suppression", 
+                                      "alpha-adrenoreceptor blocker",
+                                      "ACE inhibitor", "Angiotensin-II receptor blocker",
+                                      "ACE or A-IIR inhibitor",
+                                      "Thiazides",
+                                      "Calcium channel blocker",
+                                      "Other antihypertensive",
+                                      "Anticoagulants",
+                                      "Non-steroidal anti-inflammatory drugs",
+                                      "Lipid-regulating agents",
+                                      "Statins",
+                                      "Hydroxychloroquine"
+                                      ))
 
-########################################################################################
+############### ethnicity for report ########################################
 
-## tabulate test positives
+## case-control analysis for ONOMAP ethnicity 
 
-table.ethnic <- table(cc.all$eth5, cc.all$ETHNIC_smr, exclude=NULL)
-table.ethnic <- paste.colpercent(table.ethnic, 1)
-
-testpositives.ethnic <- paste.colpercent(with(cc.all[cc.all$CASE==1, ], table(ethnic, casegroup)), 1)
-testpositives.ethnic.smr <- paste.colpercent(with(cc.all[cc.all$CASE==1, ], table(ETHNIC_smr, casegroup)), 1)
-
-#####################################################################################
-cc.testpositives <- cc.all[cc.all$CASE==1 & !is.na(cc.all$ethnic), ]
-sex.demog <- c("sex", demog) 
-table.testpositives <-
-    with(cc.testpositives,
-     tapply(AGE,
-            casegroup,
-            function(x) return(paste0(median(x),
-                                      " (", quantile(x, probs=0.25),
-                                      "-", quantile(x, probs=0.75), ")"))))
-for(i in 1:length(sex.demog)) {
-    x <- table(cc.testpositives[, match(sex.demog[i], names(cc.testpositives))],
-               cc.testpositives$casegroup)
-    x <- paste.colpercent(x, 1)
-    x <- x[-1, , drop=FALSE]
-    if(nrow(x)==1) {
-        rownames(x) <- sex.demog[i]
-    }
-    table.testpositives <- rbind(table.testpositives, x)
-}
-colnames(table.testpositives) <- paste(colnames(table.testpositives),
-                                       gsub("([0-9]+)", "\\(N = \\1\\)",
-                                            as.integer(table(cc.testpositives$casegroup))))
-rownames(table.testpositives)[1] <- "Age"
-rownames(table.testpositives)[2] <- "Male"
-
-sex.demog.smr <- c("sex", demog.smr) 
-cc.testpositives <- cc.all[cc.all$CASE==1 & !is.na(cc.all$ETHNIC_smr), ]
-table.testpositives.smr <-
-    with(cc.testpositives, 
-     tapply(AGE,
-            casegroup,
-            function(x) return(paste0(median(x),
-                                      " (", quantile(x, probs=0.25),
-                                      "-", quantile(x, probs=0.75), ")"))))
-for(i in 1:length(sex.demog.smr)) {
-    x <- table(cc.testpositives[, match(sex.demog.smr[i], names(cc.testpositives))],
-               cc.testpositives$casegroup)
-    x <- paste.colpercent(x, 1)
-    x <- x[-1, , drop=FALSE]
-    if(nrow(x)==1) {
-        rownames(x) <- sex.demog[i]
-    }
-    table.testpositives.smr <- rbind(table.testpositives.smr, x)
-}
-
-colnames(table.testpositives.smr) <- paste(colnames(table.testpositives.smr),
-                                       gsub("([0-9]+)", "\\(N = \\1\\)",
-                                            as.integer(table(cc.testpositives$casegroup))))
-                                                
-rownames(table.testpositives.smr)[1] <- "Age"
-rownames(table.testpositives.smr)[2] <- "Male"
-
-########### restrict to severe cases and matched controls ###################### 
- 
-cc.severe <- cc.all[cc.all$casegroup=="Critical care or fatal", ]
-                                        #cc.severe <- cc.all[cc.all$casegroup=="Severe" & cc.all$AGE < 75, ]
-
-## case-control analysis for ethnicity 
-
-cc.ethnic <- paste.colpercent(table(cc.severe$ethnic, cc.severe$CASE), 1)
-univariate.ethnic <- summary(clogit(formula=CASE ~ ethnic + strata(stratum),
+table.ethnic <- paste.colpercent(table(cc.severe$ethnic5, cc.severe$CASE), 1)
+univariate.ethnic <- summary(clogit(formula=CASE ~ ethnic5 + strata(stratum),
                                     data=cc.severe))$coefficients
 univariate.ethnic <- rbind(rep(NA, 2), univariate.ethnic[, c(2, 5)])
-cc.ethnic <- data.frame(cc.ethnic, univariate.ethnic)
-colnames(cc.ethnic)[1:2] <- paste(c("Controls", "Cases"),
+table.ethnic <- data.frame(table.ethnic, univariate.ethnic)
+colnames(table.ethnic)[1:2] <- paste(c("Controls", "Cases"),
                                   gsub("([0-9]+)", "\\(N = \\1\\)",
                                        as.integer(table(cc.severe$CASE[!is.na(cc.severe$ethnic)]))))
-colnames(cc.ethnic)[3:4] <- c("Rate ratio", "p-value")
+colnames(table.ethnic)[3:4] <- c("Rate ratio", "p-value")
 
 ## case-control analysis for SMR ethnicity
-cc.ethnic.smr <- paste.colpercent(table(cc.severe$ETHNIC_smr, cc.severe$CASE), 1)
-univariate.ethnic.smr <- summary(clogit(formula=CASE ~ ETHNIC_smr + strata(stratum),
+table.ethnic.smr <- paste.colpercent(table(cc.severe$ethnic5.smr, cc.severe$CASE), 1)
+univariate.ethnic.smr <- summary(clogit(formula=CASE ~ ethnic5.smr + strata(stratum),
                                         data=cc.severe))$coefficients
 univariate.ethnic.smr <- rbind(rep(NA, 2), univariate.ethnic.smr[, c(2, 5)])
-cc.ethnic.smr <- data.frame(cc.ethnic.smr, univariate.ethnic.smr)
-colnames(cc.ethnic.smr)[1:2] <- paste(c("Controls", "Cases"),
+table.ethnic.smr <- data.frame(table.ethnic.smr, univariate.ethnic.smr)
+colnames(table.ethnic.smr)[1:2] <- paste(c("Controls", "Cases"),
                                   gsub("([0-9]+)", "\\(N = \\1\\)",
-                                       as.integer(table(cc.severe$CASE[!is.na(cc.severe$ETHNIC_smr)]))))
-colnames(cc.ethnic.smr)[3:4] <- c("Rate ratio", "p-value")
+                                       as.integer(table(cc.severe$CASE[!is.na(cc.severe$ethnic5.smr)]))))
+colnames(table.ethnic.smr)[3:4] <- c("Rate ratio", "p-value")
 
-cc.severe$ethnic <- recode(cc.severe$ethnic, "'Black'='Other'; 'Chinese'='Other'")
-cc.severe <- within(cc.severe, ethnic <- relevel(as.factor(ethnic), ref="White"))
+############################# demographic vars ##########
 
-## univariate associations
-table.demog <- NULL
-for(i in 1:length(demog)) {
-    ## test whether variable is factor or numeric
-    z <- cc.severe[, match(demog[i], names(cc.severe))] 
-    if(is.numeric(z)) {
-        x <- tapply(z, cc.severe$CASE,
-                    function(x) return(paste0(median(x, na.rm=TRUE),
-                                              " (", quantile(x, probs=0.25, na.rm=TRUE),
-                                              "-", quantile(x, probs=0.75, na.rm=TRUE), ")")))
-        x <- matrix(x, nrow=1)
-        rownames(x) <- demog[i]
-    } else {
-        x <- table(z, cc.severe$CASE)
-        x <- paste.colpercent(x)
-        x <- x[-1, , drop=FALSE] # drop reference category
-        ## FIXME: should keep this line and pad univariate
-    }
-    if(nrow(x)==1) {
-        rownames(x) <- demog[i]
-    }
-    table.demog <- rbind(table.demog, x)
-}
+table.demog <- univariate.tabulate(varnames=demog, outcomevar="CASE", data=cc.severe)
 colnames(table.demog) <- c("Controls", "Cases")
 colnames(table.demog) <- paste(colnames(table.demog),
                                        gsub("([0-9]+)", "\\(N = \\1\\)",
@@ -349,43 +395,9 @@ for(i in 1:length(demog)) {
     univariate.demog <- rbind(univariate.demog, x)
 }
 
-############################ conditions #################
-
-table.conditions <- NULL
-for(i in 1:length(conditions)) {
-    x <- table(cc.severe[, match(conditions[i], names(cc.severe))],
-               cc.severe$CASE)
-    x <- paste.colpercent(x)
-    x <- x[-1, , drop=FALSE]
-    if(nrow(x)==1) {
-        rownames(x) <- conditions[i]
-    }
-    table.conditions <- rbind(table.conditions, x)
-}
-colnames(table.conditions) <- c("Controls", "Cases")
-colnames(table.conditions) <- paste(colnames(table.conditions),
-                                       gsub("([0-9]+)", "\\(N = \\1\\)",
-                                            as.integer(table(cc.severe$CASE))))
-
-univariate.conditions <- NULL
-for(i in 1:length(conditions)) {
-    univariate.formula <- as.formula(paste("CASE ~ ", conditions[i], "+ strata(stratum)"))
-    x <- summary(clogit(formula=univariate.formula, data=cc.severe))$coefficients
-    univariate.conditions <- rbind(univariate.conditions, x)
-}
-    
 ################# drugs ######################################
-table.drugs <- NULL
-for(i in 1:length(drugs)) {
-    x <- table(cc.severe[, match(drugs[i], names(cc.severe))],
-               cc.severe$CASE)
-    x <- paste.colpercent(x)
-    x <- x[-1, , drop=FALSE]
-    if(nrow(x)==1) {
-        rownames(x) <- drugs[i]
-    }
-    table.drugs <- rbind(table.drugs, x)
-}
+
+table.drugs <- univariate.tabulate(varnames=drugs, outcomevar="CASE", data=cc.severe)
 colnames(table.drugs) <- c("Controls", "Cases")
 colnames(table.drugs) <- paste(colnames(table.drugs),
                                        gsub("([0-9]+)", "\\(N = \\1\\)",
@@ -398,93 +410,207 @@ for(i in 1:length(drugs)) {
     univariate.drugs <- rbind(univariate.drugs, x)
 }
 
-## fit model and evaluate prediction: demog only
+############################ conditions #################
+
+table.conditions <- univariate.tabulate(varnames=conditions, outcomevar="CASE", data=cc.severe)
+colnames(table.conditions) <- c("Controls", "Cases")
+colnames(table.conditions) <- paste(colnames(table.conditions),
+                                       gsub("([0-9]+)", "\\(N = \\1\\)",
+                                            as.integer(table(cc.severe$CASE))))
+
+univariate.conditions <- NULL
+for(i in 1:length(conditions)) {
+    univariate.formula <- as.formula(paste("CASE ~ ", conditions[i], "+ strata(stratum)"))
+    x <- summary(clogit(formula=univariate.formula, data=cc.severe))$coefficients
+    univariate.conditions <- rbind(univariate.conditions, x)
+}
+    
+########## multivariate regression models #####################
+
+## demog
 demog.formula <- as.formula(paste("CASE ~",
                                   paste(demog, collapse=" + "),
-                                  " + strata(stratum)"))
+                                "+ strata(stratum)"))
 cc.severe.demog.nonmissing <- nonmissing.obs(cc.severe, (demog))
-demog.model <- clogit(formula=demog.formula, data=cc.severe.demog.nonmissing,
-                                 method="approximate")
-stepwise.demog <- step(demog.model, direction="both",
-                       trace=2)
+demog.model <- clogit(formula=demog.formula, data=cc.severe.demog.nonmissing)
 
-unnorm.p <- predict(object=demog.model, newdata=cc.severe.demog.nonmissing,
-                    na.action="na.pass", 
-                    type="risk", reference="strata", )
-demog.predicted <- normalize.predictions(unnorm.p=unnorm.p,
-                                         stratum=cc.severe.demog.nonmissing$stratum,
-                                        y=cc.severe.demog.nonmissing$CASE)
-demog.densities <- with(demog.predicted, Wdensities(y, posterior.p, prior.p))
-pander(summary(demog.densities), table.style="multiline",
-       split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
-       caption="Prediction of severe COVID-19 from demographic variables")
+## drugs
+drugs.formula <- as.formula(paste("CASE ~",
+                                  paste(drugs, collapse=" + "),
+                                "+ care.home + strata(stratum)"))
+cc.severe.drugs.nonmissing <- nonmissing.obs(cc.severe, (drugs))
+drugs.model <- clogit(formula=drugs.formula, data=cc.severe.drugs.nonmissing)
 
-## fit model with demog + conditions
+## conditions
 conditions.formula <- as.formula(paste("CASE ~",
-                                   paste(demog, collapse=" + "), "+",
-                                   paste(conditions, collapse=" + "), 
-                                   "+ strata(stratum)"))
-cc.severe.conditions.nonmissing <- nonmissing.obs(cc.severe, c(demog, conditions))
-conditions.model <- clogit(formula=conditions.formula,
-                                      data=cc.severe.conditions.nonmissing,
-                                      method="approximate")
-stepwise.conditions <- step(conditions.model, direction="both", trace=2)
+                                  paste(conditions, collapse=" + "),
+                                "+ care.home + strata(stratum)"))
+cc.severe.conditions.nonmissing <- nonmissing.obs(cc.severe, (conditions))
+conditions.model <- clogit(formula=conditions.formula, data=cc.severe.conditions.nonmissing)
 
-unnorm.p <- predict(object=conditions.model, newdata=cc.severe.conditions.nonmissing,
-                    na.action="na.pass", 
-                    type="risk", reference="strata", )
-norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
-                                        stratum=cc.severe.conditions.nonmissing$stratum,
-                                        y=cc.severe.conditions.nonmissing$CASE)
-conditions.densities <- with(norm.predicted, Wdensities(y, posterior.p, prior.p))
-pander(summary(conditions.densities), table.style="multiline",
-       split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
-       caption="Prediction of severe COVID-19 from demographic + diagnoses")
-
-############# fit full model #####################################
-lower.formula <- as.formula("CASE ~ care.home + strata(stratum)")
+## all
 all.formula <- as.formula(paste("CASE ~",
                                 paste(demog, collapse=" + "), "+",
                                 paste(conditions, collapse=" + "), "+", 
                                 paste(drugs, collapse=" + "), 
                                 "+ strata(stratum)"))
-cc.severe.all.nonmissing <- nonmissing.obs(cc.severe, c(demog, conditions, drugs,
-                                                        "PIS", "SMR01"))
+cc.severe.all.nonmissing <- nonmissing.obs(cc.severe, c(demog, conditions, drugs))
 all.model <- clogit(formula=all.formula, data=cc.severe.all.nonmissing)
-stepwise.all <- step(all.model,
-                     scope=list(lower=lower.formula, upper=all.formula),
-                     direction="both", method="approximate", trace=2)
-stepwise.all <- summary(stepwise.all)$coefficients
 
+#####################################################################
+
+lower.formula <- "CASE ~ care.home + strata(stratum)"
+
+run.stepwise <- FALSE
+if(run.stepwise) { # stepwise variable selection ##########################
+## demog
+stepwise.demog <- step(demog.model,
+                       scope=list(lower=lower.formula, upper=demog.formula),
+                       direction="both", method="approximate", trace=-1)
+stepwise.demog <- summary(stepwise.demog)$coefficients
+rownames(stepwise.demog) <- replace.names(rownames(stepwise.demog))
+print(stepwise.demog)
+
+## drugs
+stepwise.drugs <- step(drugs.model,
+                       scope=list(lower=lower.formula, upper=drugs.formula),
+                       direction="both", method="approximate", trace=-1)
+stepwise.drugs <- summary(stepwise.drugs)$coefficients
+rownames(stepwise.drugs) <- replace.names(rownames(stepwise.drugs))
+print(stepwise.drugs)
+
+## conditions
+stepwise.conditions <- step(conditions.model,
+                       scope=list(lower=lower.formula, upper=conditions.formula),
+                       direction="both", method="approximate", trace=-1)
+stepwise.conditions <- summary(stepwise.conditions)$coefficients
+rownames(stepwise.conditions) <- replace.names(rownames(stepwise.conditions))
+print(stepwise.conditions)
+
+## all
+stepwise.all <- step(all.model,
+                       scope=list(lower=lower.formula, upper=all.formula),
+                       direction="both", method="approximate", trace=-1)
+stepwise.all <- summary(stepwise.all)$coefficients
 rownames(stepwise.all) <- replace.names(rownames(stepwise.all))
 print(stepwise.all)
 
-## cross-validation of stepwise procedure
-cv.data <- cc.severe.all.nonmissing
-stratum.unique <- unique(cv.data$stratum)
-N <- length(stratum.unique)
-nfold <- 4
-test.folds <- data.frame(stratum=stratum.unique,
-                         test.fold=1 + sample(1:N, size=N) %% nfold)
-cv.data <- merge(cv.data, test.folds, by="stratum")
+############# cross-validation of stepwise regression #########################
+nfold <- 2
 
-## loop over test folds to obtain predictions from corresponding training folds
-norm.predicted <- NULL
+## demog
+test.folds <- testfolds.bystratum(stratum=cc.severe.demog.nonmissing$stratum,
+                                  y=cc.severe.demog.nonmissing$CASE, nfold=nfold)
+cv.data <- merge(cc.severe.demog.nonmissing, test.folds, by="stratum")
+
+##demog.predicted <- foreach(i=1:nfold, .combine=rbind) %do% {
+demog.predicted <- NULL
 for(i in 1:nfold) {
-    test.data <- cv.data[cv.data$test.fold==i, ]
+    test.data  <- cv.data[cv.data$test.fold == i, ]
     train.data <- cv.data[cv.data$test.fold != i, ]
-    norm.predicted <- rbind(norm.predicted,
-                            traintest.fold(train.data=train.data,
-                                           test.data=test.data,
-                                           start.model=start.model,
-                                           lower.formula=demog.formula,
-                                           upper.formula=all.formula))
+    start.model <- clogit(formula=demog.formula, data=train.data)
+    stepwise.model <- step(start.model,
+                           scope=list(lower=lower.formula, upper=demog.formula),
+                           direction="both", trace=-1, method="approximate")
+    ## normalize within each stratum
+    unnorm.p <- predict(object=stepwise.model, newdata=test.data,
+                        na.action="na.pass", 
+                        type="risk", reference="sample")
+    norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
+                                            stratum=test.data$stratum,
+                                            y=test.data$CASE)
+    demog.predicted <- rbind(demog.predicted, norm.predicted)
 }
-
-stepwise.densities <- with(norm.predicted, Wdensities(y, posterior.p, prior.p))
-
-pander(summary(stepwise.densities), table.style="multiline",
+demog.densities <- with(demog.predicted, Wdensities(y, posterior.p, prior.p))
+pander(summary(demog.densities), table.style="multiline",
        split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
-       caption="Prediction of severe COVID-19 from demographic + diagnoses")
+       caption="Prediction of severe COVID-19 from demographic variables only")
 
-plotWdists(stepwise.densities) + theme_grey(base_size = 18) + theme(legend.title=element_blank())
+## drugs
+test.folds <- testfolds.bystratum(stratum=cc.severe.drugs.nonmissing$stratum,
+                                  y=cc.severe.drugs.nonmissing$CASE, nfold=nfold)
+cv.data <- merge(cc.severe.drugs.nonmissing, test.folds, by="stratum")
+
+##drugs.predicted <- foreach(i=1:nfold, .combine=rbind) %do% {
+drugs.predicted <- NULL
+for(i in 1:nfold) {
+    test.data  <- cv.data[cv.data$test.fold == i, ]
+    train.data <- cv.data[cv.data$test.fold != i, ]
+    start.model <- clogit(formula=drugs.formula, data=train.data)
+    stepwise.model <- step(start.model,
+                           scope=list(lower=lower.formula, upper=drugs.formula),
+                           direction="both", trace=-1, method="approximate")
+    ## normalize within each stratum
+    unnorm.p <- predict(object=stepwise.model, newdata=test.data,
+                        na.action="na.pass", 
+                        type="risk", reference="sample")
+    norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
+                                            stratum=test.data$stratum,
+                                            y=test.data$CASE)
+    drugs.predicted <- rbind(drugs.predicted, norm.predicted)
+}
+drugs.densities <- with(drugs.predicted, Wdensities(y, posterior.p, prior.p))
+   pander(summary(drugs.densities), table.style="multiline",
+           split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
+           caption="Prediction of severe COVID-19 from drugs only")
+
+## conditions
+test.folds <- testfolds.bystratum(stratum=cc.severe.conditions.nonmissing$stratum,
+                                  y=cc.severe.conditions.nonmissing$CASE, nfold=nfold)
+cv.data <- merge(cc.severe.conditions.nonmissing, test.folds, by="stratum")
+
+conditions.predicted <- NULL
+for(i in 1:nfold) {
+    test.data  <- cv.data[cv.data$test.fold == i, ]
+    train.data <- cv.data[cv.data$test.fold != i, ]
+    start.model <- clogit(formula=conditions.formula, data=train.data)
+    stepwise.model <- step(start.model,
+                           scope=list(lower=lower.formula, upper=conditions.formula),
+                           direction="both", trace=-1, method="approximate")
+    ## normalize within each stratum
+    unnorm.p <- predict(object=stepwise.model, newdata=test.data,
+                        na.action="na.pass", 
+                        type="risk", reference="sample")
+    norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
+                                            stratum=test.data$stratum,
+                                            y=test.data$CASE)
+    conditions.predicted <- rbind(conditions.predicted, norm.predicted)
+}
+conditions.densities <- with(conditions.predicted, Wdensities(y, posterior.p, prior.p))
+   pander(summary(conditions.densities), table.style="multiline",
+           split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
+           caption="Prediction of severe COVID-19 from conditions only")
+
+## all
+test.folds <- testfolds.bystratum(stratum=cc.severe.all.nonmissing$stratum,
+                                  y=cc.severe.all.nonmissing$CASE, nfold=nfold)
+cv.data <- merge(cc.severe.all.nonmissing, test.folds, by="stratum")
+
+all.predicted <- NULL
+for(i in 1:nfold) {
+    test.data  <- cv.data[cv.data$test.fold == i, ]
+    train.data <- cv.data[cv.data$test.fold != i, ]
+    start.model <- clogit(formula=all.formula, data=train.data)
+    stepwise.model <- step(start.model,
+                           scope=list(lower=lower.formula, upper=all.formula),
+                           direction="both", trace=-1, method="approximate")
+    ## normalize within each stratum
+    unnorm.p <- predict(object=stepwise.model, newdata=test.data,
+                        na.action="na.pass", 
+                        type="risk", reference="sample")
+    norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
+                                            stratum=test.data$stratum,
+                                            y=test.data$CASE)
+    all.predicted <- rbind(all.predicted, norm.predicted)
+}
+all.densities <- with(all.predicted, Wdensities(y, posterior.p, prior.p))
+   pander(summary(all.densities), table.style="multiline",
+           split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
+           caption="Prediction of severe COVID-19 from all variables")
+
+save(stepwise.demog, stepwise.drugs, stepwise.conditions, stepwise.all,
+     demog.densities, drugs.densities, conditions.densities, all.densities,
+     file="./data/stepwise.RData")
+} else {
+    load("./data/stepwise.RData")
+}

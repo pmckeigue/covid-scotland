@@ -28,8 +28,9 @@
 
 
 ## label the codes used in the raw SMR variable
-cc.all$ethnic_smr <- recode(cc.all$ETHNIC_GROUP_last_last,
-                            "''=NA; '9'=NA;
+ethnic_smr <- recode(ethnic.smr,
+                     "''=NA;
+'9'=NA;
 '1A'='Scottish';
 '1B'='Other British';
 '1C'='Irish';
@@ -52,51 +53,53 @@ cc.all$ethnic_smr <- recode(cc.all$ETHNIC_GROUP_last_last,
 '98'='Refused/Not provided by patient';
 '99'='Not Known'")
 
-## ETHNIC_smr should be collapsed to 5 categories, Chinese separate
-cc.all$ETHNIC_smr[cc.all$ETHNIC_GROUP_last_last=="3J"] <- "Chinese"
-cc.all$ETHNIC_smr <- recode(cc.all$ETHNIC_smr,
-                            "''=NA; '9'=NA; 'White Irish'='White'; 'Mixed'='Other'; 'Caribb_Black'='Black'; 'African'='Black'; 'Asian'='Other'")
-cc.all <- within(cc.all, ETHNIC_smr <- relevel(as.factor(ETHNIC_smr), ref="White"))
+ethnic5.smr <- recode(ethnic.smr,
+                                    "''=NA; '9'=NA;
+c('1A', '1B', '1C', '1K', '1L', '1Z')='White';
+'2A'='Other';
+c('3F', '3G', '3H')='South Asian'; 
+'3J'='Chinese';
+'3Z'='Other';
+c('4D', '4Y', '5C', '5D', '5Y')='Black';
+c('6A', '6Z')='Other';
+c('98', '99')=NA")
 
-cc.all$OnolyticsType <- recode(cc.all$OnolyticsType,
-                               "'NOT FOUND'=NA; 'INTERNATIONAL'=NA; 'UNCLASSIFIED'=NA; 'VOID'=NA; 'VOID - FORENAME'=NA; 'VOID INITIAL'=NA")
+OnolyticsType <- recode(OnolyticsType,
+                        "'NOT FOUND'=NA; 'INTERNATIONAL'=NA; 'UNCLASSIFIED'=NA; 'VOID'=NA; 'VOID - FORENAME'=NA; 'VOID INITIAL'=NA")
 
-table(cc.all$OnolyticsType[cc.all$GeographicalArea=="SOUTH ASIA"])
-table(cc.all$OnolyticsType[cc.all$GeographicalArea=="AFRICA"])
-table(cc.all$OnolyticsType[cc.all$GeographicalArea=="BRITISH ISLES"])
-table(cc.all$OnolyticsType[cc.all$GeographicalArea=="EAST ASIA"])
-table(cc.all$OnolyticsType[cc.all$GeographicalArea=="MIDDLE EAST"])
+table(OnolyticsType[GeographicalArea=="SOUTH ASIA"])
+table(OnolyticsType[GeographicalArea=="AFRICA"])
+table(OnolyticsType[GeographicalArea=="BRITISH ISLES"])
+table(OnolyticsType[GeographicalArea=="EAST ASIA"])
+table(OnolyticsType[GeographicalArea=="MIDDLE EAST"])
 
-cc.all$eth <- rep("Other", nrow(cc.all))
-cc.all$eth[is.na(cc.all$OnolyticsType)] <- NA
-cc.all$eth[cc.all$OnolyticsType=="CHINESE" |
-           cc.all$OnolyticsType=="HONG KONGESE" |
-           cc.all$OnolyticsType=="SINGAPORESE"] <- "Chinese"
-cc.all$eth[cc.all$GeographicalArea=="EAST ASIA" &
-           cc.all$eth != "Chinese"] <- "Other Asia & Pacific"
-           
-cc.all$eth[cc.all$GeographicalArea=="SOUTH ASIA"] <- "South Asian"
+eth <- rep("Other", nrow(cc.all))
+eth[is.na(OnolyticsType)] <- NA
+eth[OnolyticsType=="CHINESE" |
+    OnolyticsType=="HONG KONGESE" |
+    OnolyticsType=="SINGAPORESE"] <- "Chinese"
+eth[GeographicalArea=="EAST ASIA" &
+    eth != "Chinese"] <- "Other Asia & Pacific"
 
-cc.all$eth[cc.all$GeographicalArea=="BRITISH ISLES"] <- "Britain&Ireland"
-cc.all$eth[cc.all$GeographicalArea=="CENTRAL EUROPE" |
-           cc.all$GeographicalArea=="EASTERN EUROPE" |
-           cc.all$GeographicalArea=="NORTHERN EUROPE" |
-           cc.all$GeographicalArea=="SOUTHERN EUROPE" |
-           cc.all$OnolyticsType=="AFRIKAANS"] <- "Other Europe"
+eth[GeographicalArea=="SOUTH ASIA"] <- "South Asian"
 
-cc.all$eth[cc.all$GeographicalArea=="AFRICA" &
-           cc.all$OnolyticsType != "AFRIKAANS" &
-           cc.all$OnolyticsType != "LIBYAN"] <- "Black African"
-cc.all$eth[cc.all$GeographicalArea=="MIDDLE EAST" &
-           cc.all$OnolyticsType != "MUSLIM"] <- "East Med"
-cc.all$eth[cc.all$OnolyticsType == "MUSLIM"] <- "South Asian" # "Muslim, not localized"
+eth[GeographicalArea=="BRITISH ISLES"] <- "Britain&Ireland"
+eth[GeographicalArea=="CENTRAL EUROPE" |
+    GeographicalArea=="EASTERN EUROPE" |
+    GeographicalArea=="NORTHERN EUROPE" |
+    GeographicalArea=="SOUTHERN EUROPE" |
+    OnolyticsType=="AFRIKAANS"] <- "Other Europe"
 
-cc.all$eth[cc.all$OnolyticsType == "BLACK CARIBBEAN"] <- "Black Caribbean"
+eth[GeographicalArea=="AFRICA" &
+    OnolyticsType != "AFRIKAANS" &
+    OnolyticsType != "LIBYAN"] <- "Black African"
+eth[GeographicalArea=="MIDDLE EAST" &
+    OnolyticsType != "MUSLIM"] <- "East Med"
+eth[OnolyticsType == "MUSLIM"] <- "South Asian" # "Muslim, not localized"
+
+eth[OnolyticsType == "BLACK CARIBBEAN"] <- "Black Caribbean"
 
 ## reduce to 5 categories: White, South Asian, Chinese, Black, Other
-cc.all$eth5 <- recode(cc.all$eth, "'Black African'='Black'; 'Black Caribbean'='Black';  'Britain&Ireland'='White';  'Other Europe'='White';  'East Med'='Other'; 'Other Asia & Pacific'='Other'; 'Muslim, not localized'='Other'") 
-cc.all <- within(cc.all, eth5 <- relevel(as.factor(eth5), ref="White"))
+ethnic5 <- recode(eth, "'Black African'='Black'; 'Black Caribbean'='Black';  'Britain&Ireland'='White';  'Other Europe'='White';  'East Med'='Other'; 'Other Asia & Pacific'='Other'; 'Muslim, not localized'='Other'") 
+ethnic5 <- relevel(as.factor(ethnic5), ref="White")
 
-## derive variable based on Onomap only
-## this will misclassify some South Asian Muslims as other, and most Black Caribbean as White
-cc.all$ethnic <- as.factor(cc.all$eth5) 

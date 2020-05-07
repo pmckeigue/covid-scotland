@@ -1,5 +1,5 @@
 ---
-title: 'Risk factors for severe COVID-19 in Scotland: a population-based case-control study'
+title: 'Risk factors for severe COVID-19: a case-control study based on the Scottish population'
 author: 
   - name: Paul M McKeigue
     email: paul.mckeigue@ed.ac.uk
@@ -56,6 +56,11 @@ header-includes: |
   \usepackage{booktabs}
   \usepackage{float}
   \usepackage{array}
+  \usepackage{booktabs}
+  \usepackage{longtable}
+  \usepackage{lscape}
+
+
 output: 
 #  pdf_document:
   rticles::plos_article:
@@ -75,9 +80,30 @@ urlcolor: red
 
 source("helperfunctions.R")
 
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+library(knitr)
+library(kableExtra)
+
 ```
 
-\newpage
+# Abstract
+
+_Objectives_: to investigate risk factors for severe COVID-19 in the population.  Specifically, we wish to establish how far the association of severe disease with pre-existing morbidity is accounted for by a few circumscribed conditions that confer high vulnerability, rather than by associations with poor health that span multiple disease categories. Other objectives were to identify any drug exposures that are independently associated with high or low risk, and to assess the performance of a risk classifier constructed from medical records to discriminate between those at high and low risk for severe disease 
+
+_Methods_: age-sex-matched case-control study of severe disease, with each case matched to 10 controls registered with the same primary care practice. 
+
+_Results_: 
+
+* No new conditions associated with high risk independently of age and general health. 
+
+* Drug exposures unexpectedly associated with high risk: anticoagulants
+
+* Performance of a risk classifier: at least 1.0 bits independently of age and sex
+
+* A rule-based classifier based on ... can extract XX% of the information obtained from a model-based classifier.  
+
+_Conclusions_- These results show that risk stratification based on medical records can discriminate better than relying on age plus a list of conditions that confer highly vulnerable status.  They lay the basis for policies based on stratify and shield.  
 
 # Background
 Reports based on cases seen in hospitals hve suggested that in those with severe disease the prevalence of diabetes and cardiovascular disease is higher than expected, and that a higher than expected proportion of severe cases are of non-European ethnic origin. Quantification of the risk associated with these characteristics and co-morbidities has been limited by the lack of an appropriate background population comparator. Furthermore it has not been possible to disentangle whether drug effects may underlie the apparent association with certain co-morbid groups. 
@@ -135,8 +161,587 @@ To construct a risk prediction model, we used stepwise regression alternating be
 
 The performance of the risk prediction model as a classifier was examined by n-fold cross-validation, with performance calculated over all test folds as the expected information for discrimination and (more conventionally) as the C-statistic. 
 
+te that at this point we are not including high risk of exposure as covariates ie HCW, residential care home, prisoner etc this will form part of future work. 
 
-### Comorbidities of initial interest 
+## Information governance
+This research was conducted under approvals A(i) PBPP approvals for accessing ?????; (ii) existing PBPP approval that allows HPS staff to link any PHI controlled datasets; (janet to add detail and reference numbers?) (iii) PBPP amendment (1617-0147) that covers inward transfer of diabetes data. Datasets were de-identified before analysis.  
+
+# Results
+## Comparison of severe cases with others who tested positive 
+We emphasize that because testing was used selectively over this period, those who tested positive and were never hospitalised are unlikely to be representative of never-hospitalized cases in the population.  
+
+```{r agegr, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+rownames(table.agegr) <- replace.names(rownames(table.agegr))
+knitr::kable(table.agegr,
+             escape=TRUE, 
+             booktabs=TRUE,
+             label="agegr",
+             align=rep("c", 8), 
+             caption="Associations of severe disease with health status by age group") %>%
+    column_spec(column=1, width="3.5cm") %>%
+    group_rows("Hospital discharge diagnoses", 3, 6) %>%
+    add_header_above(c(" "=1, "0-34 years"=2, "35-54 years"=2,
+                       "55-74 years"=2, "75+ years"=2)) %>%
+    landscape()
+
+```
+
+## Association of demographic factors with severe disease
+
+For the case-control comparison, this version of the manuscript restricts the dataset to those aged less than `r max(cc.severe$AGE) + 1` years.  
+
+Table \ref{tab:demog} shows univariate associations of demographic factors with disease.  Higher risk of severe disease was associated with socioeconomic deprivation and with residence in a care home.  In comparison with those classified as White, South Asians and other non-White ethnic minorities were at lower risk of severe disease.  
+
+\newpage
+
+```{r demog, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+table.demog.aug <- combine.tables3(table.demog, univariate.demog, multivariate.demog)
+rownames(table.demog.aug) <- replace.names(rownames(table.demog.aug))
+knitr::kable(table.demog.aug,
+             escape=TRUE, 
+             booktabs=TRUE,
+             label="demog",
+             digits=c(0, 0, 0, 20, 0, 100), 
+             col.names=c(colnames(table.demog.aug)[1:2],
+                         "Rate ratio (95% CI)", "p-value",
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with demographic factors") %>%
+    column_spec(column=1, width="4cm") %>%
+    group_rows("Ethnicity", 1, 2) %>%
+    group_rows("SIMD quintile", 3, 6) %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    landscape()
+
+```
+
+\newpage
+
+## Associations of comorbid conditions with severe disease
+In univariate logistic regression models, both Type 1 and Type 2 diabetes were associated with severe disease (Table \ref{tab:conditions}. There were strong associations with circulatory disease, respiratory disease, kidney disease and neurological disease.  No association of severe disease with cystic fibrosis was detected.  A possible explanation for this may be that this group was effectively shielded from infection in accordance with official guidance.
+
+
+```{r conditions, echo=FALSE, warning=FALSE, message=FALSE}
+
+table.conditions.aug <- combine.tables3(table.conditions, univariate.conditions,
+                                        multivariate.conditions)
+rownames(table.conditions.aug) <- replace.names(rownames(table.conditions.aug))
+knitr::kable(table.conditions.aug,
+             escape=TRUE, 
+             booktabs=TRUE,
+             label="conditions",
+             digits=c(0, 0, 0, 100, 0, 100), 
+             col.names=c(colnames(table.conditions.aug)[1:2],
+                         "Rate ratio (95% CI)", "p-value",
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with pre-existing conditions") %>%
+    column_spec(column=1, width="4cm") %>%
+    group_rows("Diabetes", 2, 4) %>%
+    group_rows("ICD-10 chapter", 5, nrow(table.conditions.aug)) %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    landscape()
+
+```
+
+Further analyses to adjust for co-morbidity ...
+
+### Counts of co-morbid conditions
+
+Table xx shows the distribution of numbers of the co-morbid conditions listed by WHO or CDC or PHE by age band in severe cases versus their controls. 
+Across each age band there were people with severe COVID-19 who did not appear to have any of these co-morbid conditions.
+
+## Associations of prescribed drugs with severe disease 
+Table \ref{tab:drugs} shows that severe disease was associated with use of antihypertensive agents, anticoagulants, and lipid-lowering agents.  Use of ACE inhibitors or angiotensin receptor blockers was not associated with higher risk than use of other classes of antihypertensive agent.  Use of non-steroidal anti-inflammatory agents was weakly associated with severe disease.  Use of hydroxychloroquine was associated with severe disease.  
+
+Further analyses to adjust for co-morbidity ...
+
+```{r drugs, echo=FALSE, warning=FALSE, message=FALSE}
+
+table.drugs.aug <- combine.tables3(table.drugs, univariate.drugs, multivariate.drugs)
+rownames(table.drugs.aug) <- replace.names(rownames(table.drugs.aug))
+knitr::kable(table.drugs.aug,
+             escape=TRUE, 
+             booktabs=TRUE,
+             label="drugs",
+             digits=c(0, 0, 0, 100, 0, 100), 
+             col.names=c(colnames(table.drugs.aug)[1:2],
+                         "Rate ratio (95% CI)", "p-value",
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with prescribed drugs") %>%
+    column_spec(column=1, width="4.5cm") %>%
+    group_rows("BNF chapter", 2, nrow(table.drugs.aug)) %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    landscape()
+
+```
+
+## Examining those with no apparent co-morbid conditions
+
+A more in depth focus on severe cases at younger ages 
+
+As shown in table  among severe case below age 50  xxx% had either xxx or xxx or xxx but in xxx% none of these comorbid conditions were found. Among severe case below age 50-70  xxx% had either xxx or xxx or xxx but in xxx% none of these comorbid conditions were found.  However in those with none of these co morbid conditions xx% were on   drugs for xxx xxx and xxx.
+
+## Multivariate analysis of risk factors for severe disease 
+
+A stepwise regression procedure was carried out with all demographic, morbidity and drug exposure variables, using alternating forward-backward selection.  The `r nrow(stepwise.all)` variables retained are shown in Table \ref{tab:stepwise}
+
+
+```{r model, echo=FALSE, warning=FALSE, message=FALSE}
+
+table.stepwise <- as.data.frame(stepwise.all[, c(1, 5)])
+table.stepwise[, 1] <- exp(table.stepwise[, 1])
+table.stepwise[, 1] <- round(table.stepwise[, 1], 2)
+table.stepwise[, 2] <- signif(table.stepwise[, 2], 1)
+rownames(table.stepwise) <- replace.names(rownames(table.stepwise))
+
+# table.stepwise$p.value <- pvalue.latex(table.stepwise$p.value)
+
+knitr::kable(table.stepwise,
+             booktabs=TRUE,
+             escape=TRUE,
+             col.names=c("Rate ratio", "p-value"), 
+             label="stepwise",
+             align=rep("c", 2),
+             caption="Stepwise regression: variables retained in model for severe disease") %>%
+    group_rows("Diabetes", 3, 5)
+
+```
+
+## Predictive performance of a risk classifier
+The predictive performance of the model chosen by stepwise regression was estimated by `r nfold`-fold cross-validation, and comparing observed and predicted case status over all test folds.  Table \ref{tab:wevid} shows that the C-statistic was `r summary(all.densities)[3]` and the expected information for discrimination was  `r summary(all.densities)[5]` bits. 
+
+show incremental comparison of different models ...
+
+```{r infodiscrim, echo=FALSE, warning=FALSE, message=FALSE}
+
+pander(summary(all.densities), table.style="multiline",
+       split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
+       caption="\\label{tab:wevid}Prediction of severe COVID-19: cross-validation of model chosen by stepwise regression" )
+
+```
+
+```{r plotwdists, echo=FALSE, fig.cap="Cross-validation of model chosen by stepwise regression: distributions of weight of evidence", out.width="0.8\\textwidth"}
+
+plotWdists(all.densities) + theme_grey(base_size = 18) + 
+	theme(legend.title=element_blank())
+
+```
+
+# Discussion
+
+What is the explanation of the 14-fold higher incidence of severe disease in those who have encashed at least one prescription in the last year? 
+
+
+# References {-}
+
+<div id="refs"></div>
+
+
+\newpage
+
+
+
+# Appendix
+
+# Supplementary tables
+
+```{r icdchapter1, echo=FALSE}
+i <- 1
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r icdchapter2, echo=FALSE}
+i <- 2
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r icdchapter3, echo=FALSE}
+i <- 3
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r icdchapter4, echo=FALSE}
+i <- 4
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter5, echo=FALSE}
+i <- 5
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter6, echo=FALSE}
+i <- 6
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter7, echo=FALSE}
+i <- 7
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter8, echo=FALSE}
+i <- 8
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter9, echo=FALSE}
+i <- 9
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter10, echo=FALSE}
+i <- 10
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter11, echo=FALSE}
+i <- 11
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter12, echo=FALSE}
+i <- 12
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter13, echo=FALSE}
+i <- 13
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+```{r icdchapter14, echo=FALSE}
+i <- 14
+knitr::kable(tables.icd.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("icdchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with conditions in ICD-10 chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+#################### BNF chapters ############################
+
+```{r bnfchapter1, echo=FALSE}
+i <- 1
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+
+
+```{r bnfchapter2, echo=FALSE}
+i <- 2
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter3, echo=FALSE}
+i <- 3
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter4, echo=FALSE}
+i <- 4
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter5, echo=FALSE}
+i <- 5
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter6, echo=FALSE}
+i <- 6
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter7, echo=FALSE}
+i <- 7
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter8, echo=FALSE}
+i <- 8
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter9, echo=FALSE}
+i <- 9
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter10, echo=FALSE}
+i <- 10
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter11, echo=FALSE}
+i <- 11
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter12, echo=FALSE}
+i <- 12
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter13, echo=FALSE}
+i <- 13
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+```{r bnfchapter14, echo=FALSE}
+i <- 14
+knitr::kable(tables.bnf.list[[i]],
+             escape=TRUE, 
+             booktabs=TRUE,
+             label=paste0("bnfchapter", i),
+             col.names=c(colnames(tables.icd.list[[i]])[1:2],
+                         "Rate ratio (95% CI)", "p-value"),
+             align=rep("c", 4), 
+             caption=paste("Univariate associations with drug sections in BNF chapter", i)) %>%
+    column_spec(column=1, width="8cm") %>%
+    landscape()
+```
+
+
+
+
+
+## Comorbidities of initial interest 
 
 - Circulatory Disorders
   - Ischaemic heart disease
@@ -174,7 +779,7 @@ The performance of the risk prediction model as a classifier was examined by n-f
 - Charlson comorbidity index   
 
 ​
-### Other recent health care exposure variables of interest are 
+## Other recent health care exposure variables of interest are 
 
 - Any inpatient admission in past year and excluding the three weeks prior to testing 
 - Any emergency admission in past year and excluding the three weeks prior to testing
@@ -202,147 +807,3 @@ Derivations ICD10 and BNF codes for these comorbidities / drugs are in the appen
 
 Further comorbidities will be included in future protocol versions
 
-Note that at this point we are not including high risk of exposure as covariates ie HCW, residential care home, prisoner etc this will form part of future work. 
-
-## Information governance
-This research was conducted under approvals A(i) PBPP approvals for accessing ?????; (ii) existing PBPP approval that allows HPS staff to link any PHI controlled datasets; (janet to add detail and reference numbers?) (iii) PBPP amendment (1617-0147) that covers inward transfer of diabetes data. Datasets were de-identified before analysis.  
-
-# Results
-## Comparison of severe cases with others who tested positive 
-We emphasize that because testing was used selectively over this period, those who tested positive and were never hospitalised are unlikely to be representative of never-hospitalized cases in the population.  
-
-## Association of demographic factors with severe disease
-
-For the case-control comparison, this version of the manuscript restricts the dataset to those aged less than `r max(cc.severe$AGE) + 1` years.  
-
-Table \ref{tab:demog} shows univariate associations of demographic factors with disease.  Higher risk of severe disease was associated with socioeconomic deprivation and with residence in a care home.  In comparison with those classified as White, South Asians and other non-White ethnic minorities were at lower risk of severe disease.  
-
-
-```{r demog, echo=FALSE, warning=FALSE, message=FALSE}
-pvalue <- pvalue.latex(univariate.demog[, 5])
-ci <- or.ci(univariate.demog[, 1], univariate.demog[, 3]) 
-table.demog.aug <- data.frame(table.demog,
-                                   ci, 
-                                   pvalue)
-colnames(table.demog.aug) <- c("Controls", "Cases", "Rate ratio (95% CI)", "p-value")
-rownames(table.demog.aug) <- replace.names(rownames(table.demog.aug))
- 
-pander(table.demog.aug, 
-       digits=c(0, 0, 3, 3, 3, 1),
-       round=c(0, 0, 3, 3, 3, 10),
-	   split.tables="Inf",
-       align=rep("centre", 4), 
-       split.cells=c(16, 16, 25, 8),
-       caption="\\label{tab:demog}Univariate associations of severe disease with demographic factors")
-
-```
-
-## Associations of comorbid conditions with severe disease
-In univariate logistic regression models, both Type 1 and Type 2 diabetes were associated with severe disease (Table \ref{tab:conditions}. There were strong associations with circulatory disease, respiratory disease, kidney disease and neurological disease.  No association of severe disease with cystic fibrosis was detected.  A possible explanation for this may be that this group was effectively shielded from infection in accordance with official guidance.
-
-```{r conditions, echo=FALSE, warning=FALSE, message=FALSE}
-
-pvalue <- pvalue.latex(univariate.conditions[, 5])
-ci <- or.ci(univariate.conditions[, 1], univariate.conditions[, 3]) 
-table.conditions.aug <- data.frame(table.conditions,
-                                   ci, 
-                                   pvalue)
-colnames(table.conditions.aug) <- c("Controls", "Cases", "Rate ratio (95% CI)", "p-value")
-rownames(table.conditions.aug) <- replace.names(rownames(table.conditions.aug))
-
-pander(table.conditions.aug, 
-       digits=c(0, 0, 3, 3, 3, 1),
-       round=c(0, 0, 3, 3, 3, 10),
-	   split.tables="Inf",
-       split.cells=c(20, 20, 20, 7),
-       caption="\\label{tab:conditions}Univariate association of severe disease with comorbid conditions")
-
-```
-
-Further analyses to adjust for co-morbidity ...
-
-### Counts of co-morbid conditions
-
-Table xx shows the distribution of numbers of the co-morbid conditions listed by WHO or CDC or PHE by age band in severe cases versus their controls. 
-Across each age band there were people with severe COVID-19 who did not appear to have any of these co-morbid conditions.
-
-## Associations of prescribed drugs with severe disease 
-Table \ref{tab:drugs} shows that severe disease was associated with use of antihypertensive agents, anticoagulants, and lipid-lowering agents.  Use of ACE inhibitors or angiotensin receptor blockers was not associated with higher risk than use of other classes of antihypertensive agent.  Use of non-steroidal anti-inflammatory agents was weakly associated with severe disease.  Use of hydroxychloroquine was associated with severe disease.  
-
-Further analyses to adjust for co-morbidity ...
-
-```{r drugs, echo=FALSE, warning=FALSE, message=FALSE}
-
-pvalue <- pvalue.latex(univariate.drugs[, 5])
-ci <- or.ci(univariate.drugs[, 1], univariate.drugs[, 3]) 
-table.drugs.aug <- data.frame(table.drugs,
-                                   ci, 
-                                   pvalue)
-colnames(table.drugs.aug) <- c("Controls", "Cases", "Rate ratio (95% CI)", "p-value")
-rownames(table.drugs.aug) <- replace.names(rownames(table.drugs.aug))
-
-pander(table.drugs.aug, 
-       digits=c(0, 0, 3, 3, 3, 1),
-       round=c(0, 0, 3, 3, 3, 10),
-	   split.tables="Inf",
-       split.cells=c(20, 20, 20, 7), 
-       caption="\\label{tab:drugs}Univariate association of severe disease with drugs prescribed in last year")
-
-```
-
-## Examining those with no apparent co-morbid conditions
-
-A more in depth focus on severe cases at younger ages 
-
-As shown in table  among severe case below age 50  xxx% had either xxx or xxx or xxx but in xxx% none of these comorbid conditions were found. Among severe case below age 50-70  xxx% had either xxx or xxx or xxx but in xxx% none of these comorbid conditions were found.  However in those with none of these co morbid conditions xx% were on   drugs for xxx xxx and xxx.
-
-## Multivariate analysis of risk factors for severe disease 
-
-A stepwise regression procedure was carried out with all demographic, morbidity and drug exposure variables, using alternating forward-backward selection.  The `r nrow(stepwise.all)` variables retained are shown in Table \ref{tab:stepwise}
-
-
-```{r model, echo=FALSE, warning=FALSE, message=FALSE}
-
-table.stepwise <- as.data.frame(stepwise.all[, c(1, 5)])
-table.stepwise[, 1] <- exp(table.stepwise[, 1])
-colnames(table.stepwise) <- c("Rate ratio", "p.value")
-rownames(table.stepwise) <- replace.names(rownames(table.stepwise))
-
-table.stepwise$p.value <- pvalue.latex(table.stepwise$p.value)
-
-pander(table.stepwise, table.style="multiline",
-       # split.cells=c(5, 5, 5, 5, 5, 5, 5), 
-	   digits=c(3, 1), 
-	   split.table="Inf",
-       caption="\\label{tab:stepwise}Stepwise regression: variables retained in model for severe disease")
-
-```
-
-## Predictive performance of a risk classifier
-The predictive performance of the model chosen by stepwise regression was estimated by `r nfold`-fold cross-validation, and comparing observed and predicted case status over all test folds.  Table \ref{tab:wevid} shows that the C-statistic was `r summary(all.densities)[3]` and the expected information for discrimination was  `r summary(all.densities)[5]` bits. 
-
-show incremental comparison of different models ...
-
-```{r infodiscrim, echo=FALSE, warning=FALSE, message=FALSE}
-
-pander(summary(all.densities), table.style="multiline",
-       split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
-       caption="\\label{tab:wevid}Prediction of severe COVID-19: cross-validation of model chosen by stepwise regression" )
-
-```
-
-```{r plotwdists, echo=FALSE, fig.cap="Cross-validation of model chosen by stepwise regression: distributions of weight of evidence", out.width="0.8\\textwidth"}
-
-plotWdists(all.densities) + theme_grey(base_size = 18) + 
-	theme(legend.title=element_blank())
-
-```
-
-# Discussion
-
-What is the explanation of the 14-fold higher incidence of severe disease in those who have encashed at least one prescription in the last year? 
-
-
-# References {-}
-
-<div id="refs"></div>

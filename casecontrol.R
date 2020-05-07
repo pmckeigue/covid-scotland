@@ -22,13 +22,14 @@ diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200501.rds") # 842 record
 procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200501.rds")
 scrips <- readRDS("./data/CC_PIS_x15_ANON_20200501.rds")
 bnfcodes <- read_excel("./data/BNF_Code_Information.xlsx", sheet=4)
-
+colnames(bnfcodes) <- c("chaptername", "chapternum", "sectionname", "sectioncode")
+    
 bnfchapters <- bnfcodes[, 1:2]
 bnfchapters <- base::unique(bnfchapters)
-colnames(bnfchapters) <- c("fullname", "chapternum")
-truncate.at <- StrPos(bnfchapters$fullname, " |,|-") -1
-truncate.at[is.na(truncate.at)] <- nchar(bnfchapters$fullname[is.na(truncate.at)])
-bnfchapters$shortname <- substr(bnfchapters$fullname, 1, truncate.at) 
+#colnames(bnfchapters) <- c("fullname", "chapternum")
+truncate.at <- StrPos(bnfchapters$chaptername, " |,|-") -1
+truncate.at[is.na(truncate.at)] <- nchar(bnfchapters$chaptername[is.na(truncate.at)])
+bnfchapters$shortname <- substr(bnfchapters$chaptername, 1, truncate.at) 
 
 names(cc.all) <- gsub("CASE_NO", "stratum", names(cc.all))
 names(cc.all) <- gsub("^SEX$", "sex", names(cc.all))
@@ -37,14 +38,20 @@ names(cc.all) <- gsub("^ethnic$", "ethnic.old", names(cc.all))
 names(cc.all) <- gsub("^CAREHOME$", "care.home", names(cc.all))
 names(cc.all) <- gsub("^simd$", "SIMD.quintile", names(cc.all))
 
-cc.all$stratum <- as.integer(cc.all$stratum)
+## exclude controls already dead on date of testing case they were matched to
+controls.deceased <- with(cc.all, CASE==0 &
+                                  !is.na(Date.Death) &
+                                  Date.Death <= SPECDATE)
+cc.all <- cc.all[!controls.deceased, ]                         
 
+cc.all$stratum <- as.integer(cc.all$stratum)
 ## check that each stratum contains a single case
+cat("checking that each stratum contains a single case ...")
 table.strata <- tapply(cc.all$CASE, cc.all$stratum, sum) == 1
 strata.onecase <- as.integer(names(table.strata)[as.integer(table.strata)==1])
 keep <- cc.all$stratum %in% strata.onecase
 cc.all <- cc.all[keep, ]
-cat(length(which(!keep)), "observations dropped because stratum does not contain one case\n")
+cat("done:", length(which(!keep)), "observations dropped\n")
 
 cc.all$SIMD.quintile <- recode(cc.all$SIMD.quintile, "'Unknown'=NA")
 
@@ -63,8 +70,8 @@ ethnic.smr <- cc.all$ETHNIC_SMR_LAST
 
 source("ethnic_assign.R")
 
-cc.all$ethnic5.smr <- ethnic5.smr
 cc.all$ethnic5 <- ethnic5
+cc.all$ethnic5.smr <- ethnic5.smr
 
 ## tabulate ONOMAP ethnicity against SMR ethnicity
 table.ethnic <- table(cc.all$ethnic5, cc.all$ethnic5.smr, exclude=NULL)
@@ -78,6 +85,11 @@ cc.all <- within(cc.all, ethnic4 <- relevel(as.factor(ethnic4), ref="White"))
 
 cc.all$sex <- car::recode(as.factor(cc.all$sex), "1='Male'; 2='Female'")
 cc.all <- within(cc.all, sex <- relevel(sex, ref="Female"))
+
+cc.all$agegr20 <- 20 * floor(0.05 * (cc.all$AGE - 15)) + 15
+cc.all$agegr20 <- as.factor(car::recode(cc.all$agegr20,
+                              "-5:15='0-34'; 35='35-54';
+                                  55='55-74'; 75:hi='75 or more'"))
 
 cc.all$care.home <- car::recode(as.factor(cc.all$care.home), "0='Independent'; 1='Care home resident'")
 cc.all <- within(cc.all, care.home <- relevel(care.home, ref="Independent"))
@@ -119,9 +131,15 @@ cc.all <- within(cc.all, casegroup <- relevel(casegroup, ref="Critical care or f
 cc.all$dm.type <- as.integer(cc.all$dm.type)
 ## missing recoded as zero
 cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
+cc.all$diabetes.any <- as.factor(car::recode(cc.all$dm.type, 
+                                             "0='Not diabetic'; 1:hi='Diabetic'"))
+cc.all <- within(cc.all, diabetes.any <- relevel(diabetes.any, ref="Not diabetic"))
 cc.all$dm.type <- 
-  car::recode(cc.all$dm.type, 
-              "0='Not diabetic'; 1='Type 1'; 2='Type 2'; 3:hi='Other diabetes type'")
+  as.factor(car::recode(cc.all$dm.type, 
+                        "0='Not diabetic'; 1='Type 1'; 2='Type 2';
+                         3:hi='Other diabetes type'"))
+cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
+
 
 ########################################################################
 
@@ -134,7 +152,6 @@ testpositives.ethnic.smr <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
 ########### restrict to severe cases and matched controls ###################### 
  
 cc.severe <- cc.all[cc.all$casegroup=="Critical care or fatal", ]
-cc.severe <- cc.severe[cc.severe$AGE < 70, ] ## restrict by age 
 
 ## merge drugs
 length(table(substr(scrips$bnf_paragraph_code, 1, 2))) # chapter
@@ -142,9 +159,19 @@ length(table(substr(scrips$bnf_paragraph_code, 1, 4))) # chapter, section
 length(table(substr(scrips$bnf_paragraph_code, 1, 6)))  # chapter, section, paragraph
 length(table(scrips$bnf_paragraph_code)) # 537 groups
 
-scrips$bnf.chapter <- substr(scrips$bnf_paragraph_code, 1, 2)
-scrips.wide <- reshape2::dcast(scrips, ANON_ID ~ bnf.chapter, fun.aggregate=length, 
-                               value.var="bnf.chapter")
+scrips$chapternum <- as.integer(substr(scrips$bnf_paragraph_code, 1, 2))
+scrips$sectioncode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 4))
+
+## recode scrips$bnf.chapter values > 15 to 15
+scrips$chapternum[is.na(scrips$chapternum)] <- 15
+scrips$chapternum[scrips$chapternum > 15] <- 15
+
+## drop records in bnfchapters with chapternum > 15 and label this category "Other"
+bnfchapters <- bnfchapters[bnfchapters$chapternum <=15, ]
+bnfchapters$shortname[bnfchapters$chapternum==15] <- "Other" 
+
+scrips.wide <- reshape2::dcast(scrips, ANON_ID ~ chapternum, fun.aggregate=length, 
+                               value.var="chapternum")
 shortnames.cols <-  bnfchapters$shortname[match(as.integer(colnames(scrips.wide)[-1]),
                                                 as.integer(bnfchapters$chapternum))]
 colnames(scrips.wide)[-1] <- paste("BNF", colnames(scrips.wide)[-1], shortnames.cols,
@@ -172,36 +199,49 @@ icdchapters$shortname <- substr(icdchapters$shortname, 1, truncate.at)
 icdchapters$start <- as.character(icdchapters$start)
 icdchapters$end <- as.character(icdchapters$end)
 
-## chapter is assigned as the position of the first element in icdchapters$start that x is greater than or equal to
+icdsubchapters <- data.frame(names(icd10_sub_chapters),
+                             t(matrix(as.character(unlist(icd10_sub_chapters)), nrow=2)))
+colnames(icdsubchapters) <- c("name", "start", "end")
+icdsubchapters$start <- as.character(icdsubchapters$start)
+icdsubchapters$end <- as.character(icdsubchapters$end)
 
+## chapter is assigned as the position of the first element in icdchapters$start that x is greater than or equal to
 unique.diagnoses <- as.character(unique(diagnoses$ICD10))
 chapter <- integer(length(unique.diagnoses))
+subchapter <- integer(length(unique.diagnoses))
 for(i in 1:length(unique.diagnoses)) {
     chapter[i] <- min(which(substr(unique.diagnoses[i], 1, 3) <= icdchapters$end))
+    ## subchapter is row in icdsubchapters table 
+    subchapter[i] <- min(which(substr(unique.diagnoses[i], 1, 3) <= icdsubchapters$end))
 }
-unique.diagnoses <- data.frame(ICD10=unique.diagnoses, chapter=chapter)
+unique.diagnoses <- data.frame(ICD10=unique.diagnoses, chapter=chapter, subchapter=subchapter)
 diagnoses <- merge(diagnoses, unique.diagnoses, by="ICD10", all.x=TRUE)
 
 diagnoses.wide <- reshape2::dcast(diagnoses, ANON_ID ~ chapter, fun.aggregate=length,
                                   value.var="chapter")
-
 colnames(diagnoses.wide)[-1] <-
-    paste0("ICD10_",
+    paste0("Ch.", as.integer(colnames(diagnoses.wide)[-1]), "_", 
            icdchapters$shortname[as.integer(colnames(diagnoses.wide)[-1])])
-
 ## drop rare chapters
 diagnoses.wide <- diagnoses.wide[, colSums(diagnoses.wide) > 20]
 
 cc.severe <- merge(cc.severe, diagnoses.wide, by="ANON_ID", all.x=TRUE)
-icdcols <- grep("^ICD10", colnames(cc.severe))
+icdcols <- grep("^Ch.", colnames(cc.severe))
 for(j in icdcols) {
     cc.severe[, j][is.na(cc.severe[, j])] <- 0
     cc.severe[, j][cc.severe[, j] > 1] <- 1
     cc.severe[, j] <- as.factor(cc.severe[, j])
 }
 
+cc.severe$num.icdchapters <- rowSums(matrix(as.integer(as.matrix(cc.severe[, icdcols])),
+                                            nrow=nrow(cc.severe)))
+cc.severe$num.icdchapters <-
+    as.factor(car::recode(cc.severe$num.icdchapters,
+                          "0='No discharge records'; 1:2='1-2 ICD-10 chapters'; 3:4='3-4 chapters'; 5:hi='5 or more chapters'")
+                         )
+cc.all <- within(cc.severe, num.icdchapters <- relevel(num.icdchapters, ref="No discharge records"))
+
 if(FALSE) {
-    ## anticoagulants6 same as anticoagulants_protamine6
 
 cc.all$kidney.any <- as.integer(cc.all$kidney.advanced==1 | cc.all$kidney.other==1)
 
@@ -288,8 +328,9 @@ drugs <- eval(c("antihypertensive.any",
 admissions <- "SMR01"
 }
 
-lookup.names <- data.frame(varname=c("PIS", "SMR01", "simd2020_sc_decile",
+lookup.names <- data.frame(varname=c("scrip.any", "diag.any", "care.home",
                                      "emerg", "icu.hdu.ccu", "inpat",
+                                     "diabetes.any",
                                      "antihypertensive.any",
                                      "IHD.any",
                                      "CVD",
@@ -320,10 +361,11 @@ lookup.names <- data.frame(varname=c("PIS", "SMR01", "simd2020_sc_decile",
                                      "statins6.bnf",
                                      "hydroxychloroquine6.bnf"
                                      ),
-                           longname=c("Any prescription", "Any admission", "SIMD decile",
+                           longname=c("Any prescription", "Any admission", "Care home",
                                       "Emergency admission last year",
                                       "Critical care admission last year",
                                       "Any admission last year",
+                                      "Diabetes (any type)",
                                       "Any antihypertensive",
                                       "Ischaemic heart disease",
                                       "Cerebrovascular disease",
@@ -355,6 +397,8 @@ lookup.names <- data.frame(varname=c("PIS", "SMR01", "simd2020_sc_decile",
                                       "Hydroxychloroquine"
                                       ))
 
+
+
 ############### ethnicity for report ########################################
 
 ## case-control analysis for ONOMAP ethnicity 
@@ -380,14 +424,25 @@ colnames(table.ethnic.smr)[1:2] <- paste(c("Controls", "Cases"),
                                        as.integer(table(cc.severe$CASE[!is.na(cc.severe$ethnic5.smr)]))))
 colnames(table.ethnic.smr)[3:4] <- c("Rate ratio", "p-value")
 
+###############################################################
+                                        #
+table.agegr <- NULL
+for(agegr in levels(cc.severe$agegr20)) {
+    x <- univariate.tabulate(varnames=c("care.home", "scrip.any",
+                                        "num.icdchapters", "diabetes.any"),
+                             outcomevar="CASE",
+                             data=cc.severe[cc.severe$agegr20==agegr, ],
+                             drop.referencelevel=FALSE)
+    table.agegr <- cbind(table.agegr, x)
+}
+
+###################### restrict by age
+cc.severe <- cc.severe[cc.severe$AGE < 75, ] ## restrict by age 
+
 ############################# demographic vars ##########
 
 table.demog <- univariate.tabulate(varnames=demog, outcomevar="CASE", data=cc.severe)
 colnames(table.demog) <- c("Controls", "Cases")
-colnames(table.demog) <- paste(colnames(table.demog),
-                                       gsub("([0-9]+)", "\\(N = \\1\\)",
-                                            as.integer(table(cc.severe$CASE))))
-
 univariate.demog <- NULL
 for(i in 1:length(demog)) {
     univariate.formula <- as.formula(paste("CASE ~ ", demog[i], "+ strata(stratum)"))
@@ -399,10 +454,6 @@ for(i in 1:length(demog)) {
 
 table.drugs <- univariate.tabulate(varnames=drugs, outcomevar="CASE", data=cc.severe)
 colnames(table.drugs) <- c("Controls", "Cases")
-colnames(table.drugs) <- paste(colnames(table.drugs),
-                                       gsub("([0-9]+)", "\\(N = \\1\\)",
-                                            as.integer(table(cc.severe$CASE))))
-
 univariate.drugs <- NULL
 for(i in 1:length(drugs)) {
     univariate.formula <- as.formula(paste("CASE ~ ", drugs[i], "+ strata(stratum)"))
@@ -414,10 +465,6 @@ for(i in 1:length(drugs)) {
 
 table.conditions <- univariate.tabulate(varnames=conditions, outcomevar="CASE", data=cc.severe)
 colnames(table.conditions) <- c("Controls", "Cases")
-colnames(table.conditions) <- paste(colnames(table.conditions),
-                                       gsub("([0-9]+)", "\\(N = \\1\\)",
-                                            as.integer(table(cc.severe$CASE))))
-
 univariate.conditions <- NULL
 for(i in 1:length(conditions)) {
     univariate.formula <- as.formula(paste("CASE ~ ", conditions[i], "+ strata(stratum)"))
@@ -433,20 +480,23 @@ demog.formula <- as.formula(paste("CASE ~",
                                 "+ strata(stratum)"))
 cc.severe.demog.nonmissing <- nonmissing.obs(cc.severe, (demog))
 demog.model <- clogit(formula=demog.formula, data=cc.severe.demog.nonmissing)
+multivariate.demog <- summary(demog.model)$coefficients
 
 ## drugs
 drugs.formula <- as.formula(paste("CASE ~",
                                   paste(drugs, collapse=" + "),
-                                "+ care.home + strata(stratum)"))
+                                "+ strata(stratum)"))
 cc.severe.drugs.nonmissing <- nonmissing.obs(cc.severe, (drugs))
 drugs.model <- clogit(formula=drugs.formula, data=cc.severe.drugs.nonmissing)
+multivariate.drugs <- summary(drugs.model)$coefficients
 
 ## conditions
 conditions.formula <- as.formula(paste("CASE ~",
                                   paste(conditions, collapse=" + "),
-                                "+ care.home + strata(stratum)"))
+                                "+ strata(stratum)"))
 cc.severe.conditions.nonmissing <- nonmissing.obs(cc.severe, (conditions))
 conditions.model <- clogit(formula=conditions.formula, data=cc.severe.conditions.nonmissing)
+multivariate.conditions <- summary(conditions.model)$coefficients
 
 ## all
 all.formula <- as.formula(paste("CASE ~",
@@ -456,13 +506,17 @@ all.formula <- as.formula(paste("CASE ~",
                                 "+ strata(stratum)"))
 cc.severe.all.nonmissing <- nonmissing.obs(cc.severe, c(demog, conditions, drugs))
 all.model <- clogit(formula=all.formula, data=cc.severe.all.nonmissing)
+multivariate.all <- summary(all.model)$coefficients
 
 #####################################################################
 
 lower.formula <- "CASE ~ care.home + strata(stratum)"
 
+nfold <- 2
 run.stepwise <- FALSE
-if(run.stepwise) { # stepwise variable selection ##########################
+if(run.stepwise) { # stepwise variable selection ######################
+
+    ## FIXME: redefine demog.model etc to include a baseline variable
 ## demog
 stepwise.demog <- step(demog.model,
                        scope=list(lower=lower.formula, upper=demog.formula),
@@ -496,7 +550,6 @@ rownames(stepwise.all) <- replace.names(rownames(stepwise.all))
 print(stepwise.all)
 
 ############# cross-validation of stepwise regression #########################
-nfold <- 2
 
 ## demog
 test.folds <- testfolds.bystratum(stratum=cc.severe.demog.nonmissing$stratum,
@@ -603,8 +656,8 @@ for(i in 1:nfold) {
                                             y=test.data$CASE)
     all.predicted <- rbind(all.predicted, norm.predicted)
 }
-all.densities <- with(all.predicted, Wdensities(y, posterior.p, prior.p))
-   pander(summary(all.densities), table.style="multiline",
+    all.densities <- with(all.predicted, Wdensities(y, posterior.p, prior.p))
+    pander(summary(all.densities), table.style="multiline",
            split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
            caption="Prediction of severe COVID-19 from all variables")
 
@@ -614,3 +667,17 @@ save(stepwise.demog, stepwise.drugs, stepwise.conditions, stepwise.all,
 } else {
     load("./data/stepwise.RData")
 }
+
+#################################################
+
+tables.icd.list <- vector("list", 14)
+for(i in 1:14) {
+    tables.icd.list[[i]] <- tabulate.icdsubchapter(i)
+}
+    
+tables.bnf.list <- vector("list", 14)
+for(i in 1:14) {
+    tables.bnf.list[[i]] <- tabulate.bnfsection(i)
+}
+
+    

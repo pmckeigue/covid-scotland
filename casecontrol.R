@@ -334,14 +334,6 @@ ids.bnf.neoplasm <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 801]
 ids.neoplasm.any <- unique(c(ids.icd.neoplasm, ids.bnf.neoplasm))
 cc.severe$neoplasm.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.neoplasm.any))
 
-y.analgesic <- as.integer(cc.severe$nonopioid.analgesic)
-
-analgesic.formula=as.formula(paste("CASE ~ care.home +",
-                                   paste(conditions, collapse="+"),
-                                   "+ nonopioid.analgesic + protonpump + strata(stratum)"))
-
-summary(clogit(formula=analgesic.formula,
-               data=cc.severe[cc.severe$listed.any=="0", ]))
 
 ids.antiplatelet <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 209])
 cc.severe$antiplatelet <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.antiplatelet))
@@ -564,6 +556,12 @@ for(agegr in levels(cc.severe$agegr20)) {
     table.agegr <- cbind(table.agegr, x)
 }
 
+freqs.all <- univariate.tabulate(varnames=c("deathwithin28", varnames.listed, "listed.any"), 
+                             outcome="CASE",
+                             data=cc.severe,
+                             drop.reflevel=FALSE)
+
+
   
 cc.severe$agegr3 <-
     as.factor(car::recode(cc.severe$AGE,
@@ -700,8 +698,8 @@ table.protonpump.lowrisk <-
 
 #########################################################
 nfold <- 4
-stepwise <- TRUE
-#stepwise <- FALSE
+#stepwise <- TRUE
+stepwise <- FALSE
 
 source("stepwise.R")
 
@@ -716,3 +714,12 @@ X <- with(cc.severe, data.frame(protonpump, scrip.any))
 mi <- mean(unlist(lapply(X=split(X, cc.severe$stratum),
        FUN=function(X)
            infotheo::mutinformation(X)[2, 1])))
+
+y.analgesic <- as.integer(cc.severe$nonopioid.analgesic)
+
+analgesic.formula=as.formula(paste("CASE ~ care.home +",
+                                   paste(conditions, collapse="+"),
+                                   "+ nonopioid.analgesic + protonpump + strata(stratum)"))
+
+summary(clogit(formula=analgesic.formula,
+               data=cc.severe[cc.severe$listed.any=="0", ]))

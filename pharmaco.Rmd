@@ -1,0 +1,250 @@
+---
+title: 'Associations of severe COVID-19 with drug prescribing in the REACT-SCOT case-control study'
+author: 
+  - name: Paul M McKeigue
+    email: paul.mckeigue@ed.ac.uk
+    affiliation: Usher
+  - name: Amanda Weir 
+    affiliation: HPS
+  - name: Jen Bishop
+    affiliation: HPS
+  - name: Stuart McGurnaghan
+    affiliation: IGMM
+  - name: Sharon Kennedy
+    affiliation: HPS
+  - name: David McAllister 
+    affiliation: Glasgow
+  - name: Chris Robertson 
+    affiliation: Strathclyde
+  - name: Rachael Wood
+    affiliation: ISD
+  - name: Nazir Lone
+    affiliation: Usher
+  - name: Janet Murray
+    affiliation: HPS 
+  - name: Tom Caparrotta 
+    affiliation: IGMM
+  - name: Sharon Hutchinson 
+    affiliation: GCU
+  - name: Helen M Colhoun
+    affiliation: IGMM
+address: 
+   - code: Usher
+     address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland. PM - Professor of Genetic Epidemiology and Statistical Genetics. NL - Clinical Senior Lecturer in Critical Care
+   - code: IGMM
+     address: Institute of Genetics and Molecular Medicine, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland. HC - Axa Chair in Medical Informatics and Epidemiology. TC - Sir George Alberti Doctoral Fellow in Pharmacoepidemiology. 
+   - code: Glasgow
+     address: Institute of Health and Wellbeing, University of Glasgow, 1 Lilybank Gardens, Glasgow G12 8RZ. DM - Senior Clinical Lecturer in Public Health 
+   - code: HPS
+     address: Health Protection Scotland (Public Health Scotland), Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+   - code: Strathclyde
+     address: Department of Mathematics and Statistics, University of Strathclyde, 16 Richmond Street, Glasgow G1 1XQ. CR - Professor of Public Health Epidemiology
+   - code: GCU
+     address: School of Health and Life Sciences, Glasgow Caledonian University. SH - Professor of Epidemiology and Population Health 
+   - code: ISD
+     address: NHS Information Services Division (Public Health Scotland), Gyle Square, 1 South Gyle Crescent, Edinburgh, EH12 9EB.  RW - Consultant in Maternal and Child Health. 
+geometry: margin=1in
+fontsize: 11pt
+linenumbers: true
+bibliography: ../covid.bib
+date: "This version compiled `r gsub('^0', '', format(Sys.time(), '%d %B %Y'))`"
+header-includes: |
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \usepackage{array}
+  \usepackage{booktabs}
+  \usepackage{longtable}
+  \usepackage{lscape}
+output: 
+#  pdf_document:
+  rticles::plos_article:
+    latex_engine: lualatex
+    fig_caption: true
+    keep_tex: true
+#    toc: true
+#    toc_depth: 2
+csl: ../plos.csl
+urlcolor: red
+
+# rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
+
+---
+
+```{r functions, echo=FALSE}
+
+source("helperfunctions.R")
+
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+library(knitr)
+library(kableExtra)
+
+```
+
+# Abstract
+
+_Background_-- We previously  reported that across all ages having any hospital prescription  in the past year was strongly and highly significantly associated with severe COVID-19 independently of  high risk conditions. Whilst this may reflect associated condition effects it strength was sufficient to suggest direct drug effects on disease. Here we sought to further understand this phenomenon by  systematically testing associations with prescribing history with adjustment for relevant confounding by condition.  
+
+_Methods_ -- We linked the records of those tested positive for SARS-C0V-2 viral RNA in the national database that captures  virology testing in all NHS laboratories, to  hospital admissions, intensive care and mortality data. Severe COVID-19 was defined as disease requiring intensive care support or associated with death within 28 days of a positive test. We selected 10 sex, age and general practice based controls per test-positive case. For all cases and controls we extracted the International Classification of Disease (ICD)-10 codes from the previous five years of hospital discharge records  and the British National Formulary (BNF)  drug codes of  encashed  primary care issued prescriptions in the past year.  Filtering on which BNF chapters showed  association we  further tested for associations at   BNF section and subsection level. Conditional logistic regression was used to estimate odds ratios and to adjust for potential confounders.
+
+_Findings_ -- Among those without conditions listed as risk  conditions by the National Health Service  (Diabetes, heart disease,  asthma or COAD, chronic liver disease, chronic renal failure , neurological including dementia, immune disorders or suppression)  severe cases were  highly significantly more likely than controls  to have had prescriptions in the past year from each BNF chapter. The strongest  independent associations were seen with Gastro-intestinal,  INSERT OR cardiovascular INSERT OR , Central nervous  INSERT OR  and Nutrition and Blood systems INSERT OR . When each of these were further disaggregated to the next level, key findings included a significantly greater risk of severe COVID-19 associated with proton pump inhibitor use independently of co-prescription of non-steroidal anti-inflammatory or anti-platelet agents.  ACE-inhibitors INSERT and ARBs INSERT  showed  weaker associations  with severe disease than loop diuretics  INSERT or calcium channel blockers INSERT  and  all these associations  INSERT were / were not significant on adjust for any circulatory disorder beyond heart disease. Antipsychotic drugs showed increased risk INSERT OR that was/ was not independent of psychotic  conditions. Oral iron supplements showed associations INSERT  but these were/ were not independent of prior neoplasm or renal failure INSERT.    The OR associated with any prior prescription was reduced from xx-xxx on adjusting for these specific sub-chapters ??? 
+
+*Conclusions* -- These prescribing  data emphasise the multimorbidity nature of severe COVID-19 disease beyond the widely accepted risk conditions. The strong independent association with PPIs , clearly observable even in those < 40 years, combined with  prior data that this drug class is associated with gastro-enterological infections and pneumonia and the frequency of prescription of these drugs requires urgent evaluation in other datasets. 
+
+\newpage
+
+# Background
+A striking preliminary finding of the REACT-SCOT study was the very strong association of severe COVID-19 with having encashed at least one prescription in the past year. The rate ratio associated with this variable varied from `r tables.agegr[[1]][2, 3]` in those aged under 60 years to `r tables.agegr[[3]][2, 3]` in those aged 75 years and over.  In a multivariate analysis adjusting for care home residence, any hospital admission and listed conditions, these rate ratios were reduced to `r tables.agegr[[1]][2, 5]` and  `r tables.agegr[[3]][2, 5]`   About one third of those over 75 had not encashed a prescription in the previous year.  In this paper we investigate possible explanations of these associations explanations of this finding 
+
+# Methods
+
+The methods of the REACT-SCOT study are described in detail in the accompanying paper. 
+
+## Case definition 
+The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally, using the Community Health Index (CHI) identifier.  The CHI number is a unique identifier for everyone in the population, and is used in all care systems in Scotland.  All individuals testing positive for nucleic acid for SARS-CoV-2 up to `r format(max(cc.all$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained.  Hospital admissions from the time of testing were obtained from the RAPID-24 database which is updated each day and the weekly updated Scottish Morbidity Record 01. Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care units across Scotland. Death registrations up to `r format(max(cc.all$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  
+
+Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.  By restricting the case definition to a group that combines those receiving critical care with those who died without receiving critical care, we ensured complete ascertainment of severe test-positive cases, whatever selection procedures may have been in place to exclude those assessed as unlikely to benefit from critical care.  
+
+## Matched controls
+For each test-positive case, we ascertained ten matched controls of the same sex, one year age band and attending the same General Practice as each case alive on the same day as the date of test in the case using the Community Health Index (CHI) database. As this is an incidence density sampling design, it is possible and correct for an individual to appear in the dataset more than once, initially as a control and subsequently as a case.  With this design, odds ratios in conditional logistic regression models are equivalent to rate ratios.  
+
+## Morbidity and drug prescribing
+For all cases and controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-Cov-2 and using all codes on the discharge. British National Formulary  (BNF) drug codes were extracted from the last year of encashed prescriptions, excluding those encashed less than 25 days before testing positive for SARS-CoV-2.  Diagnosed cases of diabetes were identified through linkage to the national diabetes register (SCI-Diabetes), with a clinical classification of diabetes type as Type 1, Type 2 or Other.  
+
+We first extracted history of a specific list of conditions and drug classes that have been included as risk conditions for COVID-19 by public health agencies [@nhs_whos_2020].  These co-morbid conditions were assigned based on either a diagnostic code in any hospital discharge record during the last five years, or an encashed prescription of a drug for which that diagnostic code is the only indication.  The ICD-10 codes and drug codes used to define each variable are listed in the R scripts provided as Supplementary Material. In addition to these pre-specified groupings of codes we then undertook a systematic evaluation of the association of all ICD-10 codes and BNF codes to chapter level.  
+
+## Statistical methods
+For the case-control study, estimates of associations with severe COVID-19 were based on conditional logistic regression, implemented as Cox regression in the R function `survival::clogit`.  
+
+## Information governance
+This study was conducted under approvals from the Public Benefit and Privacy Panel that allow Health Protection Scotland staff to link any PHI controlled datasets <!--- janet to add detail and reference numbers ---> and amendment 1617-0147 that covers transfer of diabetes data to Health Protection Scotland. Datasets were de-identified before analysis.  
+
+# Results
+
+We partitioned the "Any prescription" variable into indicator variables for each chapter of the British National Formulary, in which drugs are grouped by broad indication, and restricted the analysis to those without one of the listed conditions.  
+Table \ref{tab:drugs} shows these associations.  In univariate analyses, prescriptions in almost all BNF chapters were associated with severe disease. 
+
+** redo this table to show how much the association with scrip.any is reduced
+ 
+The BNF chapter with the strongest association with severe disease was Chapter 1 (gastrointestinal).  Other chapters associated with severe disease were Chapter 2 (cardiovascular) and Chapter 4 (central nervous system). 
+
+## Drugs for gastro-intestinal system: BNF chapter 1
+Table \ref{bnfchapter1} shows that encashed prescriptions of most classes of drugs for the gastrointestinal system were associated with severe COVID-19.  Of these by far the most commonly prescribed drug classes were proton pump inhibitors and osmotic laxatives. 
+
+Table \ref{protonpump} shows the association with proton pump inhibitors by age group, without and with adjustment for NSAIDs, antiplatelet drugs and any past hospital diagnosis in the ICD subchapter "Disorders of esophagus, stomach and duodenum".  
+
+## Drugs for cardiovascular system: BNF chapter 2
+Table \ref{bnfchapter2} shows that prescriptions of most classes of drugs for the cardiovascular system were associated with severe COVID-19. In a multivariate analysis the strongest associations were with loop diuretics and calcium-channel blockers.  All commonly-used drug classes used to treat hypertension were associated with moderately elevated risk of severed disease, with rate ratios from ranging from about 1.4 to 2.2.  The rate ratios associated with ACE inhibitors and angiotensin-II receptor blockers were in the middle of this range. Prescriptions of anticoagulant, antiplatelet and lipid-lowering drugs were associated with severe disease in univariate analyses, but these association were weaker in a multivariate analysis.  
+
+
+# Discussion 
+
+## Possible drug effects
+.
+
+## Methodological strengths and weaknesses
+
+
+## Conclusion
+
+# References {-}
+
+<div id="refs"></div>
+
+
+```{r drugs, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.drugs.aug) <- gsub("_", " ", rownames(table.drugs.aug))
+knitr::kable(table.drugs.aug,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="drugs",
+             digits=c(0, 0, 0, 200, 0, 200), 
+             col.names=c(clean.header(colnames(table.drugs.aug)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with prescribed drugs in those without listed conditions") %>%
+    column_spec(column=1, width="4.5cm") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    landscape()
+```
+
+
+```{r bnfchapter1, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.bnfchapter1,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="bnfchapter1",
+             col.names=c(clean.header(colnames(table.bnfchapter1)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with prescribed drugs in BNF chapter 1, in those without listed conditions") %>%
+    column_spec(column=1, width="4cm") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    landscape()
+```
+
+```{r protonpump, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.protonpump,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="protonpump",
+             col.names=c(clean.header(colnames(table.protonpump)[1:2]),
+			 "Rate ratio (95\\% CI)", "p-value",
+                        "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with proton pump inhibitors by age groups, unadjusted and adjusted for NSAIDs, antiplatelet drugs and hospital diagnosis of a disorder of esophagus, stomach or duodenum") %>%
+    column_spec(column=1, width="4cm") %>%
+    add_header_above(c(" "=3, "Unadjusted"=2, "Adjusted"=2)) %>%
+    landscape()
+```
+
+
+```{r bnfchapter2, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.bnfchapter2,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="bnfchapter2",
+             col.names=c(clean.header(colnames(table.bnfchapter2)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with prescribed drugs in BNF chapter 2, in those without listed conditions") %>%
+    column_spec(column=1, width="4cm") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    group_rows("", 1, nrow(table.bnfchapter2)) %>%
+    landscape()
+
+```
+
+```{r bnfchapter10, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.bnfchapter10,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="bnfchapter10",
+             col.names=c(clean.header(colnames(table.bnfchapter10)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with prescribed drugs in BNF chapter 10 in those without listed conditions") %>%
+    column_spec(column=1, width="4cm") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    group_rows("", 1, nrow(table.bnfchapter10)) %>%
+    landscape()
+
+```
+
+\newpage
+
+# Appendix
+## Supplementary tables

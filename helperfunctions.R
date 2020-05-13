@@ -1,6 +1,12 @@
 
 ## helperfunctions for COVID analyses
 
+clean.header <- function(x) {
+    x <- gsub("\\.\\.", " (", x)
+    x <- gsub("\\.",  ")", x)
+    return(x)
+}
+
 tabulate.freqs.regressions <- function(varnames, outcome="CASE", data) {
     ## FIXME: first run should identify sparse variables to be dropped from varnames
     table.freqs <- univariate.tabulate(varnames=varnames, outcome=outcome, data=data,
@@ -90,7 +96,7 @@ multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FAL
     return(multivariate.table)
 }
 
-tabulate.bnfsection <- function(chnum, outcome="CASE", data=cc.severe) {
+tabulate.bnfsection <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=20) {
     ## get sectioncode in wide format, one col per subchapter
     scrips.ch.wide <- reshape2::dcast(scrips[scrips$chapternum==chnum, ],
                                          ANON_ID ~ sectioncode, fun.aggregate=length,
@@ -114,7 +120,7 @@ tabulate.bnfsection <- function(chnum, outcome="CASE", data=cc.severe) {
     bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
     ## FIXME: regressions should be fixed to use only rows retained by univariate.tabulate
     table.bnf.ch <- univariate.tabulate(varnames=bnf.ch, outcome=outcome, data=cc.bnf.ch,
-                                        drop.sparserows=TRUE)
+                                        drop.sparserows=TRUE, minrowsum=20)
     if(nrow(table.bnf.ch) >= 1) { 
         bnf.ch <- rownames(table.bnf.ch)  
         subsectioncodes <- as.integer(gsub("section.", "", rownames(table.bnf.ch)))
@@ -282,7 +288,7 @@ tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe) {
     }
 }
 
-tabulate.icdchapter <- function(chnum, data=cc.severe) {
+tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
     ## get chapternum in wide format, one col per subchapter
     diagnoses.ch.wide <- reshape2::dcast(diagnoses[diagnoses$chapter==chnum, ],
                                          ANON_ID ~ subchapter, fun.aggregate=length,
@@ -290,41 +296,48 @@ tabulate.icdchapter <- function(chnum, data=cc.severe) {
     colnames(diagnoses.ch.wide)[-1] <- paste0("subCh.",
                                               as.integer(colnames(diagnoses.ch.wide)[-1]))
     ## drop rare subchapters
-    diagnoses.ch.wide <- diagnoses.ch.wide[, colSums(diagnoses.ch.wide) > 20]
+    diagnoses.ch.wide <- diagnoses.ch.wide[, colSums(diagnoses.ch.wide) > 10, drop=FALSE]
     
-    cc.icd.ch <- merge(data[, c("ANON_ID", "CASE", "stratum")],
-                       diagnoses.ch.wide,
-                       by="ANON_ID", all.x=TRUE)
-    ## now fix colnames and set missing to 0
-    icdcols <- grep("^subCh.", colnames(cc.icd.ch))
-    for(j in icdcols) {
-        cc.icd.ch[, j][is.na(cc.icd.ch[, j])] <- 0
-        cc.icd.ch[, j][cc.icd.ch[, j] > 1] <- 1
-        cc.icd.ch[, j] <- as.factor(cc.icd.ch[, j])
-    }
-    
-    icd.ch <- colnames(cc.icd.ch)[-(1:3)]
-    ## FIXME: this function should be fixed to drop rows with small numbers
-    ## regressions should be fixed to use only rows retained by univariate.tabulate
-    table.icd.ch <- univariate.tabulate(varnames=icd.ch, outcome="CASE", data=cc.icd.ch,
-                                        drop.sparserows=TRUE)
-    
-    if(nrow(table.icd.ch) >= 1) { 
-        icd.ch <- rownames(table.icd.ch)  
-        subchapternums <- as.integer(gsub("subCh.", "", rownames(table.icd.ch)))
-        rownames(table.icd.ch) <- icdsubchapters$name[subchapternums]
-        univariate.icd.ch <- NULL
-        for(i in 1:length(icd.ch)) {
-            univariate.formula <- as.formula(paste("CASE ~ ", icd.ch[i], " + strata(stratum)"))
-            x <- summary(clogit(formula=univariate.formula, data=cc.icd.ch))$coefficients
-            univariate.icd.ch <- rbind(univariate.icd.ch, x)
+    if(ncol(diagnoses.ch.wide) > 1) {
+        cc.icd.ch <- merge(data[, c("ANON_ID", "CASE", "stratum")],
+                           diagnoses.ch.wide,
+                           by="ANON_ID", all.x=TRUE)
+        ## now fix colnames and set missing to 0
+        icdcols <- grep("^subCh.", colnames(cc.icd.ch))
+        for(j in icdcols) {
+            cc.icd.ch[, j][is.na(cc.icd.ch[, j])] <- 0
+            cc.icd.ch[, j][cc.icd.ch[, j] > 1] <- 1
+            cc.icd.ch[, j] <- as.factor(cc.icd.ch[, j])
         }
-
-        ## this should reformat pvalues
-        table.icd.ch.aug <- combine.tables2(ftable=table.icd.ch, utable=univariate.icd.ch)
-        table.icd.ch.aug[, 4] <- pvalue.latex(table.icd.ch.aug[, 4])
-        print(table.icd.ch.aug) # without this line the first two cols are dropped?
-   } else {
+        
+        icd.ch <- colnames(cc.icd.ch)[-(1:3)]
+        ## FIXME: this function should be fixed to drop rows with small numbers
+        ## regressions should be fixed to use only rows retained by univariate.tabulate
+        table.icd.ch <- univariate.tabulate(varnames=icd.ch, outcome="CASE", data=cc.icd.ch,
+                                            drop.sparserows=TRUE, minrowsum=minrowsum)
+        if(!is.null(table.icd.ch)) {
+            if(nrow(table.icd.ch) >= 1) { 
+                icd.ch <- rownames(table.icd.ch)  ## loop over rows of table.icd.ch 
+                subchapternums <- as.integer(gsub("subCh.", "", rownames(table.icd.ch)))
+                rownames(table.icd.ch) <- icdsubchapters$name[subchapternums]
+                univariate.icd.ch <- NULL
+                for(i in 1:length(icd.ch)) {
+                    univariate.formula <- as.formula(paste("CASE ~ ", icd.ch[i], " + strata(stratum)"))
+                    x <- summary(clogit(formula=univariate.formula, data=cc.icd.ch))$coefficients
+                    univariate.icd.ch <- rbind(univariate.icd.ch, x)
+                }
+                
+                ## this should reformat pvalues
+                table.icd.ch.aug <- combine.tables2(ftable=table.icd.ch, utable=univariate.icd.ch)
+                table.icd.ch.aug[, 4] <- pvalue.latex(table.icd.ch.aug[, 4])
+                print(table.icd.ch.aug) # without this line the first two cols are dropped?
+            } else {
+                return(NULL)
+            }
+        } else {
+            return(NULL)
+        }
+        } else {
         return(NULL)
     }
 }
@@ -398,7 +411,7 @@ or.ci <- function(coeff, se, ndigits=2) {
 }
 
 univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TRUE,
-                                drop.sparserows=FALSE) {
+                                drop.sparserows=FALSE, minrowsum=10) {
     outcome <- data[, match(outcome, names(data))]
     table.varnames <- NULL
     for(i in 1:length(varnames)) {
@@ -414,7 +427,8 @@ univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TR
             rownames(x) <- varnames[i]
         } else { # freqs for factor variables
             x <- table(z, outcome)
-            keep.x <- !any(rowSums(x) < 10)
+            ## keep if at least one factor level has row sum >= minrowsum
+            keep.x <- !any(rowSums(x) < minrowsum)
             x <- paste.colpercent(x)
             ## rownames are labelled with levels(varname)
             ## if two levels OR drop.reference level, drop reference level
@@ -425,13 +439,15 @@ univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TR
                 if(nrow(x) == 1)
                     rownames(x) <- varnames[i]
             } 
-        }        
-        if(!drop.sparserows | keep.x) { # exclude this table
-            table.varnames <- rbind(table.varnames, x)
-        }
+            if(!drop.sparserows | keep.x) { # rbind this table variable
+                table.varnames <- rbind(table.varnames, x)
+            } 
+        } 
     }
-    if(ncol(table.varnames) == 2) {
-        colnames(table.varnames) <- c("Controls", "Cases")
+    
+    ## this line breaks code
+    if(!is.null(table.varnames)) {
+        colnames(table.varnames)[1:2] <- c("Controls", "Cases")
         colnames(table.varnames) <- paste0(colnames(table.varnames),
                                            " (", as.integer(table(outcome)), ")")
     }

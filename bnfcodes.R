@@ -13,16 +13,16 @@
 ## 1001030C0 is hydroxychloroquine
 ## 1001030U0 is methotrexate
 
-bnfcodes <- read_excel("./data/BNF_Code_Information.xlsx", sheet=4)
+bnfcodes <- read_excel("./BNF_Code_Information.xlsx", sheet=4)
 colnames(bnfcodes) <- c("chaptername", "chapternum", "sectionname", "sectioncode")
 
-bnfparacodes <- read_excel("./data/BNF_Code_Information.xlsx", sheet=3)
+bnfparacodes <- read_excel("./BNF_Code_Information.xlsx", sheet=3)
 colnames(bnfparacodes) <- c("chaptername", "chapternum",
                             "sectionname", "sectioncode",
                             "paraname", "paracode")
 bnfparacodes$paracode <- as.integer(bnfparacodes$paracode)
 
-bnfsubparacodes <- read_excel("./data/BNF_Code_Information.xlsx", sheet=1)[, 1:8]
+bnfsubparacodes <- read_excel("./BNF_Code_Information.xlsx", sheet=1)[, 1:8]
 colnames(bnfsubparacodes) <- c("chaptername", "chapternum",
                                "sectionname", "sectioncode",
                                "paraname", "paracode",

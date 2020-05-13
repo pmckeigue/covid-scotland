@@ -15,14 +15,13 @@ library(DescTools)
 library(icd.data)
 library(gam)
 
-
 source("helperfunctions.R")
         
 cc.all <- readRDS("./data/CC_linked_ANON_20200501.rds")
 
 diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200501.rds") # 842 records ? excluded
 procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200501.rds")
-scotpop <- read_excel("../Scotland_midyearpop_est2019.xlsx")
+scotpop <- read_excel("./Scotland_midyearpop_est2019.xlsx")
 
 ## we have only 7 digits on scrips, giving resolution to subpara level only
 scrips <- readRDS("./data/CC_PIS_x15_ANON_20200501.rds")
@@ -148,7 +147,7 @@ cc.all <- within(cc.all, diabetes.any <- relevel(diabetes.any, ref="Not diabetic
 cc.all$dm.type <- 
   as.factor(car::recode(cc.all$dm.type, 
                         "0='Not diabetic'; 1='Type 1'; 2='Type 2';
-                         3:hi='Other diabetes type'"))
+                         3:100='Other diabetes type'; 101:102='Type 1'; 202:203='Type 2'"))
 cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
 
 ########################################################################
@@ -245,7 +244,7 @@ cc.severe$num.icdchapters <-
     as.factor(car::recode(cc.severe$num.icdchapters,
                           "0='No discharge records'; 1:2='1-2 ICD-10 chapters'; 3:4='3-4 chapters'; 5:hi='5 or more chapters'")
                          )
-cc.all <- within(cc.severe, num.icdchapters <- relevel(num.icdchapters, ref="No discharge records"))
+cc.severe <- within(cc.severe, num.icdchapters <- relevel(num.icdchapters, ref="No discharge records"))
 
 ############ extract predefined disease categories #################
 
@@ -630,6 +629,19 @@ table.icdchapter11 <- tabulate.icdchapter(chnum=11, data=cc.notlisted)
 
 table.icdchapter7 <-  tabulate.icdchapter(chnum=7, data=cc.notlisted)
 
+tabulate.icdchapter(chnum=8, data=cc.notlisted)
+
+table.icdsubchapters <- NULL
+for(i in 1:20) {
+    table.icdsubchapters <-
+        rbind(table.icdsubchapters,
+              tabulate.icdchapter(chnum=i, data=cc.notlisted, minrowsum=50))
+}
+table.icdsubchapters <- table.icdsubchapters[grep("ensuremath",
+                                                  table.icdsubchapters$u.pvalue), ]
+
+    
+
 #############################################################################################
 ## drugs 
 table.drugs.aug <- tabulate.freqs.regressions(varnames=drugs, 
@@ -637,13 +649,6 @@ table.drugs.aug <- tabulate.freqs.regressions(varnames=drugs,
 
 ## tabulate para or subpara codes in BNF chapters of interest
 table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=cc.notlisted)
-table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.notlisted)
-table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.notlisted)
-
-## fix to tabulate BNF chemical substance
-table.bnfchapter10 <- tabulate.bnfsubparas(chnum=10, data=cc.severe)
-
-#################################################
 
 table.protonpump <- NULL
 withcovariates.formula <- as.formula("CASE ~ nsaid + antiplatelet + esoph.stomach.duod + protonpump + strata(stratum)")
@@ -668,6 +673,7 @@ rownames(x) <- "All"
 colnames(x)[1:2] <- c("Controls", "Cases")
 table.protonpump <- rbind(table.protonpump, x)
 
+
 table.fatal.protonpump <- NULL
 for(agegr in levels(cc.severe$agegr20)) {
     x <- tabulate.freqs.regressions(varnames="protonpump", outcome="fatalcase",
@@ -679,7 +685,7 @@ for(agegr in levels(cc.severe$agegr20)) {
 x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.severe)[, 1:4]
 rownames(x) <- "All"
 colnames(x)[1:2] <- c("Controls", "Cases")
-table.protonpump <- rbind(table.fatal.protonpump, x)
+table.fatal.protonpump <- rbind(table.fatal.protonpump, x)
 
 
 table.protonpump.carehome <- NULL
@@ -696,6 +702,16 @@ table.protonpump.lowrisk <-
                                data=cc.severe[cc.severe$care.home=="Independent" &
                                               cc.severe$diag.any==0, ])[, 1:4]
 
+## other BNF chapters
+
+table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.notlisted)
+table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.notlisted)
+## fix to tabulate BNF chemical substance
+table.bnfchapter10 <- tabulate.bnfsubparas(chnum=10, data=cc.severe)
+
+#################################################
+
+
 #########################################################
 nfold <- 4
 #stepwise <- TRUE
@@ -705,8 +721,10 @@ source("stepwise.R")
 
 #####################################################################
 
-rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
-    
+# rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
+rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
+  
+
 library(infotheo)
 
 X <- with(cc.severe, data.frame(protonpump, scrip.any))

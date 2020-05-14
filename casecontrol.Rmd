@@ -8,7 +8,7 @@ author:
     affiliation: HPS
   - name: Jen Bishop
     affiliation: HPS
-  - name: Stuart McGurnaghan
+  - name: Stuart J McGurnaghan
     affiliation: IGMM
   - name: Sharon Kennedy
     affiliation: HPS
@@ -22,7 +22,7 @@ author:
     affiliation: Usher
   - name: Janet Murray
     affiliation: HPS 
-  - name: Tom Caparrotta 
+  - name: Thomas M Caparrotta 
     affiliation: IGMM
   - name: Sharon Hutchinson 
     affiliation: GCU

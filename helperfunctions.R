@@ -554,3 +554,42 @@ testfolds.bystratum <- function(stratum, y, nfold) {
                              test.fold=1 + sample(1:N, size=N) %% nfold)
     return(test.folds)
 }
+
+
+MakeEthnicOnomap <- function(onolytic, geographic){
+  ## Take vectors onolytic and geographic to recode ethnicity and return this as a vector
+  require(car)
+  if(length(onolytic) != length(geographic)) warning("Input vectors should be of same length")
+  onolytic <- car::recode(onolytic,
+                          "'NOT FOUND'=NA; 'INTERNATIONAL'=NA; 'UNCLASSIFIED'=NA; 'VOID'=NA; 'VOID - FORENAME'=NA; 'VOID INITIAL'=NA")
+  eth <- rep("Other", length(onolytic))
+  eth[is.na(onolytic)] <- NA
+  eth[onolytic=="CHINESE" |
+        onolytic=="HONG KONGESE" |
+        onolytic=="SINGAPORESE"] <- "Chinese"
+  eth[geographic=="EAST ASIA" &
+        eth != "Chinese"] <- "Other Asia & Pacific"
+  
+  eth[geographic=="SOUTH ASIA"] <- "South Asian"
+  
+  eth[geographic=="BRITISH ISLES"] <- "Britain&Ireland"
+  eth[geographic=="CENTRAL EUROPE" |
+        geographic=="EASTERN EUROPE" |
+        geographic=="NORTHERN EUROPE" |
+        geographic=="SOUTHERN EUROPE" |
+        onolytic=="AFRIKAANS"] <- "Other Europe"
+  
+  eth[geographic=="AFRICA" &
+        onolytic != "AFRIKAANS" &
+        onolytic != "LIBYAN"] <- "Black African"
+  eth[geographic=="MIDDLE EAST" &
+        onolytic != "MUSLIM"] <- "East Med"
+  eth[onolytic == "MUSLIM"] <- "South Asian" # "Muslim, not localized"
+  
+  eth[onolytic == "BLACK CARIBBEAN"] <- "Black Caribbean"
+  
+  ## reduce to 5 categories: White, South Asian, Chinese, Black, Other
+  ethnic5 <- car::recode(eth, "'Black African'='Black'; 'Black Caribbean'='Black';  'Britain&Ireland'='White';  'Other Europe'='White';  'East Med'='Other'; 'Other Asia & Pacific'='Other'; 'Muslim, not localized'='Other'")
+  ethnic5 <- relevel(as.factor(ethnic5), ref="White")
+  ethnic5
+}

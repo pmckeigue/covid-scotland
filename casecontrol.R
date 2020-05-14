@@ -8,12 +8,13 @@ library(rmarkdown)
 library(pander)
 library(ggplot2)
 library(doParallel)
-registerDoParallel(cores=2)
 library(reshape2)
 library(readxl)
 library(DescTools)
 library(icd.data)
 library(gam)
+
+registerDoParallel(cores=2)
 
 source("helperfunctions.R")
         
@@ -146,18 +147,51 @@ cc.all$diabetes.any <- as.factor(car::recode(cc.all$dm.type,
 cc.all <- within(cc.all, diabetes.any <- relevel(diabetes.any, ref="Not diabetic"))
 cc.all$dm.type <- 
   as.factor(car::recode(cc.all$dm.type, 
-                        "0='Not diabetic'; 1='Type 1'; 2='Type 2';
-                         3:100='Other diabetes type'; 101:102='Type 1'; 202:203='Type 2'"))
+                        "c(0, 10)='Not diabetic';
+                         c(1, 101, 102)='Type 1';
+                         c(2, 202, 203)='Type 2'; 
+                         3:9='Other diabetes type';
+                         11:100='Other diabetes type'"))
+
 cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
 
 ########################################################################
 
 ## tabulate ethnicity by case group
 testpositives.ethnic <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
-                                              table(ethnic5, casegroup)), 1)
+                                              table(ethnic4, casegroup)), 1)
 testpositives.ethnic.smr <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
                                                   table(ethnic5.smr, casegroup)), 1)
 
+testpositives.carehome <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
+                                                table(ethnic4, care.home)), 0)
+
+testpositives.healthboard <- t(paste.colpercent(with(cc.all[cc.all$CASE==1, ],
+                                                table(ethnic4, HBRES_NAME)), 0))
+
+table.severe.demog <-
+    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
+                               data=cc.severe)
+
+
+table.testpositives.demog <-
+    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
+                               data=cc.all)
+table.testpositives.demog.ethnicsmr <-
+    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home", "SIMD.quintile"),
+                               data=cc.all[!is.na(cc.all$ethnic5.smr), ])
+
+table.hospitalized.demog <-
+    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
+                               data=cc.all[cc.all$casegroup=="Hospitalized, not severe" |
+                                           cc.all$casegroup=="Critical care or fatal", ])
+
+table.hospitalized.demog.ethnicsmr <-
+    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home", "SIMD.quintile"),
+                               data=cc.all[(cc.all$casegroup=="Hospitalized, not severe" |
+                                            cc.all$casegroup=="Critical care or fatal") &
+                                           !is.na(cc.all$ethnic5.smr), ])
+ 
 ########### restrict to severe cases and matched controls ###################### 
  
 cc.severe <- cc.all[cc.all$casegroup=="Critical care or fatal", ]
@@ -615,7 +649,7 @@ multivariate.all <-
                         data=cc.severe, add.reflevel=TRUE)
                                                           
 ################# restrict to those without listed conditions #############
-
+cc.nocare <- cc.severe[cc.severe$care.home=="Independent", ]
 cc.notlisted <- cc.severe[cc.severe$listed.any == 0, ]
 
 ## conditions
@@ -640,39 +674,110 @@ for(i in 1:20) {
 table.icdsubchapters <- table.icdsubchapters[grep("ensuremath",
                                                   table.icdsubchapters$u.pvalue), ]
 
-    
+#########################################################################
 
-#############################################################################################
 ## drugs 
 table.drugs.aug <- tabulate.freqs.regressions(varnames=drugs, 
-                                                   data=cc.notlisted)
+                                              data=cc.notlisted)
+
+
+## tabulate scrip.any effect by carehome
+table.scrip.any.carehome <- NULL
+for(residence in levels(cc.severe$care.home)) {
+    x <- tabulate.freqs.regressions(varnames="scrip.any",
+                                    data=cc.severe[cc.severe$care.home==residence, ])[, 1:4]
+    rownames(x) <- residence
+    colnames(x)[1:2] <- c("Controls", "Cases")
+    table.scrip.any.carehome <- rbind(table.scrip.any.carehome, x)
+}
+
+
+## tabulate proportion of effect of scrip.any that is explained by each chapter
+## use cc.nocare
+table.anyscrip.chapter <-
+    summary(clogit(formula=as.formula(paste("CASE ~ scrip.any + strata(stratum)")),
+                                      data=cc.nocare))$coefficients[1, 1:2, drop=FALSE]
+for(bnfchapter in drugs) {
+    ch.formula=as.formula(paste("CASE ~ scrip.any +", bnfchapter, "+ strata(stratum)"))
+    table.anyscrip.chapter <-
+        rbind(table.anyscrip.chapter,
+              summary(clogit(ch.formula, data=cc.nocare))$coefficients[1, 1:2])
+}
+rownames(table.anyscrip.chapter) <- c("Unadjusted", drugs)
+table.anyscrip.chapter <- as.data.frame(table.anyscrip.chapter)
+table.anyscrip.chapter$prop.explained <- round(with(table.anyscrip.chapter,
+                                                    c(0, 1 - coef[-1] / coef[1])), 2)
 
 ## tabulate para or subpara codes in BNF chapters of interest
 table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=cc.notlisted)
 
+############# proton pump #########################
+
+## tabulate associations with and without covariate adjustment, excluding care home
+
 table.protonpump <- NULL
 withcovariates.formula <- as.formula("CASE ~ nsaid + antiplatelet + esoph.stomach.duod + protonpump + strata(stratum)")
 
-for(agegr in levels(cc.severe$agegr20)) {
+for(agegr in levels(cc.nocare$agegr20)) {
     x <- tabulate.freqs.regressions(varnames="protonpump",
-                                    data=cc.severe[cc.severe$agegr20==agegr, ])[, 1:4]
+                                    data=cc.nocare[cc.nocare$agegr20==agegr, ])[, 1:4]
     y <- summary(clogit(formula=withcovariates.formula,
-                        data=cc.severe[cc.severe$agegr20==agegr, ]))$coefficients[4, , drop=FALSE]
+                        data=cc.nocare[cc.nocare$agegr20==agegr, ]))$coefficients[4, , drop=FALSE]
     x$m.ci <- or.ci(y[, 1], y[, 3])
     x$m.pvalue <- pvalue.latex(y[, 5])
     rownames(x) <- agegr
     colnames(x)[1:2] <- c("Controls", "Cases")
     table.protonpump <- rbind(table.protonpump, x)
 }
-x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.severe)[, 1:4]
+x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.nocare)[, 1:4]
 y <- summary(clogit(formula=withcovariates.formula,
-                    data=cc.severe))$coefficients[4, , drop=FALSE]
+                    data=cc.nocare))$coefficients[4, , drop=FALSE]
 x$m.ci <- or.ci(y[, 1], y[, 3])
 x$m.pvalue <- pvalue.latex(y[, 5])
 rownames(x) <- "All"
 colnames(x)[1:2] <- c("Controls", "Cases")
 table.protonpump <- rbind(table.protonpump, x)
 
+
+####### effects of scrip and protonpump by care home status ############################
+
+
+table.protonpump.carehome <- NULL
+for(residence in levels(cc.severe$care.home)) {
+    x <- tabulate.freqs.regressions(varnames="protonpump",
+                                    data=cc.severe[cc.severe$care.home==residence, ])[, 1:4]
+    rownames(x) <- residence
+    colnames(x)[1:2] <- c("Controls", "Cases")
+    table.protonpump.carehome <- rbind(table.protonpump.carehome, x)
+}
+
+##################################################################################
+## tabulate proton pump by age group, excluding care home residents
+
+table.nocare.protonpump <- NULL
+withcovariates.formula <- as.formula("CASE ~ nsaid + antiplatelet + esoph.stomach.duod + protonpump + strata(stratum)")
+
+for(agegr in levels(cc.severe$agegr20)) {
+    x <- tabulate.freqs.regressions(varnames="protonpump",
+                                    data=cc.nocare[cc.nocare$agegr20==agegr, ])[, 1:4]
+    y <- summary(clogit(formula=withcovariates.formula,
+                        data=cc.nocare[cc.nocare$agegr20==agegr, ]))$coefficients[4, , drop=FALSE]
+    x$m.ci <- or.ci(y[, 1], y[, 3])
+    x$m.pvalue <- pvalue.latex(y[, 5])
+    rownames(x) <- agegr
+    colnames(x)[1:2] <- c("Controls", "Cases")
+    table.nocare.protonpump <- rbind(table.nocare.protonpump, x)
+}
+x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.nocare)[, 1:4]
+y <- summary(clogit(formula=withcovariates.formula,
+                    data=cc.nocare))$coefficients[4, , drop=FALSE]
+x$m.ci <- or.ci(y[, 1], y[, 3])
+x$m.pvalue <- pvalue.latex(y[, 5])
+rownames(x) <- "All"
+colnames(x)[1:2] <- c("Controls", "Cases")
+table.nocare.protonpump <- rbind(table.nocare.protonpump, x)
+
+########################################################################
 
 table.fatal.protonpump <- NULL
 for(agegr in levels(cc.severe$agegr20)) {
@@ -688,29 +793,14 @@ colnames(x)[1:2] <- c("Controls", "Cases")
 table.fatal.protonpump <- rbind(table.fatal.protonpump, x)
 
 
-table.protonpump.carehome <- NULL
-for(residence in levels(cc.severe$care.home)) {
-    x <- tabulate.freqs.regressions(varnames="protonpump",
-                                    data=cc.severe[cc.severe$care.home==residence, ])[, 1:4]
-    rownames(x) <- residence
-    colnames(x)[1:2] <- c("Controls", "Cases")
-    table.protonpump.carehome <- rbind(table.protonpump.carehome, x)
-}
 
-table.protonpump.lowrisk <-
-    tabulate.freqs.regressions(varnames="protonpump",
-                               data=cc.severe[cc.severe$care.home=="Independent" &
-                                              cc.severe$diag.any==0, ])[, 1:4]
 
 ## other BNF chapters
-
-table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.notlisted)
 table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.notlisted)
+table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.notlisted)
+table.bnfchapter9 <- tabulate.bnfsubparas(chnum=9, data=cc.notlisted)
+
 ## fix to tabulate BNF chemical substance
-table.bnfchapter10 <- tabulate.bnfsubparas(chnum=10, data=cc.severe)
-
-#################################################
-
 
 #########################################################
 nfold <- 4
@@ -721,8 +811,9 @@ source("stepwise.R")
 
 #####################################################################
 
-# rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
+rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
 rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
+rmarkdown::render("Covid_ethnicity_Scotland.Rmd")
   
 
 library(infotheo)

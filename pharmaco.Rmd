@@ -104,18 +104,17 @@ A striking preliminary finding of the REACT-SCOT study was the very strong assoc
 
 The methods of the REACT-SCOT study are described in detail in the accompanying paper. 
 
-## Case definition 
-The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally, using the Community Health Index (CHI) identifier.  The CHI number is a unique identifier for everyone in the population, and is used in all care systems in Scotland.  All individuals testing positive for nucleic acid for SARS-CoV-2 up to `r format(max(cc.all$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained.  Hospital admissions from the time of testing were obtained from the RAPID-24 database which is updated each day and the weekly updated Scottish Morbidity Record 01. Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care units across Scotland. Death registrations up to `r format(max(cc.all$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  
+## Case ascertainment and sampling of controls 
+The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally, using the Community Health Index (CHI) identifier.  The CHI number is a unique identifier for everyone in the population, and is used in all care systems in Scotland.  All individuals testing positive for nucleic acid for SARS-CoV-2 up to `r format(max(cc.all$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained.  Hospital admissions from the time of testing were obtained from the RAPID-24 database which is updated each day and the weekly updated Scottish Morbidity Record 01. Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care units across Scotland. Death registrations up to `r format(max(cc.all$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.   
 
-Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.  By restricting the case definition to a group that combines those receiving critical care with those who died without receiving critical care, we ensured complete ascertainment of severe test-positive cases, whatever selection procedures may have been in place to exclude those assessed as unlikely to benefit from critical care.  
-
-## Matched controls
 For each test-positive case, we ascertained ten matched controls of the same sex, one year age band and attending the same General Practice as each case alive on the same day as the date of test in the case using the Community Health Index (CHI) database. As this is an incidence density sampling design, it is possible and correct for an individual to appear in the dataset more than once, initially as a control and subsequently as a case.  With this design, odds ratios in conditional logistic regression models are equivalent to rate ratios.  
 
 ## Morbidity and drug prescribing
-For all cases and controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-Cov-2 and using all codes on the discharge. British National Formulary  (BNF) drug codes were extracted from the last year of encashed prescriptions, excluding those encashed less than 25 days before testing positive for SARS-CoV-2.  Diagnosed cases of diabetes were identified through linkage to the national diabetes register (SCI-Diabetes), with a clinical classification of diabetes type as Type 1, Type 2 or Other.  
+For all cases and controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-Cov-2 and using all codes on the discharge. Diagnosed cases of diabetes were identified through linkage to the national diabetes register (SCI-Diabetes), with a clinical classification of diabetes type as Type 1, Type 2 or Other.  
 
-We first extracted history of a specific list of conditions and drug classes that have been included as risk conditions for COVID-19 by public health agencies [@nhs_whos_2020].  These co-morbid conditions were assigned based on either a diagnostic code in any hospital discharge record during the last five years, or an encashed prescription of a drug for which that diagnostic code is the only indication.  The ICD-10 codes and drug codes used to define each variable are listed in the R scripts provided as Supplementary Material. In addition to these pre-specified groupings of codes we then undertook a systematic evaluation of the association of all ICD-10 codes and BNF codes to chapter level.  
+British National Formulary (BNF) drug codes were extracted from the last year of encashed prescriptions, excluding those encashed less than 25 days before testing positive for SARS-CoV-2.  The BNF classification groups drugs by chapter (2 digits), section (2 digits), paragraph (2 digits) and subparagraph (1 digit), and chemical substance (2 characters).  For this analysis prescription codes from chapters 14 and above, comprising vaccines, anaesthesia, other preparations, dressings and appliances, were grouped as "Other" 
+
+We derived indicator variables for a list of conditions that have been included as risk conditions for COVID-19 by public health agencies [@nhs_whos_2020].  These co-morbid conditions were assigned based on either a diagnostic code in any hospital discharge record during the last five years, or an encashed prescription of a drug for which that diagnostic code is the only indication.  The ICD-10 codes and drug codes used to define each variable are listed in the R scripts provided as Supplementary Material. 
 
 ## Statistical methods
 For the case-control study, estimates of associations with severe COVID-19 were based on conditional logistic regression, implemented as Cox regression in the R function `survival::clogit`.  
@@ -124,36 +123,71 @@ For the case-control study, estimates of associations with severe COVID-19 were 
 This study was conducted under approvals from the Public Benefit and Privacy Panel that allow Health Protection Scotland staff to link any PHI controlled datasets <!--- janet to add detail and reference numbers ---> and amendment 1617-0147 that covers transfer of diabetes data to Health Protection Scotland. Datasets were de-identified before analysis.  
 
 # Results
+As residence in a care home was the strongest risk factor for severe COVID-19, we first examined the association with enchashment of any prescription after stratifying by care home status.  
+
 
 We partitioned the "Any prescription" variable into indicator variables for each chapter of the British National Formulary, in which drugs are grouped by broad indication, and restricted the analysis to those without one of the listed conditions.  
-Table \ref{tab:drugs} shows these associations.  In univariate analyses, prescriptions in almost all BNF chapters were associated with severe disease. 
+Table \ref{tab:drugs} shows these associations.  
 
-** redo this table to show how much the association with scrip.any is reduced
- 
-The BNF chapter with the strongest association with severe disease was Chapter 1 (gastrointestinal).  Other chapters associated with severe disease were Chapter 2 (cardiovascular) and Chapter 4 (central nervous system). 
+In univariate analyses, prescriptions in almost all BNF chapters were associated with severe disease. Table XX examines how much the effect of any prescription is reduced by adding an indicator variable for each chapter, one at a time.  The chapter drug classes with the largest contributions to the any prescription effect were Chapter 4 (Central Nervous System), Chapter 1 (Gastrointestinal System) and Chapter 9 (Nutrition), The codes grouped under Chapter 14+ (Other) are mostly for dressings and appliances,  presumably reflecting a general association with frailty.  This led us to examine associations with specific drug classes, grouped at BNF paragraph or subparagraph level, within each of these three chapters.
+
+## Drugs acting on the central nervous system: BNF chapter 4
+Table \ref{tab:bnfchapter4} shows that encashed prescriptions of most classes of drugs acting on the central nervous system were associated with severe COVID-19. The most commonly prescribed drug class, and the strongest independent effect in a multivariate analysis, was non-opiate analgesics and compound preparations. This class of drugs includes paracetamol and various compound preparations that are marketed for relief of upper respiratory symptoms, headache, influenza, and other conditions.   
 
 ## Drugs for gastro-intestinal system: BNF chapter 1
-Table \ref{bnfchapter1} shows that encashed prescriptions of most classes of drugs for the gastrointestinal system were associated with severe COVID-19.  Of these by far the most commonly prescribed drug classes were proton pump inhibitors and osmotic laxatives. 
+Table \ref{tab:bnfchapter1} shows that encashed prescriptions of most classes of drugs for the gastrointestinal system were associated with severe COVID-19.  Of these by far the most commonly prescribed drug classes were proton pump inhibitors and osmotic laxatives. 
 
-Table \ref{protonpump} shows the association with proton pump inhibitors by age group, without and with adjustment for NSAIDs, antiplatelet drugs and any past hospital diagnosis in the ICD subchapter "Disorders of esophagus, stomach and duodenum".  
+Table \ref{tab:protonpump} shows the association with proton pump inhibitors by age group, without and with adjustment for NSAIDs, antiplatelet drugs and any past hospital diagnosis in the ICD subchapter "Disorders of esophagus, stomach and duodenum".  
+
+## Drugs for Nutrition and Blood: BNF chapter 9
+
 
 ## Drugs for cardiovascular system: BNF chapter 2
-Table \ref{bnfchapter2} shows that prescriptions of most classes of drugs for the cardiovascular system were associated with severe COVID-19. In a multivariate analysis the strongest associations were with loop diuretics and calcium-channel blockers.  All commonly-used drug classes used to treat hypertension were associated with moderately elevated risk of severed disease, with rate ratios from ranging from about 1.4 to 2.2.  The rate ratios associated with ACE inhibitors and angiotensin-II receptor blockers were in the middle of this range. Prescriptions of anticoagulant, antiplatelet and lipid-lowering drugs were associated with severe disease in univariate analyses, but these association were weaker in a multivariate analysis.  
-
+Table \ref{tab:bnfchapter2} lists associations with drugs for the cardiovascular system, grouped by BNF subparagraph.  This shows that prescriptions of most classes of drugs for the cardiovascular system were associated with severe COVID-19. In a multivariate analysis the strongest associations were with loop diuretics and calcium-channel blockers.  All commonly-used drug classes used to treat hypertension were associated with moderately elevated risk of severed disease, with rate ratios from ranging from about 1.4 to 2.2.  The rate ratios associated with ACE inhibitors and angiotensin-II receptor blockers were in the middle of this range. Prescriptions of anticoagulant, antiplatelet and lipid-lowering drugs were associated with severe disease in univariate analyses, but these association were weaker in a multivariate analysis.  
 
 # Discussion 
+## Association with prescriptions for symptoms
 
-## Possible drug effects
-.
+Association with non-opiate analgesics, laxatives, oral iron
+
+Patients who consult with minor symptoms, leading to prescriptions for these symptoms without a clear medical indication, are at high risk.  This suggests that one or more of the drugs 
+
+## Proton pump inhibitors
+The association with proton pump inhibitors is not explained by association any underlying gastrointestinal disease that leads to hospital admission, or by coprescribing with non-steroidal antiinflammatory or antiplatelet agents.  As proton pump inhibitors are available over the counter, our study of encashed prescriptions does not capture all exposure to this class of drugs.  However as there are no prescription charges in Scotland, long-term users of these expensive drugs are likely to seek to obtain them on prescription.  
+
+As proton pump inhibitors are associated with increased risk of enteric infections, it is plausible that they could increase the risk of severe infection with SARS-CoV-2, which is at least partly an enteric infection [@wan_enteric_2020].  Others have noted that proton pump inhibitors are widely prescribed among the elderly, often for no clear indication [@marks_time_2016].  35% of patients admitted to acute geriatric units in Aberdeen had been inappropriately prescribed proton pump inhibitors: overprescribing was associated with the number of other drugs prescribed and with an index of comorbidity [@jarchow-macdonald_prescribing_2013]. 
+
+## Cardiovascular drugs
+No evidence of any effect of ACE inhibitors or A-II receptor blockers beyond that associated with treated hypertension.  
 
 ## Methodological strengths and weaknesses
 
+We have prescription encashments, not just prescriptions.  Drug coding by BNF codes is more systematic than SNOMED
+
+We don't have all the morbidity data available in the primary care record but we have hospital diagnoses which are ICD-coded. 
+
+
 
 ## Conclusion
+Stay away from doctors if you can, don't take pills without a recognized medical indication
 
 # References {-}
 
 <div id="refs"></div>
+
+```{r carehome, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.scrip.any.carehome,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="carehome",
+             digits=c(0, 0, 0, 200, 0, 200), 
+             col.names=c(clean.header(colnames(table.scrip.any.carehome)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with encashment of any prescription in the last year, by care home status") %>%
+    column_spec(column=1, width="4cm")
+```
 
 
 ```{r drugs, echo=FALSE, warning=FALSE, message=FALSE}
@@ -175,6 +209,19 @@ knitr::kable(table.drugs.aug,
 ```
 
 
+```{r explained.chapter, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.anyscrip.chapter) <- gsub("\\_", " ", rownames(table.anyscrip.chapter))
+knitr::kable(table.anyscrip.chapter,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="explained.chapter",
+             digits=c(3, 3, 2), 
+             align=rep("r", 3), 
+             caption="Effect of an indicator variable for each BNF chapter on the size of effect associated with encashment of any prescription") %>%
+    column_spec(column=1, width="4.5cm") 
+```
+
 ```{r bnfchapter1, echo=FALSE, warning=FALSE, message=FALSE}
 
 knitr::kable(table.bnfchapter1,
@@ -185,7 +232,7 @@ knitr::kable(table.bnfchapter1,
                          "Rate ratio (95\\% CI)", "p-value",
                          "Rate ratio (95\\% CI)", "p-value"),
              align=rep("c", 6), 
-             caption="Associations of severe disease with prescribed drugs in BNF chapter 1, in those without listed conditions") %>%
+             caption="Associations of severe disease with prescribed drugs in BNF chapter 1 in those without listed conditions") %>%
     column_spec(column=1, width="4cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
     landscape()
@@ -207,36 +254,35 @@ knitr::kable(table.protonpump,
     landscape()
 ```
 
+```{r bnfchapter4, echo=FALSE, warning=FALSE, message=FALSE}
 
-```{r bnfchapter2, echo=FALSE, warning=FALSE, message=FALSE}
-
-knitr::kable(table.bnfchapter2,
+knitr::kable(table.bnfchapter4,
              escape=FALSE, 
              booktabs=TRUE,
-             label="bnfchapter2",
-             col.names=c(clean.header(colnames(table.bnfchapter2)[1:2]),
+             label="bnfchapter4",
+             col.names=c(clean.header(colnames(table.bnfchapter4)[1:2]),
                          "Rate ratio (95\\% CI)", "p-value",
                          "Rate ratio (95\\% CI)", "p-value"),
              align=rep("c", 6), 
-             caption="Associations of severe disease with prescribed drugs in BNF chapter 2, in those without listed conditions") %>%
+             caption="Associations of severe disease with prescribed drugs in BNF chapter 4 in those without listed conditions") %>%
     column_spec(column=1, width="4cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
-    group_rows("", 1, nrow(table.bnfchapter2)) %>%
+    group_rows("", 1, nrow(table.bnfchapter10)) %>%
     landscape()
 
 ```
 
-```{r bnfchapter10, echo=FALSE, warning=FALSE, message=FALSE}
+```{r bnfchapter9, echo=FALSE, warning=FALSE, message=FALSE}
 
-knitr::kable(table.bnfchapter10,
+knitr::kable(table.bnfchapter9,
              escape=FALSE, 
              booktabs=TRUE,
-             label="bnfchapter10",
-             col.names=c(clean.header(colnames(table.bnfchapter10)[1:2]),
+             label="bnfchapter9",
+             col.names=c(clean.header(colnames(table.bnfchapter9)[1:2]),
                          "Rate ratio (95\\% CI)", "p-value",
                          "Rate ratio (95\\% CI)", "p-value"),
              align=rep("c", 6), 
-             caption="Associations of severe disease with prescribed drugs in BNF chapter 10 in those without listed conditions") %>%
+             caption="Associations of severe disease with prescribed drugs in BNF chapter 9 in those without listed conditions") %>%
     column_spec(column=1, width="4cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
     group_rows("", 1, nrow(table.bnfchapter10)) %>%
@@ -248,3 +294,22 @@ knitr::kable(table.bnfchapter10,
 
 # Appendix
 ## Supplementary tables
+
+
+```{r bnfchapter2, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.bnfchapter2,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="bnfchapter2",
+             col.names=c(clean.header(colnames(table.bnfchapter2)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with prescribed drugs in BNF chapter 2 in those without listed conditions") %>%
+    column_spec(column=1, width="4cm") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    group_rows("", 1, nrow(table.bnfchapter2)) %>%
+    landscape()
+
+```

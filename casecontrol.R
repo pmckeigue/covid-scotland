@@ -155,43 +155,8 @@ cc.all$dm.type <-
 
 cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
 
-########################################################################
+###############################################################################
 
-## tabulate ethnicity by case group
-testpositives.ethnic <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
-                                              table(ethnic4, casegroup)), 1)
-testpositives.ethnic.smr <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
-                                                  table(ethnic5.smr, casegroup)), 1)
-
-testpositives.carehome <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
-                                                table(ethnic4, care.home)), 0)
-
-testpositives.healthboard <- t(paste.colpercent(with(cc.all[cc.all$CASE==1, ],
-                                                table(ethnic4, HBRES_NAME)), 0))
-
-table.severe.demog <-
-    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
-                               data=cc.severe)
-
-
-table.testpositives.demog <-
-    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
-                               data=cc.all)
-table.testpositives.demog.ethnicsmr <-
-    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home", "SIMD.quintile"),
-                               data=cc.all[!is.na(cc.all$ethnic5.smr), ])
-
-table.hospitalized.demog <-
-    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
-                               data=cc.all[cc.all$casegroup=="Hospitalized, not severe" |
-                                           cc.all$casegroup=="Critical care or fatal", ])
-
-table.hospitalized.demog.ethnicsmr <-
-    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home", "SIMD.quintile"),
-                               data=cc.all[(cc.all$casegroup=="Hospitalized, not severe" |
-                                            cc.all$casegroup=="Critical care or fatal") &
-                                           !is.na(cc.all$ethnic5.smr), ])
- 
 ########### restrict to severe cases and matched controls ###################### 
  
 cc.severe <- cc.all[cc.all$casegroup=="Critical care or fatal", ]
@@ -350,10 +315,13 @@ cc.severe$immune.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.immune.a
 
 listed.conditions <- c("IHD.any", "heart.other.any", "oad.any",
                        "ckd.any", "neuro.any", "liver.any", "immune.any")
-cc.severe$listed.any <- as.factor(as.integer(with(cc.severe,
-                                        ! dm.type == "Not diabetic" | IHD.any==1 | heart.other.any==1 |
-                                        ckd.any==1 | oad.any==1 |
-                                        neuro.any==1 | liver.any==1 | immune.any==1)))
+
+cc.severe$listed.any <-
+    as.factor(as.integer(with(cc.severe,
+                              !(dm.type == "Not diabetic") | IHD.any==1 |
+                              heart.other.any==1 |
+                              ckd.any==1 | oad.any==1 |
+                              neuro.any==1 | liver.any==1 | immune.any==1)))
 
 ids.protonpump <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 103])
 cc.severe$protonpump <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.protonpump))
@@ -489,6 +457,41 @@ lookup.names <- data.frame(varname=c("deathwithin28", "scrip.any", "diag.any", "
                                       "Statins",
                                       "Hydroxychloroquine"
                                       ))
+########################################################################
+
+## tabulate ethnicity by case group
+testpositives.ethnic <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
+                                              table(ethnic4, casegroup)), 1)
+testpositives.ethnic.smr <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
+                                                  table(ethnic5.smr, casegroup)), 1)
+
+testpositives.carehome <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
+                                                table(ethnic4, care.home)), 0)
+
+testpositives.healthboard <- t(paste.colpercent(with(cc.all[cc.all$CASE==1, ],
+                                                table(ethnic4, HBRES_NAME)), 0))
+
+table.severe.demog <-
+    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
+                               data=cc.severe)
+
+table.testpositives.demog <-
+    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
+                               data=cc.all)
+table.testpositives.demog.ethnicsmr <-
+    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home", "SIMD.quintile"),
+                               data=cc.all[!is.na(cc.all$ethnic5.smr), ])
+
+table.hospitalized.demog <-
+    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
+                               data=cc.all[cc.all$casegroup=="Hospitalised, not severe" |
+                                           cc.all$casegroup=="Critical care or fatal", ])
+
+table.hospitalized.demog.ethnicsmr <-
+    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home", "SIMD.quintile"),
+                               data=cc.all[(cc.all$casegroup=="Hospitalised, not severe" |
+                                            cc.all$casegroup=="Critical care or fatal") &
+                                           !is.na(cc.all$ethnic5.smr), ])
 
 ####### incidence and mortality using national population estimates ######################
 
@@ -633,6 +636,12 @@ univariate.ethnicsmr <-
 table.ethnicsmr.aug <- combine.tables2(table.ethnicsmr, univariate.ethnicsmr)
 rownames(table.ethnicsmr.aug) <- replace.names(rownames(table.ethnicsmr.aug))
 
+#### 5 ethnic groups for report
+table.ethnic5smr <- tabulate.freqs.regressions(varnames="ethnic5.smr", outcome="CASE",
+                                       data=cc.severe[!is.na(cc.severe$ethnic5.smr), ])
+rownames(table.ethnic5smr) <- replace.names(rownames(table.ethnic5smr))
+
+
 ## listed conditions
 
 table.listed.conditions.lt60 <-
@@ -647,10 +656,12 @@ multivariate.all <-
                                    "diag.any", conditions, "scrip.any", drugs,
                                    "protonpump"),
                         data=cc.severe, add.reflevel=TRUE)
+
                                                           
 ################# restrict to those without listed conditions #############
 cc.nocare <- cc.severe[cc.severe$care.home=="Independent", ]
 cc.notlisted <- cc.severe[cc.severe$listed.any == 0, ]
+cc.nocare.notlisted <- cc.nocare[cc.nocare$listed.any == 0, ]
 
 ## conditions
 table.conditions.aug <- tabulate.freqs.regressions(varnames=conditions, 
@@ -680,7 +691,7 @@ table.icdsubchapters <- table.icdsubchapters[grep("ensuremath",
 table.drugs.aug <- tabulate.freqs.regressions(varnames=drugs, 
                                               data=cc.notlisted)
 
-
+#############################################################################
 ## tabulate scrip.any effect by carehome
 table.scrip.any.carehome <- NULL
 for(residence in levels(cc.severe$care.home)) {
@@ -691,25 +702,43 @@ for(residence in levels(cc.severe$care.home)) {
     table.scrip.any.carehome <- rbind(table.scrip.any.carehome, x)
 }
 
+## tabulate scrip.any effect by listed.any in those not resident in care homes
+table.scrip.any.nocare.listed <- NULL
+for(listed in levels(cc.nocare$listed.any)) {
+    x <- tabulate.freqs.regressions(varnames="scrip.any",
+                                    data=cc.nocare[cc.nocare$listed.any==listed, ])[, 1:4]
+    rownames(x) <- listed
+    colnames(x)[1:2] <- c("Controls", "Cases")
+    table.scrip.any.nocare.listed <- rbind(table.scrip.any.nocare.listed, x)
+}
+
+################################################################
+
+## tabulate associations with drug chapters in those not in care homes and without listed conditions 
+table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs, 
+                                                           data=cc.nocare.notlisted)
 
 ## tabulate proportion of effect of scrip.any that is explained by each chapter
-## use cc.nocare
+## use cc.nocare.notlisted
 table.anyscrip.chapter <-
     summary(clogit(formula=as.formula(paste("CASE ~ scrip.any + strata(stratum)")),
-                                      data=cc.nocare))$coefficients[1, 1:2, drop=FALSE]
+                                      data=cc.nocare.notlisted))$coefficients[1, 1:2, drop=FALSE]
 for(bnfchapter in drugs) {
     ch.formula=as.formula(paste("CASE ~ scrip.any +", bnfchapter, "+ strata(stratum)"))
     table.anyscrip.chapter <-
         rbind(table.anyscrip.chapter,
-              summary(clogit(ch.formula, data=cc.nocare))$coefficients[1, 1:2])
+              summary(clogit(ch.formula, data=cc.nocare.notlisted))$coefficients[1, 1:2])
 }
 rownames(table.anyscrip.chapter) <- c("Unadjusted", drugs)
 table.anyscrip.chapter <- as.data.frame(table.anyscrip.chapter)
 table.anyscrip.chapter$prop.explained <- round(with(table.anyscrip.chapter,
                                                     c(0, 1 - coef[-1] / coef[1])), 2)
 
+
 ## tabulate para or subpara codes in BNF chapters of interest
-table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=cc.notlisted)
+
+###### start with chapter 1
+table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=cc.nocare.notlisted)
 
 ############# proton pump #########################
 
@@ -793,12 +822,11 @@ colnames(x)[1:2] <- c("Controls", "Cases")
 table.fatal.protonpump <- rbind(table.fatal.protonpump, x)
 
 
-
-
 ## other BNF chapters
 table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.notlisted)
 table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.notlisted)
 table.bnfchapter9 <- tabulate.bnfsubparas(chnum=9, data=cc.notlisted)
+table.bnfchapter10 <- tabulate.bnfsubparas(chnum=10, data=cc.notlisted)
 
 ## fix to tabulate BNF chemical substance
 
@@ -813,7 +841,7 @@ source("stepwise.R")
 
 rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
 rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
-rmarkdown::render("Covid_ethnicity_Scotland.Rmd")
+#rmarkdown::render("Covid_ethnicity_Scotland.Rmd")
   
 
 library(infotheo)

@@ -1,3 +1,4 @@
+
 ---
 title: "Briefing paper on Ethnicity and COVID-19 status in Scotland"
 
@@ -13,25 +14,25 @@ header-includes: |
   \usepackage{booktabs}
   \usepackage{float}
   \usepackage{array}
-  \usepackage{booktabs}
   \usepackage{longtable}
   \usepackage{lscape}
 
 output:
   pdf_document:
   keep_tex: true
+  latex_engine: lualatex
 
 # rmarkdown::render("Covid_ethnicity_Scotland.Rmd")
 
 ---
 
 # Background
-There have been anecdotal reports of an excess of hospitalisations, intensive care unit need and death from COVID-19 among non-white ethnic groups in particular Black or Black British and South Asian.  A preliminary study using UK Biobank data has [reported](http://medrxiv.org/cgi/content/short/2020.04.22.20075663) that Black, South Asian and White Irish people were more likely to have confirmed infection (RR 4.01 (95%CI 2.92-5.12); RR 2.11 (95%CI 1.43-3.10); and RR 1.60 (95% CI 1.08-2.38) respectively) 
+There have been anecdotal reports of an excess of hospitalisations, intensive care unit need and death from COVID-19 among non-white ethnic groups in particular Black or Black British and South Asian.  A preliminary study using UK Biobank data has [reported](http://medrxiv.org/cgi/content/short/2020.04.22.20075663) that Black, South Asian and White Irish people were more likely to have confirmed infection (RR 4.01 (95% CI 2.92-5.12); RR 2.11 (95% CI 1.43-3.10); and RR 1.60 (95% CI 1.08-2.38) respectively) 
 
 Understanding whether such inequity in risk of COVID-19 by ethnicity pertains in Scotland and whether disease severity is worse is relevant to early anticipation of health care needs, triaging algorithms being used by NHS Hubs, and shielding policies.
 
 # Methods 
-The REACT-SCOT case-control study was set up to investigate risk factors for severe COVID-19 and to lay the basis for developing risk stratification algorithms. All persons to date  who tested positive  for Sars-CoV-2 RNA were identified using the ECOSS virology laboratory systems. This system records CHI but not ethnicity.
+The REACT-SCOT case-control study was set up to investigate risk factors for severe COVID-19 and to lay the basis for developing risk stratification algorithms. All persons to date  who tested positive  for SARS-CoV-2 RNA were identified using the ECOSS virology laboratory systems. This system records CHI but not ethnicity.
 
 A matched set of 10 controls per case matched for age, sex and GP practice was identified using the CHI database as part of the REACT-COVID19 case control study led by the Modelling & Research cell. 
 
@@ -51,25 +52,29 @@ Table \ref{tab:crosstab} shows that the ONOMAP name classification assigns to th
 
 In all further analyses, the ONOMAP classification has been collapsed to four groups: White, South Asian, Chinese, Other.  Analyses that distinguish the Black group can be done only for the subset of individuals who have SMR records. 
 
-## Relation of severe / fatal COVID-19 to ethnicity in the Scottish population
-Tables \ref{tab:testpos.ethnicsmr}. \ref{tab:ethnicsmr.hosp} and \ref{tab:ethnicsmr} compare cases and controls with ethnicity based on SMR classificaiton for all test positive cases, all hospitalized cases, and severe cases. 
+## Relation of test -positive, hospitalised and severe / fatal COVID-19 to ethnicity in the Scottish population
+Tables \ref{tab:testpos.ethnicsmr}. \ref{tab:ethnicsmr.hosp} and \ref{tab:ethnicsmr} compare cases and controls with ethnicity based on SMR classification for all test positive cases, all hospitalized cases, and severe cases.  Severe cases are those who had ICU care or died within 28 days of a positive test. The first column of rate ratios are univariate. Those in the second column are further adjusted for SIMD and care home status.
 
-Table \ref{tab:testpos.onomap}, \ref{tab:onomap.hosp}, \ref{tab:onomap} show the same comparisons with ethnicity based on ONOMAP name classification
+Table \ref{tab:testpos.onomap}, \ref{tab:onomap.hosp}, \ref{tab:onomap} show the same comparisons with ethnicity based on ONOMAP name classification.
 
-There is no evidence that the frequency of severe disease among those who test positive is any higher in non-White groups than in Whites. The rate of severe disease in South Asians was about half the rate in Whites. 
+SMR based ethnicity was available in 23833 Controls  and 4230 test-positive cases. In contrast name based classification was available in 113894 Controls and 11432 test positive cases. Thus in the ethnic groups, such as South Asians,  for whom the named based classification has good performance  the named based estimates are more stable and the confidence intervals on the rate ratios are narrower. 
+
+Using SMR based ethnicity there is no significant difference in test positivity rate by ethnicity.  Although rate ratios are above 1 for black ethnicity the  absolute numbers are sparse, just 15 test positives and the confidence intervals are very wide. For those of South Asian ethnicity using SMR based classification the rate ratio is  also above 1 with a wide confidence interval.  Using the named based classification for which there are much more data  for those of South Asian ethnicity the rate ratio is  actually well below 1  and this is statistically significant. For those of Chinese  ethnicity the name based classification showed lower test positive rates also. 
+
+There is no evidence that the frequency of  hospitalised COVID-19 disease or severe disease warranting ICU or resulting in death within 28 days among those who test positive is any higher in non-White groups than in Whites.  Using the SMR based classification there are no differences by ethnic group in hospitalised COVID-19  or in severe COVID-19.  Using the named based classification for which there are more data the  rate ratios for the non-White ethnic groups are lower than Whites and this is statistically significant in those of South Asian ethnicity.
 
 Tables \ref{tab:severity.smr} and \ref{tab:severity} show the distribution over severity categories by ethnicity
 
 Tables \ref{tab:carehome} and \ref{tab:board} show the distribution of care home status and health board. 
 
 # Conclusion
-Although the numbers are small, it is possible to establish that South Asians in Scotland are at lower risk of severe disease than the White population.  
+There is no evidence that those of non-white ethnicity are at higher risk of COVID-19 disease that Whites at this stage in this epidemic in Scotland. Rates of hospitalised and severe disease were lower in those of South Asian ethnicity than Whites. For other non-White ethnic group the numbers of cases are so small that all estimates are unstable. 
 
-For the Black population, reliable classification of ethnicity is restricted to those who have an SMR record, and the numbers of cases and controls in this group are too small for rate ratios to be reliably estimated.  
+For the Black population, reliable classification of ethnicity is restricted to those who have an SMR record because name based classification performs poorly for this ethnic group. ONOMAP/ name based classification does not reliably distinguish people of Black-Caribbean heritage from people of European ancestry.   The numbers of cases and controls in this group are too small for rate ratios to be reliably estimated so whilst we do not observe any elevations in rates the data are too sparse. Recording of ethnicity in hospital admission distinguishes these groups but does not provide complete coverage of the population at risk of COVID-19.  The coding is also incomplete with substantial missingness. 
 
-ONOMAP/ name based classification does not reliably distinguish people of Black-Caribbean heritage from people of European ancestry.  Recording of ethnicity in hospital admission distinguishes these groups but does not provide complete coverage of the population at risk of COVID-19.  The coding is also incomplete with substantial missingness.  We have not merged ethnicity data from the Scottish Morbidity Record with name based classification as this would introduce differential misclassification of ethnicity by health status.  Access to primary care data would likely increase the completeness with which ethnicity is assigned but governance issues have not been resolved.
+We have not merged ethnicity data from the Scottish Morbidity Record with name based classification as this would introduce differential misclassification of ethnicity by health status.  Access to primary care data would likely increase the completeness with which ethnicity is assigned but governance issues have not been resolved.
 
-A possible explanation for reports from England that people from minority ethnic groups were over-represented among cases of severe and fatal disease may be that these groups make up a high proportion of front-line health care workers and care givers in England, who were heavily exposed to infectious cases.  In Scotland a "healthy migrant effect", such that those who migrate tend to be fitter than those who do not migrate, may explain the low rates of severe disease in minority groups.  
+We will continue to regularly report on the ethnicity distribution  as the epidemic progresses. In particular in further data extracts we hope to include those NRS reported deaths with COVID-19 emergency code on the certificate but where no positive test has been recorded. Further data extracts will in due course also capture the lighthouse testing data that are as yet not included in the ECOSS database. 
 
 
 \newpage
@@ -80,16 +85,20 @@ Tables comparing all test-positive individuals with controls are included by req
 
 ```{r ethnic, echo=FALSE, warning=FALSE, message=FALSE}
 
-pander(table.ethnic, missing=".",
-       split.tables=Inf,
-       split.cells=rep(16, 6), 
-       caption="\\label{tab:crosstab}Comparison of ethnicity assigned by ONOMAP name classification (rows) with ethnicity assigned in SMR  records (columns)")
+knitr::kable(table.ethnic, 
+             escape=FALSE, 
+             booktabs=TRUE,
+             caption="\\label{tab:crosstab}Comparison of ethnicity assigned by ONOMAP name classification (rows) with ethnicity assigned in SMR  records (columns)") %>%
+    add_header_above(c(" "=1, "SMR records"= 6)) %>%
+    pack_rows("ONOMAP", 1, 5) %>%
+    kable_styling(latex_options="hold_position") 
 
 ```
 
 ```{r ethnicsmr.testpos, echo=FALSE, warning=FALSE, message=FALSE}
 
-rownames(table.testpositives.demog.ethnicsmr) <- gsub("_", " ", rownames(table.testpositives.demog.ethnicsmr))
+rownames(table.testpositives.demog.ethnicsmr) <-
+    gsub("_", " ", rownames(table.testpositives.demog.ethnicsmr))
 knitr::kable(table.testpositives.demog.ethnicsmr,
              escape=FALSE, 
              booktabs=TRUE,
@@ -100,8 +109,8 @@ knitr::kable(table.testpositives.demog.ethnicsmr,
              align=rep("c", 6), 
              caption="Associations of test-positive status with ethnicity in those with ethnicity recorded in Scottish Morbidity record") %>%
     kable_styling(latex_options="hold_position") %>% 
-    column_spec(column=1, width="2cm")  %>%
-    column_spec(column=2, width="1.85cm")  %>%
+    column_spec(column=1, width="2.7cm")  %>%
+    column_spec(column=2, width="2cm")  %>%
     column_spec(column=3, width="1.85cm")  %>%
     column_spec(column=4, width="2.5cm") %>%
     column_spec(column=5, width="1.5cm") %>%
@@ -112,7 +121,8 @@ knitr::kable(table.testpositives.demog.ethnicsmr,
 
 ```{r ethnicsmr.hosp, echo=FALSE, warning=FALSE, message=FALSE}
 
-rownames(table.hospitalized.demog.ethnicsmr) <- gsub("_", " ", rownames(table.hospitalized.demog.ethnicsmr))
+rownames(table.hospitalized.demog.ethnicsmr) <-
+    gsub("_", " ", rownames(table.hospitalized.demog.ethnicsmr))
 knitr::kable(table.hospitalized.demog.ethnicsmr,
              escape=FALSE, 
              booktabs=TRUE,
@@ -123,8 +133,8 @@ knitr::kable(table.hospitalized.demog.ethnicsmr,
              align=rep("c", 6), 
              caption="Associations of hospitalized disease with ethnicity in those with ethnicity recorded in Scottish Morbidity record") %>%
     kable_styling(latex_options="hold_position") %>% 
-    column_spec(column=1, width="2cm") %>%
-    column_spec(column=2, width="1.85cm")  %>%
+    column_spec(column=1, width="2.7cm") %>%
+    column_spec(column=2, width="2cm")  %>%
     column_spec(column=3, width="1.85cm")  %>%
     column_spec(column=4, width="2.5cm") %>%
     column_spec(column=5, width="1.5cm") %>%
@@ -132,7 +142,6 @@ knitr::kable(table.hospitalized.demog.ethnicsmr,
     column_spec(column=7, width="1.5cm")
 
 ```
-
 
 ```{r ethnic5smr, echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -154,14 +163,16 @@ knitr::kable(table.ethnic5smr,
     column_spec(column=5, width="1.5cm") %>%
     column_spec(column=6, width="2.5cm") %>%
     column_spec(column=7, width="1.5cm")
-
+```
 
 
 ```{r testpositives.ethnic.smr, echo=FALSE, warning=FALSE, message=FALSE}
 
-pander(testpositives.ethnic.smr, missing=".",
-       split.tables=Inf,
-       caption="\\label{tab:severity.smr}Severity of disease in test-positive cases, by ethnicity assigned in SMR records")
+knitr::kable(testpositives.ethnic.smr, 
+           escape=FALSE, 
+             booktabs=TRUE,
+       caption="\\label{tab:severity.smr}Severity of disease in test-positive cases, by ethnicity assigned in SMR records") %>%
+    kable_styling(latex_options="hold_position") 
 
 ```
 
@@ -175,16 +186,14 @@ knitr::kable(table.testpositives.demog,
              escape=FALSE, 
              booktabs=TRUE,
              label="testpos.onomap",
-             digits=c(0, 0, 0, 200, 0, 200), 
              col.names=c(clean.header(colnames(table.testpositives.demog)[1:2]),
                          "Rate ratio (95\\% CI)", "p-value",
                          "Rate ratio (95\\% CI)", "p-value"),
              align=rep("c", 6), 
              caption="Associations of test-positive status with ethnicity based on name classification") %>%
-    column_spec(column=1, width="2cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
     kable_styling(latex_options="hold_position") %>% 
-    column_spec(column=1, width="2cm") %>%
+    column_spec(column=1, width="2.7cm") %>%
     column_spec(column=2, width="1.95cm")  %>%
     column_spec(column=3, width="1.85cm")  %>%
     column_spec(column=4, width="2.5cm") %>%
@@ -209,8 +218,8 @@ knitr::kable(table.demog.aug,
              caption="Associations of hospitalized disease with demographic variables including ethnicity based on name classification") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2))  %>%
     kable_styling(latex_options="hold_position") %>% 
-    column_spec(column=1, width="2cm") %>%
-    column_spec(column=2, width="1.95cm")  %>%
+    column_spec(column=1, width="2.7cm") %>%
+    column_spec(column=2, width="2cm")  %>%
     column_spec(column=3, width="1.85cm")  %>%
     column_spec(column=4, width="2.5cm") %>%
     column_spec(column=5, width="1.5cm") %>%
@@ -243,31 +252,34 @@ knitr::kable(table.severe.demog,
 
 ```
 
-\newpage
-
 ```{r testpositives.ethnic, echo=FALSE, warning=FALSE, message=FALSE}
 
-pander(testpositives.ethnic, missing=".",
-       split.tables=Inf,
-       split.cells=rep(25, 3), 
-       caption="\\label{tab:severity}Severity of disease in test-positive cases, by ethnicity assigned from ONOMAP name classification")
+knitr::kable(testpositives.ethnic, 
+           escape=FALSE, 
+             booktabs=TRUE,
+       caption="\\label{tab:severity}Severity of disease in test-positive cases, by ethnicity assigned from ONOMAP name classification") %>%
+    kable_styling(latex_options="hold_position") 
 
 ```
 
 ```{r testpositives.carehome, echo=FALSE, warning=FALSE, message=FALSE}
 
-pander(testpositives.carehome, missing=".",
-       split.tables=Inf,
-       caption="\\label{tab:carehome}Care home status in test-positive cases, by ethnicity assigned from ONOMAP name classification")
+knitr::kable(testpositives.carehome, 
+           escape=FALSE, 
+             booktabs=TRUE,
+       caption="\\label{tab:carehome}Care home status in test-positive cases, by ethnicity assigned from ONOMAP name classification") %>%
+    kable_styling(latex_options="hold_position") 
 
 ```
 
 \newpage 
- 
+
 ```{r testpositives.healthboard, echo=FALSE, warning=FALSE, message=FALSE}
 
-pander(testpositives.healthboard, missing=".",
-       split.tables=Inf,
-       caption="\\label{tab:board}Health board of residence in test-positive cases, by ethnicity assigned from ONOMAP name classification")
+knitr::kable(testpositives.healthboard, 
+             escape=FALSE, 
+             booktabs=TRUE,
+             caption="\\label{tab:board}Health board of residence in test-positive cases, by ethnicity assigned from ONOMAP name classification") %>%
+    kable_styling(latex_options="hold_position") 
 
 ```

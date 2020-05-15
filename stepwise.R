@@ -1,3 +1,38 @@
+
+## this doesn't work when wrapped as a function 
+cv.predict <- function(nfold, cv.data, lower.formula, upper.formula) {
+    
+    cv.predicted <- NULL
+    for(i in 1:nfold) {
+        test <- cv.data$test.fold == i
+        test.data  <- cv.data[test, ]
+        train.data <- cv.data[!test, ]
+        cat(length(which(test)), "observations in test fold", i, "\n")
+        
+        x <- t(with(test.data, table(CASE, stratum)))
+        numcontrols.stratum <- x[, 1]
+        numcases.stratum <- x[, 2]
+        a <- table(numcases.stratum, exclude=NULL)
+        b <- table(numcontrols.stratum, exclude=NULL)
+        if(length(a) > 1) stop("not all strata contain single case")
+        
+        start.model <- clogit(formula=upper.formula, data=train.data)
+        stepwise.model <- step(start.model,
+                               scope=list(lower=lower.formula, upper=upper.formula),
+                               direction="both", trace=-1, method="approximate")
+        
+        ## normalize within each stratum
+        unnorm.p <- predict(object=stepwise.model, newdata=test.data,
+                            na.action="na.pass", 
+                            type="risk", reference="sample")
+        norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
+                                                stratum=test.data$stratum,
+                                                y=test.data$CASE)
+        cv.predicted <- rbind(cv.predicted, norm.predicted)
+    }
+    return(cv.predicted)
+}
+
 ## stepwise regressions for casecontrol.R
 
 lower.varnames <- "care.home"
@@ -161,7 +196,7 @@ if(stepwise) {
     }
 ###################################
 
-    full <- cv.predicted
+    full.predicted <- cv.predicted
     full.densities <- with(full.predicted,
                            Wdensities(y, posterior.p, prior.p,
                                       recalibrate=FALSE))

@@ -166,7 +166,7 @@ Because this case-control study is matched on primary care practice, variation o
 ## Proton pump inhibitors
 The association with proton pump inhibitors is not explained by association any underlying gastrointestinal disease that leads to hospital admission, or by coprescribing with non-steroidal antiinflammatory or antiplatelet agents.  As proton pump inhibitors are available over the counter, our study of encashed prescriptions does not capture all exposure to this class of drugs.  However as there are no prescription charges in Scotland, long-term users of these expensive drugs are likely to seek to obtain them on prescription.  
 
-As proton pump inhibitors are associated with increased risk of enteric infections, it is plausible that they could increase the risk of severe infection with SARS-CoV-2, which is at least partly an enteric infection [@wan_enteric_2020].  Others have noted that proton pump inhibitors are widely prescribed among the elderly, often for no clear indication [@marks_time_2016].  35% of patients admitted to acute geriatric units in Aberdeen had been inappropriately prescribed proton pump inhibitors: overprescribing was associated with the number of other drugs prescribed and with an index of comorbidity [@jarchow-macdonald_prescribing_2013]. 
+As proton pump inhibitors are associated with increased risk of enteric infections, it is plausible that they could increase the risk of severe infection with SARS-CoV-2, which is at least partly an enteric infection [@wan_enteric_2020].  Others have noted that proton pump inhibitors are widely prescribed among the elderly, often for no clear indication [@marks_time_2016; @kurdi_ongoing_2018].  35% of patients admitted to acute geriatric units in Aberdeen had been inappropriately prescribed proton pump inhibitors: overprescribing was associated with the number of other drugs prescribed and with an index of comorbidity [@jarchow-macdonald_prescribing_2013]. 
 
 In Szechuan, China, PPIs were prescribed to 37% of inpatients in a tertiary referral centre in 2016 [@luo_changes_2018]. A Spanish drug-utilization study showed that 55% of hospital inpatients were presribed a PPI at discharge [@ramirez_overuse_2010].  
 
@@ -213,7 +213,6 @@ knitr::kable(table.scrip.any.nocare.listed,
              caption="Associations of severe disease with encashment of any prescription in the last year, by presence of a listed condition, excluding care home residents") %>%
     column_spec(column=1, width="4cm")
 ```
-
 
 ```{r drugs, echo=FALSE, warning=FALSE, message=FALSE}
 

@@ -140,7 +140,7 @@ tabulate.bnfsection <- function(chnum, outcome="CASE", data=cc.severe, minrowsum
     }
 }
 
-tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe) {
+tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=20) {
     ## get sectioncode in wide format, one col per subchapter
     scrips.ch.wide <- reshape2::dcast(scrips[scrips$chapternum==chnum, ],
                                          ANON_ID ~ paracode, fun.aggregate=length,
@@ -163,7 +163,7 @@ tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe) {
     
     bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
     table.bnf.ch <- univariate.tabulate(varnames=bnf.ch, outcome="CASE", data=cc.bnf.ch,
-                                        drop.sparserows=TRUE)
+                                        drop.sparserows=TRUE, minrowsum=minrowsum)
     ## regressions fixed to use only rows retained by univariate.tabulate
     if(nrow(table.bnf.ch) >= 1) { 
         bnf.ch <- rownames(table.bnf.ch)  
@@ -188,7 +188,7 @@ tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe) {
     }
 }
 
-tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe) {
+tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=20) {
     ## get subparacode in wide format, one col per subchapter
     ## subpara code is misnamed bnf_paragraph_code
     scrips.ch.wide <- reshape2::dcast(scrips[scrips$chapternum==chnum, ],
@@ -212,7 +212,7 @@ tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe) {
     
     bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
     table.bnf.ch <- univariate.tabulate(varnames=bnf.ch, outcome="CASE", data=cc.bnf.ch,
-                                        drop.sparserows=TRUE)
+                                        drop.sparserows=TRUE, minrowsum=minrowsum)
     ## regressions fixed to use only rows retained by univariate.tabulate
     if(nrow(table.bnf.ch) >= 1) { 
         bnf.ch <- rownames(table.bnf.ch)

@@ -128,20 +128,20 @@ The Electronic Communication of Surveillance in Scotland (ECOSS) database captur
 Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.  By restricting the case definition to a group that combines those receiving critical care with those who died without receiving critical care, we ensured complete ascertainment of severe test-positive cases, whatever selection procedures may have been in place to exclude those assessed as unlikely to benefit from critical care.  
 
 ## Matched controls
-For each test-positive case, we ascertained ten matched controls of the same sex, one year age band and attending the same General Practice as each case alive on the same day as the date of test in the case using the Community Health Index (CHI) database. As this is an incidence density sampling design, it is possible and correct for an individual to appear in the dataset more than once, initially as a control and subsequently as a case.  With this design, odds ratios in conditional logistic regression models are equivalent to rate ratios.  The odds ratios based on the conditional likelihood will differ from the unconditional odds ratios calculable from the frequencies of exposure in cases and controls [@breslow_estimation_1978]
+For each test-positive case, we ascertained ten matched controls of the same sex, one year age band and attending the same General Practice as each case alive on the same day as the date of test in the case using the Community Health Index (CHI) database. As this is an incidence density sampling design, it is possible and correct for an individual to appear in the dataset more than once, initially as a control and subsequently as a case.  
 
 ## Demographic data
 Socioeconomic status was scored in the CHI database as the Scottish Index of Multiple Deprivation, an indicator based on postal code.  Ethnicity was assigned based on applying a name classification algorithm ONOMAP [@lakha_name_2011] to the names in the CHI database.  This classification is able to distinguish South Asian and Chinese groups with fair accuracy but does not distinguish those who identify as Black or Black-Caribbean from those who identify as White. For those cases and controls who had a past record of hospital admission or outpatient attendance in the Scottish Morbidity Record, a separate classification of ethnicity was available, assigned by self-report or by hospital staff and based on the categories used in the Census.  
 
 ## Morbidity and drug prescribing
-For all cases and controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-Cov-2 and using all codes on the discharge. British National Formulary  (BNF) drug codes were extracted from the last year of encashed prescriptions, excluding those encashed less than 25 days before testing positive for SARS-CoV-2.  Diagnosed cases of diabetes were identified through linkage to the national diabetes register (SCI-Diabetes), with a clinical classification of diabetes type as Type 1, Type 2 or Other.  
+For all cases and controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-CoV-2 and using all codes on the discharge. British National Formulary (BNF) drug codes were extracted from the last year of encashed prescriptions, excluding those encashed less than 25 days before testing positive.   Diagnosed cases of diabetes were identified through linkage to the national diabetes register (SCI-Diabetes), with a clinical classification of diabetes type as Type 1, Type 2 or Other.  
 
 We first extracted history of a specific list of conditions and drug classes that have been included as risk conditions for COVID-19 by public health agencies [@nhs_whos_2020].  These co-morbid conditions were assigned based on either a diagnostic code in any hospital discharge record during the last five years, or an encashed prescription of a drug for which that diagnostic code is the only indication.  The ICD-10 codes and drug codes used to define each variable are listed in the R script provided as Supplementary Material. In addition to these pre-specified groupings of codes we then undertook a systematic evaluation of the association of all ICD-10 codes and BNF codes to chapter level.  We did not specifically tabulate the conditions that have been listed as making people " clinically extremely vulnerable" such as cystic fibrosis or leukaemia  or organ transplantation as there is no clinical equipoise regarding risk in such persons and as it is expected that they will be underrepresented in the case data as they have been advised to shield themselves completely since early in the epidemic. This group also includes those with cancer in receipt of chemotherapy or radiotherapy.
 
 ## Statistical methods
-To estimate the relation of cumulative incidence and mortality from COVID-19 to age and sex, logistic regression models were fitted to the proportions of cases and non-cases in the Scottish population, using the estimated population of Scotland in mid-year 2019 which are available by one-year age group up to age 90 years. For the case-control study, estimates of associations with severe COVID-19 were based on conditional logistic regression, implemented as Cox regression in the R function `survival::clogit`.  Among those cases and controls without any of the pre-defined conditions we then further examined associations of ICD-10 and BNF chapter with severe COVID-19. Where the sample of cases and controls is restricted, this will generate strata that contain no cases.  These strata will be ignored by the conditional logistic regression model as they do not contribute to the conditional likelihood. 
+To estimate the relation of cumulative incidence and mortality from COVID-19 to age and sex, logistic regression models were fitted to the proportions of cases and non-cases in the Scottish population, using the estimated population of Scotland in mid-year 2019 which are available by one-year age group up to age 90 years. For the case-control study, estimates of associations with severe COVID-19 were based on conditional logistic regression, implemented as Cox regression in the R function `survival::clogit`.  Among those cases and controls without any of the pre-defined conditions we then further examined associations of ICD-10 and BNF chapter with severe COVID-19. Where the sample of cases and controls is restricted, this will generate strata that contain no cases.  These strata will be ignored by the conditional logistic regression model as they do not contribute to the conditional likelihood.  With incidence density sampling, odds ratios in conditional logistic regression models are equivalent to rate ratios.  These odds ratios based on the conditional likelihood will differ from the unconditional odds ratios calculable from the frequencies of exposure in cases and controls [@breslow_estimation_1978]
 
-To construct risk prediction models, we used stepwise regression alternating between forward and backward steps to maximize the AIC, implemented in the R function `stats::step`.  The performance of the risk prediction model as a classifier was examined by 4-fold cross-validation, with performance calculated over all test folds as the expected information for discrimination $\Lambda$ [@mckeigue_quantifying_2019] and (more conventionally) as the C-statistic. The rationale for using $\Lambda$ to quantify the predictive performance of a binary classifier has been explained elsewhere [@mckeigue_quantifying_2019].  Especially relevant to this study is that the contributions of independent predictors are additive on the scale of $\Lambda$.  We can thus add the information for discrimination conditional on age and sex (estimated from this matched case-control study) to the information for discrimination estimated from a logistic regression model on age and sex in the general population. 
+To construct risk prediction models, we used stepwise regression alternating between forward and backward steps to maximize the AIC, implemented in the R function `stats::step`.  The performance of the risk prediction model as a classifier was examined by 4-fold cross-validation, with performance calculated over all test folds as the expected information for discrimination $\Lambda$ [@mckeigue_quantifying_2019] and (more conventionally) as the C-statistic. The rationale for using $\Lambda$ to quantify the predictive performance of a binary classifier, and especially to quantify increments in predictive performance, has been explained elsewhere [@mckeigue_quantifying_2019].  The contributions of independent predictors are additive on the scale of $\Lambda$.  In this study we have estimated the information for discrimination provided by age and sex (from a logistic regression model in the general population), and the information for discrimination provided by other risk factors conditional on age and sex (from conditional logistic regression models in this case-control study matched for age and sex).  We can add these to obtain the total information for discrimination that would be obtained with a classifier in the general population.  As described elsewhere, this can be used to estimate the proportion of those destined to develop severe or fatal disease who would be correctly classified as high risk under a shielding policy [@mckeigue_evaluation_2020]. 
 
 ## Information governance
 This study was conducted under approvals from the  Privacy Advisory Committee ref 44/13  and Public Benefit Privacy Protection amendment 1617-0147 . Datasets were de-identified before analysis.  
@@ -173,9 +173,9 @@ To obtain a summary metric of the additional information there is in the hospita
 
 For each of variable set, a stepwise regression procedure was carried out using alternating forward-backward selection. The variables retained with each variable set are shown in Table \ref{tab:stepwise} . The predictive performance of the model chosen by stepwise regression was estimated by `r nfold`-fold cross-validation.  Observed and predicted case status were compared over all test folds.  Table \ref{tab:xvalid} shows that using the extended set increased the C-statistic from `r table.densities[2, 3]` to `r table.densities[3, 3]` and the expected information for discrimination from `r table.densities[2, 5]` bits to `r table.densities[3, 5] ` bits.  
 
-This estimate of `r table.densities[3, 5] ` bits for the information conditional on age and sex obtained from the matched case-control study can be added to the information for discrimination `r round(cases.Lambda.agesex, 2)` bits obtained from the logistic regression on age and sex in the population using age and sex to estimate the total information for discrimination of a risk classifier in the population as that would be obtained in the population to give a total of `r table.densities[3, 5] + round(cases.Lambda.agesex, 2)` bits. 
+This estimate of `r table.densities[3, 5] ` bits for the information conditional on age and sex obtained from the matched case-control study can be added to the information for discrimination `r round(cases.Lambda.agesex, 2)` bits obtained from the logistic regression on age and sex in the population using age and sex to estimate the total information for discrimination of a risk classifier that would be obtained in the population to give a total of `r table.densities[3, 5] + round(cases.Lambda.agesex, 2)` bits. 
 
-Figure \ref{fig:wevid} shows the class-conditional distributions of the weight of evidence $W$ favouring case over control status from the model based on the extended variable set.  This shows, as expected for a multifactorial classifier, that the distributions are approximately Gaussian: there is no clear divide between high-risk and low-risk individuals of the same age and sex. Figure \ref{fig:roc}, which shows the corresponding receiver operating characteristic (ROC) curve, encodes exactly the same information in a different form.  The likelihood ratio $2^W$ at any given sensitivity and specificity is the gradient of the model-based ROC curve. 
+Figure \ref{fig:wevid} shows the class-conditional distributions of the weight of evidence $W$ favouring case over control status from the model based on the extended variable set.  The model-based distributions have been adjusted slightly to make them mathematically consistent as described elsewhere [@mckeigue_quantifying_2019].  This shows, as expected for a multifactorial classifier, that the distributions are approximately Gaussian: there is no clear divide between high-risk and low-risk individuals of the same age and sex. Figure \ref{fig:roc}, which shows the corresponding receiver operating characteristic (ROC) curve, encodes exactly the same information as Figure \ref{fig:wevid} in a different form.  The likelihood ratio $2^W$ at any given sensitivity and specificity is the gradient of the model-based ROC curve. 
 
 # Discussion  
 ### Sociodemographic features
@@ -203,10 +203,10 @@ It is to be expected that as awareness grows of how risk varies between individu
 ## Methodological strengths and weaknesses
 Most of the reports of disease associations with COVID-19 have been case series descriptions there are few prospective cohort or case control analyses with appropriate population comparators.  With this matched case control design using incidence density sampling, we have been able to estimate rate ratios conditional on age and sex.  An unpublished analysis from England explored the association of similar set of risk conditions with in-hospital COVID-19 deaths, but did not systematically evaluate the rest of the medical record including prescription records.  Although we have records of encashment of prescriptions, we do not at present have access to other the primary care data, which would contain additional information such as body mass index.  Hospital discharge diagnoses however are coded to ICD-10 by trained coders.  A further limitation is generalisability especially of sociodemographic factors to other locations. Also we limited our case control study to test-positive cases. This excludes deaths where COVID-19 is mentioned as being of suspected or probable relevance to the death but where no testing was carried out. Up to 13 May 2020 an additional 1200 such deaths had been reported by the [National Registers of Scotland.](https://www.nrscotland.gov.uk/statistics-and-data/statistics/statistics-by-theme/vital-events/general-publications/weekly-and-monthly-data-on-births-and-deaths/deaths-involving-coronavirus-covid-19-in-scotland) Future iterations of this  analysis will include sensitivity analyses of the extent to which the results are changed by including these deaths, but the data are not yet available.  Apart from residential care home status we anticipate that the ORs for most other risk factors will be similar or less as there will be some misclassification of cause in these deaths. 
 
-## Conclusion
+# Conclusion
 In conclusion the epidemiology of severe COVID-19 disease is becoming clearer  and we confirm here the importance of sociodemographic factors and  chronic conditions such as diabetes, asthma, circulatory disease and others. However there is not just one small set of conditions that contribute to risk but many conditions as evidenced by associations across with past medical and prescribing history across many body systems.  As countries attempt to emerge from lockdown whist protecting the most vulnerable multivariate classifiers rather than crude rule-based approaches will be needed to define those most at risk.
 
-# References {-}
+# References
 
 <div id="refs"></div>
 
@@ -266,13 +266,14 @@ knitr::kable(table.demog.aug[, 1:4],
              escape=FALSE, 
              booktabs=TRUE,
              label="demog",
-             digits=c(0, 0, 0, 200), 
              col.names=c(clean.header(colnames(table.demog.aug)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Univariate associations of severe disease with demographic factors") %>%
-    column_spec(column=1, width="2.5cm") %>%
-    column_spec(column=2:4, width="2.5cm") %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="1.8cm") %>%
+    column_spec(column=4, width="2.5cm") %>%
     group_rows("Ethnicity", 1, 3) %>%
     group_rows("SIMD quintile", 4, 8)
 
@@ -281,6 +282,7 @@ knitr::kable(table.demog.aug[, 1:4],
 ```{r agegr, echo=FALSE, warning=FALSE, message=FALSE}
 
 rownames(table.agegr) <- replace.names(rownames(table.agegr))
+table.agegr[1, c(1, 3, 5, 7)] <- " "
 knitr::kable(table.agegr,
              escape=FALSE, 
              booktabs=TRUE,
@@ -303,8 +305,8 @@ knitr::kable(table.agegr.all,
              label="listed.conditions.allages",
              digits=c(0, 0, 0, 200, 0, 200), 
              col.names=c(clean.header(colnames(table.agegr.all)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with listed conditions over all age groups") %>%
     column_spec(column=1, width="4cm") %>%
@@ -322,10 +324,10 @@ knitr::kable(table.conditions.aug,
              label="conditions",
              digits=c(0, 0, 0, 200, 0, 200), 
              col.names=c(clean.header(colnames(table.conditions.aug)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
-             caption="Associations of severe disease with hospital diagnoses in last 5 years, in those without listed conditions") %>%
+             caption="Associations of severe disease with hospital diagnoses in last 5 years, in those without any listed condition") %>%
     column_spec(column=1, width="4cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
     landscape()
@@ -341,10 +343,10 @@ knitr::kable(table.drugs.aug,
              label="drugs",
              digits=c(0, 0, 0, 200, 0, 200), 
              col.names=c(clean.header(colnames(table.drugs.aug)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
-             caption="Associations of severe disease with prescribed drugs in those without listed conditions") %>%
+             caption="Associations of severe disease with prescribed drugs in those without any listed condition") %>%
     column_spec(column=1, width="4.5cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
     landscape()
@@ -356,6 +358,8 @@ knitr::kable(table.drugs.aug,
 rownames(table.densities) <- c("Demographic only",
                                "Demographic + listed conditions",
                                "Extended variable set")
+table.densities[, 6] <- round(table.densities[, 6] - table.densities[1, 6], 1)
+
 
 knitr::kable(table.densities, 
              booktabs=TRUE,
@@ -383,8 +387,8 @@ knitr::kable(table.ethnicsmr.aug,
              booktabs=TRUE,
              label="ethnicsmr",
              digits=c(0, 0, 0, 200), 
-             col.names=c(colnames(table.ethnicsmr.aug)[1:2],
-                         "Rate ratio (95\\% CI)", "p-value"),
+             col.names=c(clean.header(colnames(table.ethnicsmr.aug)[1:2]),
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with ethnicity classified in hospital records") %>%
     column_spec(column=1, width="3cm")
@@ -399,8 +403,8 @@ knitr::kable(tables.agegr[[1]],
              label="listed.conditions.lt60",
              digits=c(0, 0, 0, 200, 0, 200), 
              col.names=c(colnames(tables.agegr[[1]])[1:2],
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with listed conditions in those aged less than 60") %>%
     column_spec(column=1, width="4cm") %>%
@@ -416,8 +420,8 @@ knitr::kable(tables.agegr[[2]],
              label="listed.conditions.60to74",
              digits=c(0, 0, 0, 200, 0, 200), 
              col.names=c(colnames(tables.agegr[[2]])[1:2],
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with listed conditions in those aged 60-74 years") %>%
     column_spec(column=1, width="4cm") %>%
@@ -434,8 +438,8 @@ knitr::kable(tables.agegr[[3]],
              label="listed.conditions.ge75",
              digits=c(0, 0, 0, 200, 0, 200), 
              col.names=c(clean.header(colnames(tables.agegr[[3]])[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with listed conditions in those aged 75 years and over") %>%
     column_spec(column=1, width="4cm") %>%
@@ -457,7 +461,7 @@ knitr::kable(table.icdsubchapters,
 			 longtable=TRUE, 
              label="icdsubchapters",
              col.names=c(clean.header(colnames(table.icdsubchapters)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with hospital diagnoses by ICD subchapters: rows retained are those with p < 0.001 and at least 50 cases and controls") %>%
     column_spec(column=1, width="13cm") %>%
@@ -488,7 +492,7 @@ knitr::kable(retained.full,
              booktabs=TRUE,
              escape=FALSE,
              label="stepwise",
-             col.names=c("log rate ratio", "p-value"), 
+             col.names=c("log rate ratio", "$p$-value"), 
              align=rep("c", 2),
              caption="Stepwise regression: variables retained in model for severe disease") %>%
     group_rows("Diabetes", 6, 8)

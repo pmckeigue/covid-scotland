@@ -93,7 +93,7 @@ _Methods_ -- Severe cases were ascertained as all those who tested positive for 
 
 _Findings_ -- The rate ratio associated with encashment of at least one prescription in the last year was elevated `r table.scrip.any.carehome[1, 3]` in those not resident in a care home but not in care home residents `r table.scrip.any.carehome[2, 3]`, of whom `r table.scrip.any.carehome[2, 1]` of controls had encashed a prescription in the last year. On restriction to those not resident in a care home, the rate ratio associated with encashment of a prescription was elevated in those without any of the designated high-risk conditions `r table.scrip.any.nocare.listed[1, 3]`, but not in those with any designated condition `r table.scrip.any.nocare.listed[2, 3]` of whom `r table.scrip.any.nocare.listed[2, 1]` of controls had encashed a prescription in the last year. 
 
-Among those without any of the designated high-risk conditions (diabetes, heart disease, obstructive airway disease, chronic liver disease, chronic renal failure, neurological including dementia, immune deficiency / suppression) severe cases were highly significantly more likely than controls to have had prescriptions in the past year from each BNF chapter. The strongest associations (rate ratio, 95% CI) were seen with chapters for drugs acting on the gastro-intestinal system `r table.drugs.nocare.notlisted[1, 3]`, cardiovascular system `r table.drugs.nocare.notlisted[2, 3]`, central nervous system `r table.drugs.nocare.notlisted[4, 3]` and "Nutrition and Blood" `r table.drugs.nocare.notlisted[9, 3]`.  When each of these were further disaggregated to subchapter or paragraph level, key findings included a significantly greater risk of severe COVID-19 associated with proton pump inhibitor use with rate ratios varying from `r table.protonpump[4, 3]` in those aged 75 years and over to `r table.protonpump[1, 3]` in those aged under 40 years.  This association was only slightly reduced by adjustment for for hospital diagnoses of conditions affecting the upper gastrointestinal tract and for co-prescribing of non-steroidal anti-inflammatory or anti-platelet agents.  However many other drug classes associated with prescribing for non-specific symptoms were also associated with severe COVID-19: these included osmotic laxatives non-opioid analgesics, oral iron supplements and antipsychotic drugs. 
+Among those without any of the designated high-risk conditions (diabetes, heart disease, obstructive airway disease, chronic liver disease, chronic renal failure, neurological including dementia, immune deficiency / suppression) severe cases were highly significantly more likely than controls to have had prescriptions in the past year from each BNF chapter. The strongest associations (rate ratio, 95% CI) were seen with chapters for drugs acting on the gastro-intestinal system `r table.drugs.nocare.notlisted[1, 3]`, cardiovascular system `r table.drugs.nocare.notlisted[2, 3]`, central nervous system `r table.drugs.nocare.notlisted[4, 3]` and "Nutrition and Blood" `r table.drugs.nocare.notlisted[9, 3]`.  When each of these were further disaggregated to subchapter or paragraph level, key findings included a significantly greater risk of severe COVID-19 associated with proton pump inhibitor use with rate ratios varying from `r table.protonpump[4, 3]` in those aged 75 years and over to `r table.protonpump[1, 3]` in those aged under 40 years.  However many other drug classes associated with prescribing for non-specific symptoms were also associated with severe COVID-19: these included osmotic laxatives non-opioid analgesics, oral iron supplements and antipsychotic drugs. 
 
 Among drugs prescribed for cardiovascular disease, only loop diuretics and calcium channel blockers were independently associated with risk of severe COVID-19 in a multivariate analysis. Associations with ACE inhibitors and angiotensin-II receptor blockers were similar to those for other antihypertensive agents. 
 
@@ -152,7 +152,11 @@ Table \ref{tab:bnfchapter4} shows that encashed prescriptions of most classes of
 Table \ref{tab:bnfchapter9} shows that prescriptions of several classes of nutritional supplements were associated with severe disease: these included oral iron supplements, drugs used in megaloblastic anemias, enteral nutrition products, and Vitamin D.  
 
 ## Association with proton pump inhibitors
-As drugs for the gastrointestinal system accounted for the largest fraction of the effect of "any prescription", and proton pump inhibitors were the most commonly prescribe drug in this class, we examined the association with proton pump inhibitors more closely.  Table \ref{tab:protonpump.adjusted} shows the association with proton pump inhibitors by age group, without and with adjustment for NSAIDs, antiplatelet drugs and any past hospital diagnosis in the ICD subchapter "Disorders of esophagus, stomach and duodenum".  The association was strongest in those aged under 40 years, and was reduced only slightly by adjusting for covariates.  
+As drugs for the gastrointestinal system accounted for the largest fraction of the effect of "any prescription", and proton pump inhibitors were the most commonly prescribe drug in this class, we examined the association with proton pump inhibitors more closely.  Table \ref{tab:protonpump.adjusted} shows the association with proton pump inhibitors by age group, without and with adjustment for NSAIDs, antiplatelet drugs and any past hospital diagnosis in the ICD subchapter "Disorders of esophagus, stomach and duodenum".  The association was strongest in those aged under 40 years, and was reduced by adjusting for covariates, especially prescription of nonopiate analgesics.  
+
+Table \ref{tab:analgesic.adjusted) shows the univariate and multivariate associations of severe COVID-19 with prescription of nonopioid analgesics .  
+
+
 
 # Discussion 
 ## Association with prescriptions for symptoms
@@ -195,10 +199,11 @@ knitr::kable(table.scrip.any.carehome,
              label="carehome",
              digits=c(0, 0, 0, 200, 0, 200), 
              col.names=c(clean.header(colnames(table.scrip.any.carehome)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with encashment of any prescription in the last year, by care home status") %>%
-    column_spec(column=1, width="4cm")
+     kable_styling(latex_options="hold_position") %>%
+   column_spec(column=1, width="4cm")
 ```
 
 ```{r listed, echo=FALSE, warning=FALSE, message=FALSE}
@@ -208,9 +213,10 @@ knitr::kable(table.scrip.any.nocare.listed,
              booktabs=TRUE,
              label="listed.any",
              col.names=c(clean.header(colnames(table.scrip.any.nocare.listed)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with encashment of any prescription in the last year, by presence of a listed condition, excluding care home residents") %>%
+    kable_styling(latex_options="hold_position") %>%
     column_spec(column=1, width="4cm")
 ```
 
@@ -223,12 +229,13 @@ knitr::kable(table.drugs.nocare.notlisted,
              label="drugs",
              digits=c(0, 0, 0, 200, 0, 200), 
              col.names=c(clean.header(colnames(table.drugs.nocare.notlisted)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with prescribed drugs in those not resident in care homes and without listed conditions") %>%
     column_spec(column=1, width="4.5cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    kable_styling(latex_options="hold_position") %>%
     landscape()
 ```
 
@@ -247,6 +254,7 @@ knitr::kable(table.anyscrip.chapter,
     column_spec(column=2, width="2cm") %>%
     column_spec(column=3, width="2cm") %>%
     column_spec(column=4, width="2cm") %>%
+    kable_styling(latex_options="hold_position") %>%
     add_header_above(c(" "=1, "Adjusted effect"=2))
             
 ```
@@ -258,12 +266,13 @@ knitr::kable(table.bnfchapter1,
              booktabs=TRUE,
              label="bnfchapter1",
              col.names=c(clean.header(colnames(table.bnfchapter1)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with prescribed drugs in BNF chapter 1 in those not resident in a care home and without without listed conditions") %>%
     column_spec(column=1, width="4cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    kable_styling(latex_options="hold_position") %>%
     landscape()
 ```
 
@@ -275,12 +284,13 @@ knitr::kable(table.bnfchapter2,
              booktabs=TRUE,
              label="bnfchapter2",
              col.names=c(clean.header(colnames(table.bnfchapter2)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with prescribed drugs in BNF chapter 2 in those without listed conditions") %>%
     column_spec(column=1, width="4cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    kable_styling(latex_options="hold_position") %>%
     landscape()
 ```
 
@@ -291,13 +301,14 @@ knitr::kable(table.bnfchapter4,
              booktabs=TRUE,
              label="bnfchapter4",
              col.names=c(clean.header(colnames(table.bnfchapter4)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with prescribed drugs in BNF chapter 4 in those without listed conditions") %>%
     column_spec(column=1, width="4cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
     group_rows("", 1, nrow(table.bnfchapter4)) %>%
+    kable_styling(latex_options="hold_position") %>%
     landscape()
 
 ```
@@ -309,13 +320,14 @@ knitr::kable(table.bnfchapter9,
              booktabs=TRUE,
              label="bnfchapter9",
              col.names=c(clean.header(colnames(table.bnfchapter9)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with prescribed drugs in BNF chapter 9 in those without listed conditions") %>%
     column_spec(column=1, width="4cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
     group_rows("", 1, nrow(table.bnfchapter9)) %>%
+    kable_styling(latex_options="hold_position") %>%
     landscape()
 
 ```
@@ -327,16 +339,27 @@ knitr::kable(table.protonpump,
              label="protonpump.adjusted", 
              booktabs=TRUE,
              col.names=c(clean.header(colnames(table.protonpump)[1:2]),
-                         "Rate ratio (95\\% CI)", "p-value",
-                         "Rate ratio (95\\% CI)", "p-value"),
-             caption="Associations of severe disease with proton pump inhibitor by age group, with and without adjustment for covariates") %>%
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
+             caption="Associations of severe disease with prescription of a proton pump inhibitor by age group, with and without adjustment for hospital diagnosis of any upper GI tract disorder, and prescription of NSAIDs,  antiplatelet agent, and nonopioid analgesics, excluding care home residents") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    kable_styling(latex_options="hold_position") %>%
     landscape()
 
 ```
 
-\newpage
+```{r analgesic, echo=FALSE, warning=FALSE, message=FALSE}
 
-# Appendix
-## Supplementary tables
+knitr::kable(table.nonopioid.analgesic,
+             escape=FALSE,
+             label="analgesic.adjusted", 
+             booktabs=TRUE,
+             col.names=c(clean.header(colnames(table.nonopioid.analgesic)[1:2]),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
+             caption="Associations of severe disease with prescription of a nonopioid analgesic by age group, with and without adjustment for hospital diagnosis of any neoplasm, and prescription of  NSAIDs, antiplatelet agents and proton pump inhibitors, excluding care home residents") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    kable_styling(latex_options="hold_position") %>%
+    landscape()
 
+```

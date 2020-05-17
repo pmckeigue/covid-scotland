@@ -207,7 +207,7 @@ knitr::kable(table.testpositives.demog,
 ```{r onomap.hosp, echo=FALSE, warning=FALSE, message=FALSE}
 
 rownames(table.hospitalized.demog) <- gsub("_", " ", rownames(table.hospitalized.demog))
-knitr::kable(table.demog.aug,
+knitr::kable(table.hospitalized.demog,
              escape=FALSE, 
              booktabs=TRUE,
              label="onomap.hosp",

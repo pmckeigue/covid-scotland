@@ -84,10 +84,12 @@ cc.all <- within(cc.all, ethnic4.smr <- relevel(as.factor(ethnic4.smr), ref="Whi
 ## recode ONOMAP ethnicity to 4 categories: White, South Asian, Chinese, Other
 cc.all$ethnic4 <- car::recode(cc.all$ethnic5, "'Black'='Other'")
 cc.all <- within(cc.all, ethnic4 <- relevel(as.factor(ethnic4), ref="White"))
+cc.all$ethnic4 <- factor(cc.all$ethnic4, levels=levels(cc.all$ethnic4)[c(1, 4, 2, 3)])
 
 ## recode ONOMAP ethnicity to 3 categories: White, South Asian, Other
 cc.all$ethnic3 <- car::recode(cc.all$ethnic4, "'Chinese'='Other'")
 cc.all <- within(cc.all, ethnic3 <- relevel(as.factor(ethnic3), ref="White"))
+cc.all$ethnic3 <- factor(cc.all$ethnic3, levels=levels(cc.all$ethnic3)[c(1, 3, 2)])
 
 ####################################################################
 
@@ -154,6 +156,7 @@ cc.all$dm.type <-
                          11:100='Other diabetes type'"))
 
 cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
+cc.all$dm.type <- factor(cc.all$dm.type, levels=levels(cc.all$dm.type)[c(1, 3, 4, 2)])
 
 ###############################################################################
 
@@ -737,39 +740,17 @@ table.anyscrip.chapter$prop.explained <- round(with(table.anyscrip.chapter,
 
 ## tabulate para or subpara codes in BNF chapters of interest
 
-###### start with chapter 1
 table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=cc.nocare.notlisted)
+table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.nocare.notlisted)
+table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.nocare.notlisted)
+table.bnfchapter9 <- tabulate.bnfsubparas(chnum=9, data=cc.nocare.notlisted)
+table.bnfchapter10 <- tabulate.bnfsubparas(chnum=10, data=cc.nocare.notlisted)
+
+## fix to tabulate BNF chemical substance
 
 ############# proton pump #########################
 
-## tabulate associations with and without covariate adjustment, excluding care home
-
-table.protonpump <- NULL
-withcovariates.formula <- as.formula("CASE ~ nsaid + antiplatelet + esoph.stomach.duod + protonpump + strata(stratum)")
-
-for(agegr in levels(cc.nocare$agegr20)) {
-    x <- tabulate.freqs.regressions(varnames="protonpump",
-                                    data=cc.nocare[cc.nocare$agegr20==agegr, ])[, 1:4]
-    y <- summary(clogit(formula=withcovariates.formula,
-                        data=cc.nocare[cc.nocare$agegr20==agegr, ]))$coefficients[4, , drop=FALSE]
-    x$m.ci <- or.ci(y[, 1], y[, 3])
-    x$m.pvalue <- pvalue.latex(y[, 5])
-    rownames(x) <- agegr
-    colnames(x)[1:2] <- c("Controls", "Cases")
-    table.protonpump <- rbind(table.protonpump, x)
-}
-x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.nocare)[, 1:4]
-y <- summary(clogit(formula=withcovariates.formula,
-                    data=cc.nocare))$coefficients[4, , drop=FALSE]
-x$m.ci <- or.ci(y[, 1], y[, 3])
-x$m.pvalue <- pvalue.latex(y[, 5])
-rownames(x) <- "All"
-colnames(x)[1:2] <- c("Controls", "Cases")
-table.protonpump <- rbind(table.protonpump, x)
-
-
-####### effects of scrip and protonpump by care home status ############################
-
+####### effects of scrip and protonpump by care home status ######################
 
 table.protonpump.carehome <- NULL
 for(residence in levels(cc.severe$care.home)) {
@@ -780,33 +761,59 @@ for(residence in levels(cc.severe$care.home)) {
     table.protonpump.carehome <- rbind(table.protonpump.carehome, x)
 }
 
-##################################################################################
-## tabulate proton pump by age group, excluding care home residents
+## tabulate associations with and without covariate adjustment, excluding care home residents
 
-table.nocare.protonpump <- NULL
-withcovariates.formula <- as.formula("CASE ~ nsaid + antiplatelet + esoph.stomach.duod + protonpump + strata(stratum)")
+table.protonpump <- NULL
+withcovariates.formula <- as.formula("CASE ~ esoph.stomach.duod + nsaid + antiplatelet +  protonpump + nonopioid.analgesic + strata(stratum)")
+coeff.row <- 5
 
-for(agegr in levels(cc.severe$agegr20)) {
+for(agegr in levels(cc.nocare$agegr20)) {
     x <- tabulate.freqs.regressions(varnames="protonpump",
                                     data=cc.nocare[cc.nocare$agegr20==agegr, ])[, 1:4]
     y <- summary(clogit(formula=withcovariates.formula,
-                        data=cc.nocare[cc.nocare$agegr20==agegr, ]))$coefficients[4, , drop=FALSE]
+                        data=cc.nocare[cc.nocare$agegr20==agegr, ]))$coefficients[coeff.row, , drop=FALSE]
     x$m.ci <- or.ci(y[, 1], y[, 3])
     x$m.pvalue <- pvalue.latex(y[, 5])
     rownames(x) <- agegr
     colnames(x)[1:2] <- c("Controls", "Cases")
-    table.nocare.protonpump <- rbind(table.nocare.protonpump, x)
+    table.protonpump <- rbind(table.protonpump, x)
 }
 x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.nocare)[, 1:4]
 y <- summary(clogit(formula=withcovariates.formula,
-                    data=cc.nocare))$coefficients[4, , drop=FALSE]
+                    data=cc.nocare))$coefficients[coeff.row, , drop=FALSE]
 x$m.ci <- or.ci(y[, 1], y[, 3])
 x$m.pvalue <- pvalue.latex(y[, 5])
 rownames(x) <- "All"
-colnames(x)[1:2] <- c("Controls", "Cases")
-table.nocare.protonpump <- rbind(table.nocare.protonpump, x)
+colnames(table.protonpump)[1:2] <- colnames(x)[1:2]
+table.protonpump <- rbind(table.protonpump, x)
+################################################################
 
-########################################################################
+withcovariates.formula <- as.formula("CASE ~ neoplasm.any + nsaid + antiplatelet + protonpump + nonopioid.analgesic + strata(stratum)")
+
+table.nonopioid.analgesic <- NULL
+for(agegr in levels(cc.nocare$agegr20)) {
+    x <- tabulate.freqs.regressions(varnames="nonopioid.analgesic",
+                                    data=cc.nocare[cc.nocare$agegr20==agegr, ])[, 1:4]
+    y <- summary(clogit(formula=withcovariates.formula,
+                        data=cc.nocare[cc.nocare$agegr20==agegr, ]))$coefficients[coeff.row, , drop=FALSE]
+    x$m.ci <- or.ci(y[, 1], y[, 3])
+    x$m.pvalue <- pvalue.latex(y[, 5])
+    rownames(x) <- agegr
+    colnames(x)[1:2] <- c("Controls", "Cases")
+    table.nonopioid.analgesic <- rbind(table.nonopioid.analgesic, x)
+}
+x <- tabulate.freqs.regressions(varnames="nonopioid.analgesic", data=cc.nocare)[, 1:4]
+y <- summary(clogit(formula=withcovariates.formula,
+                    data=cc.nocare))$coefficients[coeff.row, , drop=FALSE]
+x$m.ci <- or.ci(y[, 1], y[, 3])
+x$m.pvalue <- pvalue.latex(y[, 5])
+rownames(x) <- "All"
+colnames(x)[1:2] <- colnames(table.nonopioid.analgesic)[1:2]
+table.nonopioid.analgesic <- rbind(table.nonopioid.analgesic, x)
+
+##################################################################################
+
+## tabulate fatal cases  by age group
 
 table.fatal.protonpump <- NULL
 for(agegr in levels(cc.severe$agegr20)) {
@@ -822,15 +829,7 @@ colnames(x)[1:2] <- c("Controls", "Cases")
 table.fatal.protonpump <- rbind(table.fatal.protonpump, x)
 
 
-## other BNF chapters
-table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.notlisted)
-table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.notlisted)
-table.bnfchapter9 <- tabulate.bnfsubparas(chnum=9, data=cc.notlisted)
-table.bnfchapter10 <- tabulate.bnfsubparas(chnum=10, data=cc.notlisted)
-
-## fix to tabulate BNF chemical substance
-
-#########################################################
+######## stepwise regressions use saved version #####################
 nfold <- 4
 #stepwise <- TRUE
 stepwise <- FALSE
@@ -842,8 +841,7 @@ source("stepwise.R")
 rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
 rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
 #rmarkdown::render("Covid_ethnicity_Scotland.Rmd")
-  
-
+ 
 library(infotheo)
 
 X <- with(cc.severe, data.frame(protonpump, scrip.any))
@@ -854,9 +852,3 @@ mi <- mean(unlist(lapply(X=split(X, cc.severe$stratum),
 
 y.analgesic <- as.integer(cc.severe$nonopioid.analgesic)
 
-analgesic.formula=as.formula(paste("CASE ~ care.home +",
-                                   paste(conditions, collapse="+"),
-                                   "+ nonopioid.analgesic + protonpump + strata(stratum)"))
-
-summary(clogit(formula=analgesic.formula,
-               data=cc.severe[cc.severe$listed.any=="0", ]))

@@ -156,12 +156,12 @@ knitr::kable(table.ethnic5smr,
              align=rep("c", 6), 
              caption="Associations of severe disease with ethnicity in those with ethnicity recorded in Scottish Morbidity record") %>%
     kable_styling(latex_options="hold_position") %>% 
-    column_spec(column=1, width="2cm") %>%
+    column_spec(column=1, width="2.7cm") %>%
     column_spec(column=2, width="1.85cm")  %>%
     column_spec(column=3, width="1.85cm")  %>%
     column_spec(column=4, width="2.5cm") %>%
     column_spec(column=5, width="1.5cm") %>%
-    column_spec(column=6, width="2.5cm") %>%
+    column_spec(column=6, width="2.8cm") %>%
     column_spec(column=7, width="1.5cm")
 ```
 

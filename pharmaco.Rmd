@@ -85,37 +85,34 @@ library(kableExtra)
 
 ```
 
+\newpage
+
 # Abstract
 
-_Background_-- We previously reported from a case-control study that encashment of any prescription from primary care in the past year was strongly associated with severe COVID-19, independently of the presence of conditions designated as high risk.  The objective of this study was to distinguish between three possible explanations for this unexpected association: confounding by other high-risk conditions, an effect associated with consultations for symptoms not necessarily associated with high-risk conditions, and a direct effect of exposure to one or more classes of drug on risk of severe disease.  
+_Background_-- We previously reported that dispensing of at least one prescription from primary care in the past year was strongly associated with severe COVID-19 in Scotland, independently of past diagnoses of conditions designated as high risk. The objective of this study was to investigate possible explanations for this association. .  
 
-_Methods_ -- Severe cases were ascertained as all those who tested positive for SARS-C0V-2 viral RNA in the national database who entered intensive care or died within 28 days.  We selected 10 controls per case from the national population register, matched for sex, age and general practice.  For all cases and controls we extracted International Classification of Disease (ICD-10) codes from the previous five years of hospital discharge records and British National Formulary (BNF) drug codes of encashed primary care issued prescriptions in the past year.  Rate ratios were estimated by conditional logistic regression.
+_Methods_ -- Severe cases were ascertained as all those who tested positive for SARS-C0V-2 viral RNA in the national database who entered intensive care or died within 28 days.  From the national population register ten controls per case were selected, matched for sex, age and general practice.  International Classification of Disease (ICD-10) codes were extracted from the past five years of hospital discharge records and British National Formulary (BNF) drug codes from encashed primary care issued prescriptions in the past year.  Rate ratios were estimated by conditional logistic regression.
 
-_Findings_ -- The rate ratio associated with encashment of at least one prescription in the last year was elevated `r table.scrip.any.carehome[1, 3]` in those not resident in a care home but not in care home residents `r table.scrip.any.carehome[2, 3]`, of whom `r table.scrip.any.carehome[2, 1]` of controls had encashed a prescription in the last year. On restriction to those not resident in a care home, the rate ratio associated with encashment of a prescription was elevated in those without any of the designated high-risk conditions `r table.scrip.any.nocare.listed[1, 3]`, but not in those with any designated condition `r table.scrip.any.nocare.listed[2, 3]` of whom `r table.scrip.any.nocare.listed[2, 1]` of controls had encashed a prescription in the last year. 
+_Findings_ -- In those not resident in a care home and without past diagnoses of any conditions designated as high risk, the rate ratio (95% CI) associated with dispensing of any prescription in the last year was `r table.scrip.any.nocare.listed[1, 3]`.  A backward selection procedure showed that two chapters of the BNF -- drugs for the gastrointestinal system (Chapter 1) and the cardiovascular system (Chapter 2) -- accounted for `r round(100 * stepwise.drop[13, 2] / stepwise.drop[1, 2])`% of this effect. A further backward selection of  drug codes in these two chapters identified proton pump inhibitors as the drug class with the strongest independent association with severe COVID-19.  The rate ratio for severe COVID-19 associated with with proton pump inhibitor use varied from `r table.protonpump[4, 3]` in those aged 75 years and over to `r table.protonpump[1, 3]` in those aged under 40 years. Adjustment for hospital diagnoses of disorders of the esophagus, stomach and duodenum, and prescribing of antiplatelet or nonsteroidal anti-inflammatory agents reduced these effect sizes only slightly. 
 
-Among those without any of the designated high-risk conditions (diabetes, heart disease, obstructive airway disease, chronic liver disease, chronic renal failure, neurological including dementia, immune deficiency / suppression) severe cases were highly significantly more likely than controls to have had prescriptions in the past year from each BNF chapter. The strongest associations (rate ratio, 95% CI) were seen with chapters for drugs acting on the gastro-intestinal system `r table.drugs.nocare.notlisted[1, 3]`, cardiovascular system `r table.drugs.nocare.notlisted[2, 3]`, central nervous system `r table.drugs.nocare.notlisted[4, 3]` and "Nutrition and Blood" `r table.drugs.nocare.notlisted[9, 3]`.  When each of these were further disaggregated to subchapter or paragraph level, key findings included a significantly greater risk of severe COVID-19 associated with proton pump inhibitor use with rate ratios varying from `r table.protonpump[4, 3]` in those aged 75 years and over to `r table.protonpump[1, 3]` in those aged under 40 years.  However many other drug classes associated with prescribing for non-specific symptoms were also associated with severe COVID-19: these included osmotic laxatives non-opioid analgesics, oral iron supplements and antipsychotic drugs. 
-
-Among drugs prescribed for cardiovascular disease, only loop diuretics and calcium channel blockers were independently associated with risk of severe COVID-19 in a multivariate analysis. Associations with ACE inhibitors and angiotensin-II receptor blockers were similar to those for other antihypertensive agents. 
-
-*Conclusions* -- Risk of severe COVID-19 is strongly associated with encashment of prescriptions for drugs that are widely prescribed for minor symptoms.  It remains to be established whether this effect is accounted for by association with characteristics of patients who consult for these symptoms, or by direct drug effects.  Of the drug classes that might possibly account for an association with prescribing, by far the strongest candidate is proton pump inhibitors, which are prescribed to about 30% of those aged over 60 years and are associated with a threefold elevation of risk of severe disease in this age range.  As increased risk of infection is an established adverse effect of these drugs, a causal effect is plausible.  This may be relevant to high rates of severe disease reported in other populations where this class of drugs is widely overprescribed.  Until further studies are available, it is advisable to avoid using these drugs without a recognized medical indication.  
+Other drug classes in Chapter 1, including laxatives and agents influencing motility, were associated with higher rates of severe COVID-19 but only proton pump inhibitors and osmotic laxatives were independently associated with disease in a multivariate analysis.  Among drugs prescribed for cardiovascular disease, only loop diuretics and calcium channel blockers were independently associated with severe COVID-19 in a multivariate analysis. Associations of disease with ACE inhibitors and angiotensin-II receptor blockers were similar to those with other antihypertensive agents.  
+                                                                                               *Conclusions* -- A systematic search for drug classes that underlie the association of severe COVID-19 with dispensing of any prescription has identified proton pump inhibitors as the drug class making the largest independent contribution to this association.  The association with proton pump inhibitors is not explained by adjusting for covariates. As severe disease is associated with other drug classes such as laxatives that are commonly prescribed for minor symptoms, confounding by factors associated with these symptoms cannot be excluded.  However as increased risk of community-acquired pneumonia is an established adverse effect of this class of drugs, a causal effect is plausible.  In the Scottish population where 28\% of controls have used proton pump inhibitors and the rate ratio is 2.8, one-third of severe cases could be attributable to use of these drugs. This may be relevant to high rates of severe COVID-19 reported in other populations where proton pump inhibitors are overprescribed.  Until the effects of proton pump inhibitors on susceptibility to severe COVID-19 have been investigated further, use of these drugs without a recognized medical indication is inadvisable.  
 
 \newpage
 
 # Background
-A striking preliminary finding of the REACT-SCOT study was the very strong association of severe COVID-19 with having encashed at least one prescription in the past year. The rate ratio associated with this variable varied from `r tables.agegr[[1]][2, 3]` in those aged under 60 years to `r tables.agegr[[3]][2, 3]` in those aged 75 years and over.  In a multivariate analysis adjusting for care home residence, any hospital admission and listed conditions, these rate ratios were reduced to `r tables.agegr[[1]][2, 5]` and `r tables.agegr[[3]][2, 5]` About one third of those over 75 had not encashed a prescription in the previous year.  The objective of this study was to distinguish between three possible explanations for this unexpected association: confounding by other high-risk conditions, an effect associated with consultations for symptoms not necessarily associated with high-risk conditions, and a direct effect of exposure to one or more classes of drug on risk of severe disease.  
+A striking preliminary finding of the REACT-SCOT study was the strong association of severe COVID-19 with dispensing of at least one prescription in the past year. The rate ratio associated with this variable varied from `r tables.agegr[[1]][2, 3]` in those aged under 60 years to `r tables.agegr[[3]][2, 3]` in those aged 75 years and over.  In a multivariate analysis adjusting for care home residence, any hospital admission and listed conditions, these rate ratios were reduced to `r tables.agegr[[1]][2, 5]` and `r tables.agegr[[3]][2, 5]` About one third of those over 75 had not encashed a prescription in the previous year.  The objective of this study was to distinguish between three possible explanations for this unexpected association: confounding by other high-risk conditions, an effect associated with consultations for symptoms not necessarily associated with high-risk conditions, and a direct effect of exposure to one or more classes of drug on risk of severe disease.  
 
 # Methods
 The design of the REACT-SCOT case-control study is described in detail in the accompanying paper. 
 
 ## Case ascertainment and sampling of controls 
-The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally, using the Community Health Index (CHI) identifier.  The CHI number is a unique identifier for everyone in the population, and is used in all care systems in Scotland.  All individuals testing positive for nucleic acid for SARS-CoV-2 up to `r format(max(cc.all$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained.  Hospital admissions from the time of testing were obtained from the RAPID-24 database which is updated each day and the weekly updated Scottish Morbidity Record 01. Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care units across Scotland. Death registrations up to `r format(max(cc.all$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.   
+The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally, using the Community Health Index (CHI) identifier. All individuals testing positive for nucleic acid for SARS-CoV-2 up to `r format(max(cc.all$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained.  Hospital admissions from the time of testing were obtained from the RAPID-24 database which is updated each day and the weekly updated Scottish Morbidity Record 01. Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care units across Scotland. Death registrations up to `r format(max(cc.all$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.   
 
-For each test-positive case, we ascertained ten matched controls of the same sex, one year age band and attending the same General Practice as each case alive on the same day as the date of test in the case using the Community Health Index (CHI) database. As this is an incidence density sampling design, it is possible and correct for an individual to appear in the dataset more than once, initially as a control and subsequently as a case.  With this design, odds ratios in conditional logistic regression models are equivalent to rate ratios.  
+For each test-positive case, the CHI database was used to select ten controls matched for sex, one-year age band and registered with the same primary care practice, who were alive on the same day as the date of test in the case using the Community Health Index (CHI) database.  With this incidence density sampling design, odds ratios in conditional logistic regression models are equivalent to rate ratios.  
 
 ## Morbidity and drug prescribing
-For all cases and controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-Cov-2 and using all codes on the discharge. Diagnosed cases of diabetes were identified through linkage to the national diabetes register (SCI-Diabetes), with a clinical classification of diabetes type as Type 1, Type 2 or Other.  
-
-British National Formulary (BNF) drug codes were extracted from the last year of encashed prescriptions, excluding those encashed less than 25 days before testing positive for SARS-CoV-2.  The BNF classification groups drugs by chapter (2 digits), section (2 digits), paragraph (2 digits) and subparagraph (1 digit), and chemical substance (2 characters).  For this analysis prescription codes from chapters 14 and above, comprising vaccines, anaesthesia, other preparations, dressings and appliances, were grouped as "Other" 
+For all cases and controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-Cov-2 and using all codes on the discharge. Diagnosed cases of diabetes were identified through linkage to the national diabetes register (SCI-Diabetes), with a clinical classification of diabetes type as Type 1, Type 2 or Other.  British National Formulary (BNF) drug codes were extracted from the last year of encashed prescriptions, excluding those encashed less than 25 days before testing positive for SARS-CoV-2.  The BNF classification groups drugs by chapter (2 digits), section (2 digits), paragraph (2 digits), subparagraph (1 digit), and chemical substance (2 characters).  For this analysis prescription codes from chapters 14 and above, comprising vaccines, anaesthesia, other preparations, dressings and appliances, were grouped as "Other". Most of these codes are for dressings and appliances rather than drugs.  
 
 # Data analysis 
 We derived indicator variables for a list of conditions that have been included as risk conditions for COVID-19 by public health agencies [@nhs_whos_2020].  These co-morbid conditions were assigned based on either a diagnostic code in any hospital discharge record during the last five years, or an encashed prescription of a drug for which that diagnostic code is the only indication.  The ICD-10 codes and drug codes used to define each variable are listed in the R scripts provided as Supplementary Material. 
@@ -126,70 +123,50 @@ This study was conducted under approvals from the Public Benefit and Privacy Pan
 
 # Results
 ## Encashment of any prescription by care home status and presence of any listed condition
-As residence in a care home was the strongest risk factor for severe COVID-19, we first examined the association with enchashment of any prescription after stratifying by care home status.  Table \ref{tab:carehome} shows that the association was restricted to those not resident in a care home. 
+As residence in a care home was the strongest risk factor for severe COVID-19, we first examined the association with enchashment of any prescription after stratifying by care home status.  Table \ref{tab:carehome} shows that the association was restricted to those not resident in a care home.  In the next step, residents of care homes were excluded and the association with dispensing of any prescription was examined after stratifying by the presence or absence of a listed condition.  Table \ref{tab:listed.any} shows that the association of severe COVID-19 with dispensed prescriptions was restricted to those without a listed condition. 
 
-As a next step, we examined the association with encashment of any prescription after stratifying by the presence or absence of a listed condition, excluding those resident in a care home.  Table \ref{tab:listed.any} shows that the association was restricted to those without a listed condition 
+To investigate which drug classes contribute to this association, the analysis was restricted to those not resident in care homes and without a diagnosis of a listed condition.  We undertook a backward stepwise variable selection procedure, based on BNF chapters which group drug classes by the body systems on which they act.  Starting with the "any prescription" variable based on all 14 BNF chapters, models that dropped each of these chapters, retaining the other 13, were compared and the model with highest log-likelihood was retained. This procedure was repeated until the any prescription variable was based on a single remaining chapter.  Table \ref{tab:stepwise.drop} shows the results of this process.  Only the last five chapters decreased the log-likelihood when dropped: in order of deselection, these were chapters 6 (endocrine) 4 (nervous system, 10 (musculoskeletal), 1 (gastrointestinal) and 2 (cardiovascular).  
 
-## Partitioning by BNF chapter
-We next partitioned the "any prescription" variable into indicator variables for each chapter of the British National Formulary.  The chapter level groups drugs by the system on which they act.  We restricted this analysis to those without any listed condition and not resident in a care home.  Table \ref{tab:drugs} shows these associations.  
+To investigate which drug classes in Chapters 1 and 2 contribute to the "any dispensed prescription effect, we repeated the backward stepwise variable selection procedure on all BNF subparagraph codes in these two chapters.  Subparagraph codes correspond generally to drugs classified by their mode of action.  Of the 48 subparagraph codes in Chapters 1 and 2, only the last ten retained by the stepwise variable selection decreased the log-likelihood when dropped.  The results of the stepwise variable selection for these last ten are shown in Table \ref{tab:stepwise.subparas}.  The cardiovascular drug classes retained at this stage were oral anticoagulants, angiotensin-II receptor antagonists, angiotensin-converting enzyme inhibitors, loop diuretics and calcium-channel blockers.  The gastrointestinal drug classes retained at this stage were drugs altering gut motility, osmotic laxatives and proton pump inhibitors.  The last variable retained by backward selection, and thus the variable with largest independent explanatory power, was proton pump inhibitors.  
 
-In univariate analyses, prescriptions in almost all BNF chapters were associated with severe disease. 
+This led us to examine further the association of proton pump inhibitors with severe disease, without restricting the analysis to those not resident in care homes and without a diagnosis of a listed condition.  Table \ref{tab:protonpump.adjusted} shows the association with proton pump inhibitors by age group, without and with adjustment for NSAIDs, antiplatelet drugs and any past hospital diagnosis in the ICD subchapter "Disorders of esophagus, stomach and duodenum".  The association was strongest in those aged under 40 years, and was reduced by adjusting for covariates.  
 
-Table \ref{tab:explained.chapter} examines how much the effect of any prescription is reduced by adding an indicator variable for each chapter, one at a time.  The chapter indicators that explained the highest fractions of the "any prescription" effect were Chapter 1 (Gastrointestinal System) , Chapter 2 (Cardiovascular System), Chapter 4 (Central Nervous System), and Chapter 9 (Nutrition), The codes grouped under Chapter 14+ (Other) are mostly for dressings and appliances, presumably reflecting a general association with frailty.  This led us to examine associations with specific drug classes, grouped at BNF paragraph or subparagraph level, within each of these three chapters.
+Table \ref{tab:bnfchapter1} shows that dispensed prescriptions of most classes of drugs for the gastrointestinal system were associated with severe COVID-19, but only proton pump inhibitors, osmotic laxatives, and aminosalicylates were independently associated with disease in a multivariate analysis.  Proton pump inhibitors were far more commonly prescribed than other drug classes in this chapter.  
 
-## Associations with severe COVID-19 at section, paragraph and subparagraph level
-
-## Drugs for gastro-intestinal system: BNF chapter 1
-Table \ref{tab:bnfchapter1} shows that encashed prescriptions of most classes of drugs for the gastrointestinal system were associated with severe COVID-19.  Of these by far the most commonly prescribed drug classes was proton pump inhibitors.  Osmotic laxatives were also associated with severe disease, but were far less commonly prescribed. 
-
-## Drugs for cardiovascular system: BNF chapter 2
-Table \ref{tab:bnfchapter2} lists associations with drugs for the cardiovascular system, grouped by BNF subparagraph.  This shows that prescriptions of most classes of drugs for the cardiovascular system were associated with severe COVID-19. In a multivariate analysis the strongest associations were with loop diuretics and calcium-channel blockers.  All commonly-used drug classes used to treat hypertension were associated with moderately elevated risk of severed disease, with rate ratios from ranging from about 1.4 to 2.2.  The rate ratios associated with ACE inhibitors and angiotensin-II receptor blockers were in the middle of this range. Prescriptions of anticoagulant, antiplatelet and lipid-lowering drugs were associated with severe disease in univariate analyses, but these association were weaker in a multivariate analysis.  
-
-## Drugs acting on the central nervous system: BNF chapter 4
-Table \ref{tab:bnfchapter4} shows that encashed prescriptions of most classes of drugs acting on the central nervous system were associated with severe COVID-19. The most commonly prescribed drug class, and the strongest independent effect in a multivariate analysis, was non-opiate analgesics and compound preparations. This class of drugs includes paracetamol and various compound preparations that are marketed for relief of upper respiratory symptoms, headache, influenza, and other conditions.  Other drug classes associated with severe COVID-19 in a multivariate analysis were antipsychotic agents and opioid analgesics.  
-
-## Drugs for Nutrition and Blood: BNF chapter 9
-Table \ref{tab:bnfchapter9} shows that prescriptions of several classes of nutritional supplements were associated with severe disease: these included oral iron supplements, drugs used in megaloblastic anemias, enteral nutrition products, and Vitamin D.  
-
-## Association with proton pump inhibitors
-As drugs for the gastrointestinal system accounted for the largest fraction of the effect of "any prescription", and proton pump inhibitors were the most commonly prescribe drug in this class, we examined the association with proton pump inhibitors more closely.  Table \ref{tab:protonpump.adjusted} shows the association with proton pump inhibitors by age group, without and with adjustment for NSAIDs, antiplatelet drugs and any past hospital diagnosis in the ICD subchapter "Disorders of esophagus, stomach and duodenum".  The association was strongest in those aged under 40 years, and was reduced by adjusting for covariates, especially prescription of nonopiate analgesics.  
-
-Table \ref{tab:analgesic.adjusted) shows the univariate and multivariate associations of severe COVID-19 with prescription of nonopioid analgesics .  
-
-
+ Table \ref{tab:bnfchapter2} shows that We also examined the univariate and multivariate associations of prescribed drugs for the cardiovascular system (BNF chapter 2) with severe COVID-19.  lists associations with drug classes (BNF subparagraphs) in this chapter.  Prescriptions of most classes of drugs for the cardiovascular system were associated with severe COVID-19. In a multivariate analysis the strongest associations were with loop diuretics and calcium-channel blockers.  All commonly-used drug classes used to treat hypertension were associated with moderately elevated risk of severed disease, with rate ratios from ranging from about 1.4 to 2.2.  The rate ratios associated with ACE inhibitors and angiotensin-II receptor blockers were in the middle of this range. Prescriptions of anticoagulant, antiplatelet and lipid-lowering drugs were associated with severe disease in univariate analyses, but these association were weaker in a multivariate analysis.  
 
 # Discussion 
-## Association with prescriptions for symptoms
+We have shown that the association of dispensed drug prescriptions with severe COVID-19 remains after excluding people who are at high risk for reasons that are associated with higher rates of prescribing; residence in care homes or a hospital diagnosis of a designated high-risk condition.  We have shown further that this most of this association is accounted for by drugs prescribed for the gastrointestinal system and drugs prescribed for the cardiovascular system.  There are smaller independent contributions from drugs prescribed for the nervous and musculoskeletal systems.  
 
-The list of prescribed drug classes that are associated with elevated risk of severe COVID-19 correspond closely to those identified by clinical pharmacologists and pharmacists as widely overprescribed drug classes: these include proton pump inhibitors, laxatives, analgesics, antipsychotic agents and nutritional supplements. 
+Of the drugs prescribed for the cardiovascular system, the strongest independent effect is that of loop diuretics.  This is likely to reflect an underlying association of heart failure with high risk of severe or fatal COVID-19. Prescription of ACE inhibitors or angiotensin-II receptor blockers is associated with elevated risk of severe disease, but the rate ratios are no higher than for other antihypertensive agents.  This is likely to reflect an underlying assocaition of hypertension with severe disease.  A more detailed study of the relation of COVID-19 to cardiovascular disease and drugs prescribed for cardiovascular disease will be reported elsewhere. 
 
-Patients who consult with minor symptoms, leading to prescriptions of these drugs without a clear medical indication, are at high risk.  The problem is to determine whether this association is accounted for by characteristics that underlie these consultations for minor symptoms, or by direct drug effects.  
+Of all the prescribed drug classes in Chapters 1 and 2 of the BNF, the strongest association was with proton pump inhibitors.  This association with proton pump inhibitors is not explained by association with hospital diagnoses of diseases of the upper gastrointestinal tract, or by coprescribing with non-steroidal anti-inflammatory or antiplatelet agents.  The highest rate ratios associated with this exposure are in those aged under 40.  
+  
+The possible effect of proton pump inhibitors on risk of severe COVID-19 was not one of the hypotheses that we specified in advance when setting up this case-control study.  With hindsight, perhaps it should have been.  In a systematic review of adverse effects of long-term use of proton pump inhibitors, all eight studies included showed elevated risk of community-acquired pneumonia [@islam_adverse_2018].  In the largest of these studies, based on the UK General Practice Research Database from 1987 to 2002, elevated risk was restricted to proton pump inhibitor therapy started no more than 30 days before the date of diagnosis of pneumonia [@sarkar_proton-pump_2008]. As proton pump inhibitors are also associated with increased risk of enteric infections, it is plausible that they could increase the risk of severe infection with SARS-CoV-2, which is at least partly an enteric infection [@wan_enteric_2020].  
 
-Because this case-control study is matched on primary care practice, variation of over-prescribing between practices does not contribute to the conditional odds ratios. 
+We note that in epidemiological experience rate ratios of 5 or more, as seen in those aged under 40 years in this study, usually have a causal explanation.  However other drugs prescribed for the gastrointestinal system are associated with increased risk of severe disease, at least in univariate analyses.  These include drugs such as laxatives that, like proton pump inhibitors, are used as indicators of prescribing quality in the National Therapeutic Index [macbride-stewart_national_2019].  It is not possible at this stage to exclude the possibility that the association with proton pump inhibitors could be accounted for by underlying factors that lead to consultation for minor symptoms and prescribing of these drugs without a clear medical indication.  In the UK and other countries proton pump inhibitors are widely prescribed among the elderly, often for no clear indication [@marks_time_2016; @kurdi_ongoing_2018].  A study in Aberdeen reported that 35% of patients admitted to acute geriatric units had been inappropriately prescribed proton pump inhibitors: overprescribing was associated with the number of other drugs prescribed and with an index of co-morbidity [@jarchow-macdonald_prescribing_2013]. 
 
-## Proton pump inhibitors
-The association with proton pump inhibitors is not explained by association any underlying gastrointestinal disease that leads to hospital admission, or by coprescribing with non-steroidal antiinflammatory or antiplatelet agents.  As proton pump inhibitors are available over the counter, our study of encashed prescriptions does not capture all exposure to this class of drugs.  However as there are no prescription charges in Scotland, long-term users of these expensive drugs are likely to seek to obtain them on prescription.  
-
-As proton pump inhibitors are associated with increased risk of enteric infections, it is plausible that they could increase the risk of severe infection with SARS-CoV-2, which is at least partly an enteric infection [@wan_enteric_2020].  Others have noted that proton pump inhibitors are widely prescribed among the elderly, often for no clear indication [@marks_time_2016; @kurdi_ongoing_2018].  35% of patients admitted to acute geriatric units in Aberdeen had been inappropriately prescribed proton pump inhibitors: overprescribing was associated with the number of other drugs prescribed and with an index of comorbidity [@jarchow-macdonald_prescribing_2013]. 
-
-In Szechuan, China, PPIs were prescribed to 37% of inpatients in a tertiary referral centre in 2016 [@luo_changes_2018]. A Spanish drug-utilization study showed that 55% of hospital inpatients were presribed a PPI at discharge [@ramirez_overuse_2010].  
-
-## Cardiovascular drugs
-There is evidence of any effect of ACE inhibitors or angiotensin-II receptor blockers beyond the associated with treated hypertension.  
+We can calculate that in the Scottish population where 28\% of controls have used proton pump inhibitors and the rate ratio is 2.8, one-third of severe cases could be attributable to prescribing of these drugs if the association is causal.  This does not take into account possible over-the-counter purchases.  This could be an undIt is possibly relevant that in some other countries where COVID-19 epidemics have been especially severe, overprescribing of proton pump inhibitors had previously been reported.  A study in Szechuan, China, reported that proton pump inhibitors were prescribed to 37% of inpatients in a tertiary referral centre in 2016 [@luo_changes_2018]. In Italy, a survey of nursing homses found that 46% of residents had been prescribed a proton pump inhibitor [@pasina_overuse_2020]. A Spanish drug-utilization study reported that 55% of hospital inpatients were presribed a PPI at discharge [@ramirez_overuse_2010].  
 
 ## Methodological strengths and weaknesses
+A strength of this study is that it is based on dispensed prescriptions, rather than the prescriptions written in primary care.  However as proton pump inhibitors are available over the counter, our study of encashed prescriptions does not capture all exposure to this class of drugs.  Unless this this misclassification of exposed individuals as unexposed differs between those not destined and those destined to develop severe COVID-19, it will lead to underestimation of the rate ratio associated with exposure to this class of drugs and underestimation of the attributable fraction.  
 
-We have prescription encashments, not just prescriptions.  Drug coding by BNF codes is more systematic than SNOMED
+A limitation of the data linkage undertaken by Health Protection Scotland is that we cannot construct longitudinal records of drug exposure with dose.  However we have been able to do this in a separate study of all individuals with diabetes in Scotland, for whom we have constructed a curated database of drug exposure.  
 
-We don't have all the morbidity data available in the primary care record but we have hospital diagnoses which are ICD-coded by trained coders.  
+Although we do not have morbidity data from primary care, we have diagnoses from hospital discharge records that have been coded to the ICD-10 classification by trained coders.  This diagnostic coding is more relevant to disease classification than the SNOMED diagnostic codes used in primary care databases. 
+
+Because this case-control study is matched on primary care practice, variation of prescribing between practices cannot confound the conditional odds ratios, though it is possible that variation between practitioners within the same practice could contribute to a confounding effect.  
 
 
 ## Conclusion
-It is not possible to establish unequivocally whether the association with prescription encashment is accounted for by patient characteristics associated with prescribing for minor symptoms, or by a direct effect of any specific class of drugs.  However of the drug classes that are associated with increased risk that is not explained by underlying high-risk conditions, proton pump inhibitors are the strongest candidate for a causal effect.  Until further studies are available, it is advisable to avoid using drugs in this class without a recognized medical indication.  
+Although some of the association of severe COVID-19 with dispensing of prescriptions can be accounted for underlying cardiovascular diseases that are not captured by hospital discharge diagnoses, there remains a residual association with prescription of proton pump inhibitors that is not easily explained by co-morbidity.  Increased risk of community-acquired pneumonia is an established adverse effect of the use of these drugs, We recommend that public health agencies should reinforce existing guidelines on the overprescribing of proton pump inhibitors, and should advise against their use without a recognized medical indication.  
 
 # References {-}
 
 <div id="refs"></div>
+
+
+\newpage
 
 ```{r carehome, echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -203,7 +180,7 @@ knitr::kable(table.scrip.any.carehome,
              align=rep("c", 6), 
              caption="Associations of severe disease with encashment of any prescription in the last year, by care home status") %>%
      kable_styling(latex_options="hold_position") %>%
-   column_spec(column=1, width="4cm")
+   column_spec(column=1, width="3cm")
 ```
 
 ```{r listed, echo=FALSE, warning=FALSE, message=FALSE}
@@ -239,24 +216,61 @@ knitr::kable(table.drugs.nocare.notlisted,
     landscape()
 ```
 
+\newpage
 
-```{r explained.chapter, echo=FALSE, warning=FALSE, message=FALSE}
+```{r stepwise.chapters, echo=FALSE, warning=FALSE, message=FALSE}
 
-rownames(table.anyscrip.chapter) <- gsub("\\_", " ", rownames(table.anyscrip.chapter))
-knitr::kable(table.anyscrip.chapter,
+stepwise.drop[, 1] <- gsub("\\_", " ", stepwise.drop[, 1])
+
+knitr::kable(stepwise.drop,
              escape=FALSE, 
              booktabs=TRUE,
-             label="explained.chapter",
-             col.names=c("Coefficient", "Rate.ratio", "Proportion explained by covariate"), 
-             digits=c(2, 2, 2), 
-             caption="Effect of an indicator variable for each BNF chapter on the size of effect associated with encashment of any prescription, in those not in care homes and without listed conditions") %>%
-    column_spec(column=1, width="3cm") %>%
+             label="stepwise.drop",
+             col.names=c("Dropped BNF chapter", "Log rate ratio before dropping",
+                         "Change in log-likelihood when dropped"), 
+             digits=c(0, 2, 1), 
+             caption="Stepwise dropping of BNF chapters from the 'any dispensed prescription' variable: dataset restricted to those not in care homes and without listed conditions") %>%
+    column_spec(column=1, width="4cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="3cm") %>%
+    kable_styling(latex_options="hold_position")
+            
+```
+
+```{r stepwise.subparas, echo=FALSE, warning=FALSE, message=FALSE}
+
+stepwise.drop.subparas[, 1] <- gsub("subpara\\.", "", stepwise.drop.subparas[, 1])
+
+knitr::kable(stepwise.drop.subparas[-(1:29), ], 
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="stepwise.subparas",
+             row.names=FALSE,
+             col.names=c("Dropped drug class", "Log rate ratio before dropping",
+                         "Change in log-likelihood when dropped"), 
+             digits=c(0, 2, 1), 
+             caption="Stepwise dropping of last ten drug classes from a variable defined as 'any dispensed prescription from BNF chapters 1 or 2': dataset restricted to those not in care homes and without listed conditions") %>%
+    column_spec(column=1, width="9cm") %>%
     column_spec(column=2, width="2cm") %>%
     column_spec(column=3, width="2cm") %>%
-    column_spec(column=4, width="2cm") %>%
-    kable_styling(latex_options="hold_position") %>%
-    add_header_above(c(" "=1, "Adjusted effect"=2))
+    kable_styling(latex_options="hold_position")
             
+```
+
+```{r protonpump, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.protonpump,
+             escape=FALSE,
+             label="protonpump.adjusted", 
+             booktabs=TRUE,
+             col.names=c(clean.header(colnames(table.protonpump)[1:2]),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
+             caption="Associations of severe disease with prescription of a proton pump inhibitor in those not resident in a care home by age group, with and without adjustment for covariates: hospital diagnosis of GI tract disorder, prescriptions of NSAIDs,  antiplatelet agents") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    kable_styling(latex_options="hold_position") %>%
+    landscape()
+
 ```
 
 ```{r bnfchapter1, echo=FALSE, warning=FALSE, message=FALSE}
@@ -294,72 +308,3 @@ knitr::kable(table.bnfchapter2,
     landscape()
 ```
 
-```{r bnfchapter4, echo=FALSE, warning=FALSE, message=FALSE}
-
-knitr::kable(table.bnfchapter4,
-             escape=FALSE, 
-             booktabs=TRUE,
-             label="bnfchapter4",
-             col.names=c(clean.header(colnames(table.bnfchapter4)[1:2]),
-                         "Rate ratio (95\\% CI)", "$p$-value",
-                         "Rate ratio (95\\% CI)", "$p$-value"),
-             align=rep("c", 6), 
-             caption="Associations of severe disease with prescribed drugs in BNF chapter 4 in those without listed conditions") %>%
-    column_spec(column=1, width="4cm") %>%
-    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
-    group_rows("", 1, nrow(table.bnfchapter4)) %>%
-    kable_styling(latex_options="hold_position") %>%
-    landscape()
-
-```
-
-```{r bnfchapter9, echo=FALSE, warning=FALSE, message=FALSE}
-
-knitr::kable(table.bnfchapter9,
-             escape=FALSE, 
-             booktabs=TRUE,
-             label="bnfchapter9",
-             col.names=c(clean.header(colnames(table.bnfchapter9)[1:2]),
-                         "Rate ratio (95\\% CI)", "$p$-value",
-                         "Rate ratio (95\\% CI)", "$p$-value"),
-             align=rep("c", 6), 
-             caption="Associations of severe disease with prescribed drugs in BNF chapter 9 in those without listed conditions") %>%
-    column_spec(column=1, width="4cm") %>%
-    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
-    group_rows("", 1, nrow(table.bnfchapter9)) %>%
-    kable_styling(latex_options="hold_position") %>%
-    landscape()
-
-```
-
-```{r protonpump, echo=FALSE, warning=FALSE, message=FALSE}
-
-knitr::kable(table.protonpump,
-             escape=FALSE,
-             label="protonpump.adjusted", 
-             booktabs=TRUE,
-             col.names=c(clean.header(colnames(table.protonpump)[1:2]),
-                         "Rate ratio (95\\% CI)", "$p$-value",
-                         "Rate ratio (95\\% CI)", "$p$-value"),
-             caption="Associations of severe disease with prescription of a proton pump inhibitor by age group, with and without adjustment for hospital diagnosis of any upper GI tract disorder, and prescription of NSAIDs,  antiplatelet agent, and nonopioid analgesics, excluding care home residents") %>%
-    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
-    kable_styling(latex_options="hold_position") %>%
-    landscape()
-
-```
-
-```{r analgesic, echo=FALSE, warning=FALSE, message=FALSE}
-
-knitr::kable(table.nonopioid.analgesic,
-             escape=FALSE,
-             label="analgesic.adjusted", 
-             booktabs=TRUE,
-             col.names=c(clean.header(colnames(table.nonopioid.analgesic)[1:2]),
-                         "Rate ratio (95\\% CI)", "$p$-value",
-                         "Rate ratio (95\\% CI)", "$p$-value"),
-             caption="Associations of severe disease with prescription of a nonopioid analgesic by age group, with and without adjustment for hospital diagnosis of any neoplasm, and prescription of  NSAIDs, antiplatelet agents and proton pump inhibitors, excluding care home residents") %>%
-    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
-    kable_styling(latex_options="hold_position") %>%
-    landscape()
-
-```

@@ -1,6 +1,127 @@
 
 ## helperfunctions for COVID analyses
 
+select.union <- function(x, y, stratum) {
+    ## x is matrix of indicator variables
+    ## select column of x to drop that maximizes loglik of clogit model using all other cols of x
+    loglik.dropcol <- numeric(ncol(x))
+    x.u <- as.integer(rowSums(x) > 0)
+    model.full <- summary(clogit(y ~ x.u + strata(stratum)))
+    beta.full <- model.full$coefficients[1, 1]
+    loglik.full <- model.full$loglik[2]
+    for(j in 1:ncol(x)) {
+        x.u <- as.integer(rowSums(x[, -j, drop=FALSE]) > 0)
+        loglik.dropcol[j] <- summary(clogit(y ~ x.u + strata(stratum)))$loglik[2]
+    }
+
+    j.max <- which.max(loglik.dropcol)
+    return(data.frame(col.drop=j.max,
+                      name=colnames(x)[j.max],
+                      beta.full=beta.full,
+                      loglik.full=loglik.full))
+}
+
+stepwise.union.dropcols <- function(x, y, stratum) {
+    x.drop <- x
+    stepwise.drop <- NULL
+    for(j in 1:(ncol(x) - 1)) {
+        select.drop <- select.union(x=x.drop, y=y, stratum=stratum)
+        stepwise.drop <- rbind(stepwise.drop, select.drop)
+        x.drop <- x.drop[, -select.drop$col.drop, drop=FALSE]
+    }
+    ## add row for last variable retained
+    last.name <- colnames(x)[!colnames(x) %in% stepwise.drop$name]
+    last.col <- match(last.name, colnames(x))
+    last.model <- summary(clogit(y ~ x[, last.col] + strata(stratum)))
+    stepwise.drop <- rbind(stepwise.drop,
+                           data.frame(col.drop=NA,
+                                      name=last.name,
+                                      beta.full=last.model$coefficients[1, 1],
+                                      loglik.full=last.model$loglik[2]))
+    stepwise.drop$loglik.full <- stepwise.drop$loglik.full - stepwise.drop$loglik.full[1]
+    stepwise.drop$loglik.full <- c(stepwise.drop$loglik.full[-1], NA)
+    return(stepwise.drop[, -1])
+}
+
+lookup.names <- data.frame(varname=c("deathwithin28", "scrip.any", "diag.any", "care.home",
+                                     "emerg", "icu.hdu.ccu", "inpat",
+                                     "protonpump",
+                                     "diabetes.any",
+                                     "antihypertensive.any",
+                                     "IHD.any",
+                                     "CVD",
+                                     "heart.other.any",
+                                     "circulatory.other",
+                                     "oad.any",
+                                     "respinf.orTB",
+                                     "resp.other",
+                                     "cysticfibrosis.any",
+                                     "ckd.any",
+                                     "neuro.any",
+                                     "liver.any",
+                                     "listed.any",
+                                     "connectivetissue.any",
+                                     "mono.poly.neuro",
+                                     "epilepsy.any",
+                                     "otherneuro.any",
+                                     "blood.cancer",
+                                     "lung.cancer",
+                                     "other.cancer",
+                                     "immune.any",
+                                     "alpha_adrenoreceptor6.bnf",
+                                     "ace6.bnf",
+                                     "angio6.bnf",
+                                     "renin_angiotensin6.bnf",
+                                     "thiazides6.bnf",
+                                     "calcium_channel6.bnf",
+                                     "antihypertensive.other",
+                                     "anticoagulants6.bnf",
+                                     "nsaids6.bnf",
+                                     "lipid_regulating6.bnf",
+                                     "statins6.bnf",
+                                     "hydroxychloroquine6.bnf"
+                                     ),
+                           longname=c("Death within 28 days of test",
+                                      "Any prescription", "Any admission", "Care home",
+                                      "Emergency admission last year",
+                                      "Critical care admission last year",
+                                      "Any admission last year",
+                                      "Proton pump inhibitor",
+                                      "Diabetes (any type)",
+                                      "Any antihypertensive",
+                                      "Ischaemic heart disease",
+                                      "Cerebrovascular disease",
+                                      "Other heart disease",
+                                      "Other circulatory disease",
+                                      "Asthma or chronic airway disease",
+                                      "Respiratory infections",
+                                      "Other respiratory disease",
+                                      "Cystic fibrosis",
+                                      "Chronic kidney disease or transplant recipient",
+                                      "Neurological (except epilepsy) or dementia",
+                                      "Liver disease",
+                                      "Any listed condition", 
+                                      "Connective tissue disease",
+                                      "Neuropathy (mono- or poly-)",
+                                      "Epilepsy",
+                                      "Other neurological conditions",
+                                      "Cancer of blood-forming organs",
+                                      "Lung cancer",
+                                      "Other cancer",
+                                      "Immune deficiency or suppression", 
+                                      "alpha-adrenoreceptor blocker",
+                                      "ACE inhibitor", "Angiotensin-II receptor blocker",
+                                      "ACE or A-IIR inhibitor",
+                                      "Thiazides",
+                                      "Calcium channel blocker",
+                                      "Other antihypertensive",
+                                      "Anticoagulants",
+                                      "Non-steroidal anti-inflammatory drugs",
+                                      "Lipid-regulating agents",
+                                      "Statins",
+                                      "Hydroxychloroquine"
+                                      ))
+
 clean.header <- function(x) {
     x <- gsub("\\.\\.", " (", x)
     x <- gsub("\\.",  ")", x)
@@ -186,6 +307,34 @@ tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=2
     } else {
         return(NULL)
     }
+}
+
+merge.bnfsubparas <- function(chnums, data) {
+    ## merge with data all drug subparas in chapter numbers in vector chnums
+    ## subparacode has 7 digits, leading zeroes stripped in scrips
+    scrips.ch.wide <- reshape2::dcast(scrips[scrips$chapternum %in% chnums, ],
+                                      ANON_ID ~ bnf_paragraph_code, fun.aggregate=length,
+                                      value.var="bnf_paragraph_code")
+    names.subparas <-
+        bnfsubparacodes$subparaname[match(as.integer(colnames(scrips.ch.wide)[-1]),
+                                          bnfsubparacodes$subparacode)]
+    colnames(scrips.ch.wide)[-1] <- paste("subpara",
+                                          as.integer(colnames(scrips.ch.wide)[-1]),
+                                          names.subparas, sep=".")
+    
+    ## drop rare subparagraphcodes
+    scrips.ch.wide <- scrips.ch.wide[, colSums(scrips.ch.wide) > 20]
+    
+    cc.bnf.ch <- merge(data, scrips.ch.wide,
+                       by="ANON_ID", all.x=TRUE)
+    ## now fix colnames and set missing to 0
+    bnfcols <- grep("^subpara.", colnames(cc.bnf.ch))
+    for(j in bnfcols) {
+        cc.bnf.ch[, j][is.na(cc.bnf.ch[, j])] <- 0
+        cc.bnf.ch[, j][cc.bnf.ch[, j] > 1] <- 1
+        cc.bnf.ch[, j] <- as.factor(cc.bnf.ch[, j])
+    }
+    return(cc.bnf.ch)
 }
 
 tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=20) {

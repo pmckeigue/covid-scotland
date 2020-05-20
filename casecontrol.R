@@ -18,7 +18,8 @@ registerDoParallel(cores=2)
 
 source("helperfunctions.R")
         
-cc.all <- readRDS("./data/CC_linked_ANON_20200501.rds")
+#cc.all <- readRDS("./data/CC_linked_ANON_20200501.rds")
+cc.all <- readRDS("./data/CC_linked_ANON_20200501 (2).rds")
 
 diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200501.rds") # 842 records ? excluded
 procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200501.rds")
@@ -27,8 +28,40 @@ scotpop <- read_excel("./Scotland_midyearpop_est2019.xlsx")
 ## we have only 7 digits on scrips, giving resolution to subpara level only
 scrips <- readRDS("./data/CC_PIS_x15_ANON_20200501.rds")
 scrips$paracode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 6))
+length(table(substr(scrips$bnf_paragraph_code, 1, 2))) # chapter
+length(table(substr(scrips$bnf_paragraph_code, 1, 4))) # chapter, section
+length(table(substr(scrips$bnf_paragraph_code, 1, 6)))  # chapter, section, paragraph
+length(table(scrips$bnf_paragraph_code)) # 537 groups
+scrips$chapternum <- as.integer(substr(scrips$bnf_paragraph_code, 1, 2))
+scrips$sectioncode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 4))
+## recode scrips$bnf.chapter values > 14 or NA to 14
+scrips$chapternum[is.na(scrips$chapternum)] <- 14
+scrips$chapternum[scrips$chapternum > 14] <- 14
+
+
+icdchapters <- data.frame(names(icd10_chapters),
+                             t(matrix(as.character(unlist(icd10_chapters)), nrow=2)))
+colnames(icdchapters) <- c("name", "start", "end")
+icdchapters$shortname <- gsub("Diseases of the ", "", icdchapters$name)
+icdchapters$shortname <- gsub("Certain ", "", icdchapters$shortname)
+icdchapters$shortname <- gsub("conditions originating in the ", "",
+                              icdchapters$shortname)
+icdchapters$shortname <- gsub("Factors influencing ", "", icdchapters$shortname)
+truncate.at <- StrPos(icdchapters$shortname, " |,|-") - 1
+truncate.at[is.na(truncate.at)] <- nchar(icdchapters$shortname[is.na(truncate.at)])
+icdchapters$shortname <- substr(icdchapters$shortname, 1, truncate.at) 
+icdchapters$start <- as.character(icdchapters$start)
+icdchapters$end <- as.character(icdchapters$end)
+
+icdsubchapters <- data.frame(names(icd10_sub_chapters),
+                             t(matrix(as.character(unlist(icd10_sub_chapters)), nrow=2)))
+colnames(icdsubchapters) <- c("name", "start", "end")
+icdsubchapters$start <- as.character(icdsubchapters$start)
+icdsubchapters$end <- as.character(icdsubchapters$end)
 
 source("bnfcodes.R")
+
+###############################################
 
 names(cc.all) <- gsub("CASE_NO", "stratum", names(cc.all))
 names(cc.all) <- gsub("^SEX$", "sex", names(cc.all))
@@ -158,33 +191,127 @@ cc.all$dm.type <-
 cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
 cc.all$dm.type <- factor(cc.all$dm.type, levels=levels(cc.all$dm.type)[c(1, 3, 4, 2)])
 
+###############################
+
+ids.protonpump <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 103])
+cc.all$protonpump <- as.factor(as.integer(cc.all$ANON_ID %in% ids.protonpump))
+cc.all$y.protonpump <- as.integer(cc.all$protonpump =="1")
+
+scrips.protonpump <- scrips$ANON_ID[as.integer(scrips$sectioncode) == 103]
+scrips.protonpump <- table(scrips.protonpump)
+scrips.protonpump <- data.frame(ANON_ID=as.integer(names(scrips.protonpump)),
+                                scrips.protonpump=as.integer(scrips.protonpump))
+cc.all <- merge(cc.all, scrips.protonpump, by="ANON_ID", all.x=TRUE)
+cc.all$scrips.protonpump[is.na(cc.all$scrips.protonpump)] <- 0
+cc.all$scrips.protonpump <- as.factor(cc.all$scrips.protonpump)
+                                               
+cc.all$protonpump <- as.factor(as.integer(cc.all$ANON_ID %in% ids.protonpump))
+cc.all$y.protonpump <- as.integer(cc.all$protonpump =="1")
+
+
+ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(scrips$paracode) == 40701])
+cc.all$nonopioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
+                                                   ids.nonopioid.analgesic))
+
+ids.antiplatelet <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 209])
+cc.all$antiplatelet <- as.factor(as.integer(cc.all$ANON_ID %in% ids.antiplatelet))
+
+ids.nsaid <- unique(scrips$ANON_ID[as.integer(scrips$paracode) == 100101])
+cc.all$nsaid <- as.factor(as.integer(cc.all$ANON_ID %in% ids.nsaid))
+
+ids.opioid.analgesic <- unique(scrips$ANON_ID[as.integer(scrips$paracode) == 40702])
+cc.all$opioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
+                                                      ids.opioid.analgesic))
+
+ids.antipsychotic <- unique(scrips$ANON_ID[as.integer(scrips$paracode) == 40201])
+cc.all$antipsychotic <- as.factor(as.integer(cc.all$ANON_ID %in%
+                                                      ids.antipsychotic))
+
+ids.osmotic.laxative <- unique(scrips$ANON_ID[as.integer(scrips$paracode) == 10604])
+cc.all$osmotic.laxative <- as.factor(as.integer(cc.all$ANON_ID %in%
+                                                   ids.osmotic.laxative))
+
+
+
 ###############################################################################
 
-########### restrict to severe cases and matched controls ###################### 
+table.protonpump.testpos <- NULL
+withcovariates.formula <- as.formula("CASE ~ protonpump + antiplatelet + nsaid + antipsychotic +  nonopioid.analgesic + strata(stratum)")
+coeff.row <- 1
+
+for(agegr in levels(cc.all$agegr20)) {
+    x <- tabulate.freqs.regressions(varnames="protonpump",
+                                    data=cc.all[cc.all$agegr20==agegr, ])[, 1:4]
+    y <- summary(clogit(formula=withcovariates.formula,
+                        data=cc.all[cc.all$agegr20==agegr, ]))$coefficients[coeff.row, , drop=FALSE]
+    x$m.ci <- or.ci(y[, 1], y[, 3])
+    x$m.pvalue <- pvalue.latex(y[, 5])
+    rownames(x) <- agegr
+    colnames(x)[1:2] <- c("Controls", "Cases")
+    table.protonpump.testpos <- rbind(table.protonpump.testpos, x)
+}
+x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.all)[, 1:4]
+y <- summary(clogit(formula=withcovariates.formula,
+                    data=cc.all))$coefficients[coeff.row, , drop=FALSE]
+x$m.ci <- or.ci(y[, 1], y[, 3])
+x$m.pvalue <- pvalue.latex(y[, 5])
+rownames(x) <- "All"
+colnames(table.protonpump.testpos)[1:2] <- colnames(x)[1:2]
+table.protonpump.testpos <- rbind(table.protonpump.testpos, x)
+
+tabulate.freqs.regressions(varnames=c("care.home", "SIMD.quintile",
+                                      "protonpump", "antiplatelet", "nsaid",
+                                      "opioid.analgesic", "nonopioid.analgesic"), 
+                           data=cc.all[cc.all$AGE < 40, ])
+
+
+###############################################################################
+
+cc.hosp <- cc.all[cc.all$casegroup=="Critical care or fatal" |
+                  cc.all$casegroup=="Hospitalised, not severe", ]
+
+table.protonpump.hosp <- NULL
+withcovariates.formula <- as.formula("CASE ~ protonpump + nonopioid.analgesic + strata(stratum)")
+coeff.row <- 1
+
+for(agegr in levels(cc.hosp$agegr20)) {
+    x <- tabulate.freqs.regressions(varnames="protonpump",
+                                    data=cc.hosp[cc.hosp$agegr20==agegr, ])[, 1:4]
+    y <- summary(clogit(formula=withcovariates.formula,
+                        data=cc.hosp[cc.hosp$agegr20==agegr, ]))$coefficients[coeff.row, , drop=FALSE]
+    x$m.ci <- or.ci(y[, 1], y[, 3])
+    x$m.pvalue <- pvalue.latex(y[, 5])
+    rownames(x) <- agegr
+    colnames(x)[1:2] <- c("Controls", "Cases")
+    table.protonpump.hosp <- rbind(table.protonpump.hosp, x)
+}
+x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.hosp)[, 1:4]
+y <- summary(clogit(formula=withcovariates.formula,
+                    data=cc.hosp))$coefficients[coeff.row, , drop=FALSE]
+x$m.ci <- or.ci(y[, 1], y[, 3])
+x$m.pvalue <- pvalue.latex(y[, 5])
+rownames(x) <- "All"
+colnames(table.protonpump.hosp)[1:2] <- colnames(x)[1:2]
+table.protonpump.hosp <- rbind(table.protonpump.hosp, x)
+
+tabulate.freqs.regressions(varnames=c("SIMD.quintile",
+                                      "protonpump", "antiplatelet", "nsaid",
+                                      "opioid.analgesic", "nonopioid.analgesic"), 
+                           data=cc.hosp[cc.hosp$AGE < 40 & cc.hosp$HAI==0, ])
+
+########## restrict to severe cases and matched controls ###################### 
  
 cc.severe <- cc.all[cc.all$casegroup=="Critical care or fatal", ]
 
-## merge drugs
-length(table(substr(scrips$bnf_paragraph_code, 1, 2))) # chapter
-length(table(substr(scrips$bnf_paragraph_code, 1, 4))) # chapter, section
-length(table(substr(scrips$bnf_paragraph_code, 1, 6)))  # chapter, section, paragraph
-length(table(scrips$bnf_paragraph_code)) # 537 groups
-
-scrips$chapternum <- as.integer(substr(scrips$bnf_paragraph_code, 1, 2))
-scrips$sectioncode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 4))
-
-## recode scrips$bnf.chapter values > 14 or NA to 14
-scrips$chapternum[is.na(scrips$chapternum)] <- 14
-scrips$chapternum[scrips$chapternum > 14] <- 14
-
+## merge drugs, one variable per chapter
 scrips.wide <- reshape2::dcast(scrips, ANON_ID ~ chapternum, fun.aggregate=length, 
                                value.var="chapternum")
 shortnames.cols <-  bnfchapters$shortname[match(as.integer(colnames(scrips.wide)[-1]),
                                                 as.integer(bnfchapters$chapternum))]
 colnames(scrips.wide)[-1] <- paste("BNF", colnames(scrips.wide)[-1], shortnames.cols,
                                    sep="_")
-
 cc.severe <- merge(cc.severe, scrips.wide, by="ANON_ID", all.x=TRUE)
+
 bnfcols <- grep("^BNF", colnames(cc.severe))
 for(j in bnfcols) {
     cc.severe[, j][is.na(cc.severe[, j])] <- 0
@@ -192,30 +319,20 @@ for(j in bnfcols) {
     cc.severe[, j] <- as.factor(cc.severe[, j])
 }
 
-icdchapters <- data.frame(names(icd10_chapters),
-                             t(matrix(as.character(unlist(icd10_chapters)), nrow=2)))
-colnames(icdchapters) <- c("name", "start", "end")
-icdchapters$shortname <- gsub("Diseases of the ", "", icdchapters$name)
-icdchapters$shortname <- gsub("Certain ", "", icdchapters$shortname)
-icdchapters$shortname <- gsub("conditions originating in the ", "",
-                              icdchapters$shortname)
-icdchapters$shortname <- gsub("Factors influencing ", "", icdchapters$shortname)
-truncate.at <- StrPos(icdchapters$shortname, " |,|-") - 1
-truncate.at[is.na(truncate.at)] <- nchar(icdchapters$shortname[is.na(truncate.at)])
-icdchapters$shortname <- substr(icdchapters$shortname, 1, truncate.at) 
-icdchapters$start <- as.character(icdchapters$start)
-icdchapters$end <- as.character(icdchapters$end)
+## merge BNF chapters 1 and 2, one variable per subpara
 
-icdsubchapters <- data.frame(names(icd10_sub_chapters),
-                             t(matrix(as.character(unlist(icd10_sub_chapters)), nrow=2)))
-colnames(icdsubchapters) <- c("name", "start", "end")
-icdsubchapters$start <- as.character(icdsubchapters$start)
-icdsubchapters$end <- as.character(icdsubchapters$end)
+chnums = c(1, 2)
+cc.severe <- merge.bnfsubparas(chnums=chnums, data=cc.severe)
+
+
+
+## merge ICD diagnoses
 
 ## chapter is assigned as the position of the first element in icdchapters$start that x is greater than or equal to
 unique.diagnoses <- as.character(unique(diagnoses$ICD10))
 chapter <- integer(length(unique.diagnoses))
 subchapter <- integer(length(unique.diagnoses))
+
 for(i in 1:length(unique.diagnoses)) {
     chapter[i] <- min(which(substr(unique.diagnoses[i], 1, 3) <= icdchapters$end))
     ## subchapter is row in icdsubchapters table 
@@ -326,140 +443,25 @@ cc.severe$listed.any <-
                               ckd.any==1 | oad.any==1 |
                               neuro.any==1 | liver.any==1 | immune.any==1)))
 
-ids.protonpump <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 103])
-cc.severe$protonpump <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.protonpump))
-
-ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(scrips$paracode) == 40701])
-cc.severe$nonopioid.analgesic <- as.factor(as.integer(cc.severe$ANON_ID %in%
-                                                      ids.nonopioid.analgesic))
 
 ids.icd.neoplasm <- unique(diagnoses$ANON_ID[grep("^C[0-9]|^D[0-4]", diagnoses$ICD10)])
 ids.bnf.neoplasm <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 801])
 ids.neoplasm.any <- unique(c(ids.icd.neoplasm, ids.bnf.neoplasm))
 cc.severe$neoplasm.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.neoplasm.any))
 
-
-ids.antiplatelet <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 209])
-cc.severe$antiplatelet <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.antiplatelet))
-
-ids.nsaid <- unique(scrips$ANON_ID[as.integer(scrips$paracode) == 100101])
-cc.severe$nsaid <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.nsaid))
-
-cc.severe$y.protonpump <- as.integer(cc.severe$protonpump =="1")
-
-
-if(FALSE) { # coding antihypertensives
-cc.all$antihypertensive.any <- with(cc.all,
-                                    as.integer(vasodilator_ah6.bnf==1 |
-                                               centrally_acting_ah6.bnf==1 |
-                                               adrenergic_neurone_block6.bnf==1 |
-                                               alpha_adrenoceptor6.bnf==1 |
-                                               ace6.bnf==1 |
-                                               angio6.bnf==1 |
-                                               renin_angiotensin6.bnf==1 |
-                                               thiazides6.bnf==1 |
-                                               calcium_channel6.bnf==1))
-cc.all$antihypertensive.other <- with(cc.all,
-                                      as.integer(vasodilator_ah6.bnf==1 |
-                                                 centrally_acting_ah6.bnf==1))
-antihypertensive.classes <- c("vasodilator_ah6.bnf", 
-                              "centrally_acting_ah6.bnf",  
-                              "adrenergic_neurone_block6.bnf",  
-                              "alpha_adrenoceptor6.bnf", 
-                              "ace6.bnf",  
-                              "angio6.bnf",  
-                              "renin_angiotensin6.bnf",  
-                              "thiazides6.bnf",  
-                              "calcium_channel6.bnf")
-antihypertensives <- c(antihypertensive.classes[4:9], "antihypertensive.other")
-}
+########### variable lists for tabulating
 
 demog <- c("ethnic3", "SIMD.quintile", "care.home")
 demog.smr <- c("ethnic4.smr", "SIMD.quintile", "care.home")
 
 bnf.chapternames <- colnames(cc.severe)[bnfcols]
 drugs <- bnf.chapternames
+
+subparanames <- colnames(cc.severe)[grep("subpara", colnames(cc.severe))]
+
 icd.chapternames <- colnames(cc.severe)[icdcols]
 conditions <- icd.chapternames
 
-lookup.names <- data.frame(varname=c("deathwithin28", "scrip.any", "diag.any", "care.home",
-                                     "emerg", "icu.hdu.ccu", "inpat",
-                                     "protonpump",
-                                     "diabetes.any",
-                                     "antihypertensive.any",
-                                     "IHD.any",
-                                     "CVD",
-                                     "heart.other.any",
-                                     "circulatory.other",
-                                     "oad.any",
-                                     "respinf.orTB",
-                                     "resp.other",
-                                     "cysticfibrosis.any",
-                                     "ckd.any",
-                                     "neuro.any",
-                                     "liver.any",
-                                     "listed.any",
-                                     "connectivetissue.any",
-                                     "mono.poly.neuro",
-                                     "epilepsy.any",
-                                     "otherneuro.any",
-                                     "blood.cancer",
-                                     "lung.cancer",
-                                     "other.cancer",
-                                     "immune.any",
-                                     "alpha_adrenoreceptor6.bnf",
-                                     "ace6.bnf",
-                                     "angio6.bnf",
-                                     "renin_angiotensin6.bnf",
-                                     "thiazides6.bnf",
-                                     "calcium_channel6.bnf",
-                                     "antihypertensive.other",
-                                     "anticoagulants6.bnf",
-                                     "nsaids6.bnf",
-                                     "lipid_regulating6.bnf",
-                                     "statins6.bnf",
-                                     "hydroxychloroquine6.bnf"
-                                     ),
-                           longname=c("Death within 28 days of test",
-                                      "Any prescription", "Any admission", "Care home",
-                                      "Emergency admission last year",
-                                      "Critical care admission last year",
-                                      "Any admission last year",
-                                      "Proton pump inhibitor",
-                                      "Diabetes (any type)",
-                                      "Any antihypertensive",
-                                      "Ischaemic heart disease",
-                                      "Cerebrovascular disease",
-                                      "Other heart disease",
-                                      "Other circulatory disease",
-                                      "Asthma or chronic airway disease",
-                                      "Respiratory infections",
-                                      "Other respiratory disease",
-                                      "Cystic fibrosis",
-                                      "Chronic kidney disease or transplant recipient",
-                                      "Neurological (except epilepsy) or dementia",
-                                      "Liver disease",
-                                      "Any listed condition", 
-                                      "Connective tissue disease",
-                                      "Neuropathy (mono- or poly-)",
-                                      "Epilepsy",
-                                      "Other neurological conditions",
-                                      "Cancer of blood-forming organs",
-                                      "Lung cancer",
-                                      "Other cancer",
-                                      "Immune deficiency or suppression", 
-                                      "alpha-adrenoreceptor blocker",
-                                      "ACE inhibitor", "Angiotensin-II receptor blocker",
-                                      "ACE or A-IIR inhibitor",
-                                      "Thiazides",
-                                      "Calcium channel blocker",
-                                      "Other antihypertensive",
-                                      "Anticoagulants",
-                                      "Non-steroidal anti-inflammatory drugs",
-                                      "Lipid-regulating agents",
-                                      "Statins",
-                                      "Hydroxychloroquine"
-                                      ))
 ########################################################################
 
 ## tabulate ethnicity by case group
@@ -496,93 +498,40 @@ table.hospitalized.demog.ethnicsmr <-
                                             cc.all$casegroup=="Critical care or fatal") &
                                            !is.na(cc.all$ethnic5.smr), ])
 
-####### incidence and mortality using national population estimates ######################
+### incidence and mortality using national population estimates #####
 
-case.freqs <- with(cc.severe[cc.severe$CASE==1, ], table(AGE, sex, exclude=NULL))
-case.freqs <- data.frame(Age=as.integer(rownames(case.freqs)),
-                         Females=as.integer(case.freqs[, 1]),
-                         Males=as.integer(case.freqs[, 2]))
-case.long <- reshape2::melt(case.freqs, id="Age")
-colnames(case.long) <- c("Age", "Sex", "Cases")
+source("incidencemortality.R")
 
-death.freqs <- with(cc.severe[cc.severe$fatalcase==1, ], table(AGE, sex, exclude=NULL))
-death.freqs <- data.frame(Age=as.integer(rownames(death.freqs)),
-                         Females=as.integer(death.freqs[, 1]),
-                         Males=as.integer(death.freqs[, 2]))
-death.long <- reshape2::melt(death.freqs, id="Age")
-colnames(death.long) <- c("Age", "Sex", "Deaths")
-
-scotpop.long <- reshape2::melt(scotpop[, -2], id="Age")
-colnames(scotpop.long) <- c("Age", "Sex", "Population")
-
-discrim <- merge(scotpop.long, case.long, by=c("Age", "Sex"), all.x=TRUE)
-discrim <- merge(discrim, death.long, by=c("Age", "Sex"), all.x=TRUE)
-discrim$Cases[is.na(discrim$Cases)] <- 0
-discrim$Deaths[is.na(discrim$Deaths)] <- 0
-
-discrim$Sex <- as.factor(discrim$Sex)
-
-discrim$Noncases <- discrim$Population - discrim$Cases
-y.cases <- cbind(as.integer(discrim$Cases), as.integer(discrim$Noncases))
-
-discrim$Survivors <- discrim$Population - discrim$Deaths
-y.deaths <- cbind(as.integer(discrim$Deaths), as.integer(discrim$Survivors))
-
-
-cases.model <- glm(formula=y.cases ~ Sex + Age, family="binomial", data=discrim)
-deaths.model <- glm(formula=y.deaths ~ Sex + Age, family="binomial", data=discrim)
-
-cases.model.coeffs <- summary(cases.model)$coefficients
-deaths.model.coeffs <- summary(deaths.model)$coefficients
-logistic.coeffs <- data.frame(severecase=cases.model.coeffs[, 1],
-                              death=deaths.model.coeffs[, 1])
-
-male <- discrim$Sex=="Males"
-female <- discrim$Sex=="Females"
-gam.model.MaleDeaths <- gam::gam(formula=y.deaths[male, ] ~ s(Age), family=binomial("logit"),
-                                 data=discrim[male, ])
-gam.model.FemaleDeaths <- gam::gam(formula=y.deaths[female, ] ~ s(Age), family=binomial("logit"),
-                                   data=discrim[female, ])
-gam.model.MaleCases<- gam::gam(formula=y.cases[male, ] ~ s(Age), family=binomial("logit"),
-                               data=discrim[male, ])
-gam.model.FemaleCases <- gam::gam(formula=y.cases[female, ] ~ s(Age), family=binomial("logit"),
-                                  data=discrim[female, ])
-
-gam.male <- data.frame(Cases=car::logit(gam.model.MaleCases$fitted.values),
-                       Deaths=car::logit(gam.model.MaleDeaths$fitted.values),
-                       Age=discrim$Age[male])
-gam.male.long <- reshape2::melt(data=gam.male, id="Age")
-colnames(gam.male.long)[2] <- "Status"
-gam.male.long$Sex <- "Males"
-
-gam.female <- data.frame(Cases=car::logit(gam.model.FemaleCases$fitted.values),
-                       Deaths=car::logit(gam.model.FemaleDeaths$fitted.values),
-                       Age=discrim$Age[female])
-gam.female.long <- reshape2::melt(data=gam.female, id="Age")
-colnames(gam.female.long)[2] <- "Status"
-gam.female.long$Sex <- "Females"
-gam <- rbind(gam.male.long, gam.female.long)
-     
 ###############################################################
 
-logodds.posterior <- predict(object=cases.model, newdata=discrim, type="link")
-logodds.prior <- log(sum(discrim$Cases) / sum(discrim$Noncases))
-log.likratio <- logodds.posterior - logodds.prior
-discrim$W <- log.likratio / log(2)
-lambda1 <- sum(discrim$W * discrim$Cases) / sum(discrim$Cases)
-lambda0 <- sum(-discrim$W * discrim$Noncases) / sum(discrim$Noncases)
-cases.Lambda.agesex <- 0.5 * (lambda0 +  lambda1)
-
-
-logodds.posterior <- predict(object=deaths.model, newdata=discrim, type="link")
-logodds.prior <- log(sum(discrim$Deaths) / sum(discrim$Survivors))
-log.likratio <- logodds.posterior - logodds.prior
-discrim$W <- log.likratio / log(2)
-lambda1 <- sum(discrim$W * discrim$Deaths) / sum(discrim$Deaths)
-lambda0 <- sum(-discrim$W * discrim$Survivors) / sum(discrim$Survivors)
-deaths.Lambda.agesex <- 0.5 * (lambda0 +  lambda1)
+if(FALSE) { # coding antihypertensives
+cc.all$antihypertensive.any <- with(cc.all,
+                                    as.integer(vasodilator_ah6.bnf==1 |
+                                               centrally_acting_ah6.bnf==1 |
+                                               adrenergic_neurone_block6.bnf==1 |
+                                               alpha_adrenoceptor6.bnf==1 |
+                                               ace6.bnf==1 |
+                                               angio6.bnf==1 |
+                                               renin_angiotensin6.bnf==1 |
+                                               thiazides6.bnf==1 |
+                                               calcium_channel6.bnf==1))
+cc.all$antihypertensive.other <- with(cc.all,
+                                      as.integer(vasodilator_ah6.bnf==1 |
+                                                 centrally_acting_ah6.bnf==1))
+antihypertensive.classes <- c("vasodilator_ah6.bnf", 
+                              "centrally_acting_ah6.bnf",  
+                              "adrenergic_neurone_block6.bnf",  
+                              "alpha_adrenoceptor6.bnf", 
+                              "ace6.bnf",  
+                              "angio6.bnf",  
+                              "renin_angiotensin6.bnf",  
+                              "thiazides6.bnf",  
+                              "calcium_channel6.bnf")
+antihypertensives <- c(antihypertensive.classes[4:9], "antihypertensive.other")
+}
 
 ########################################################
+
 varnames.listed <- c("care.home", "scrip.any", "diag.any",
                   "diabetes.any", listed.conditions)
 
@@ -600,8 +549,6 @@ freqs.all <- univariate.tabulate(varnames=c("deathwithin28", varnames.listed, "l
                              data=cc.severe,
                              drop.reflevel=FALSE)
 
-
-  
 cc.severe$agegr3 <-
     as.factor(car::recode(cc.severe$AGE,
                           "0:59='0-60 years'; 60:74='60-74 years'; 75:hi='75+ years'"))
@@ -640,8 +587,11 @@ table.ethnicsmr.aug <- combine.tables2(table.ethnicsmr, univariate.ethnicsmr)
 rownames(table.ethnicsmr.aug) <- replace.names(rownames(table.ethnicsmr.aug))
 
 #### 5 ethnic groups for report
-table.ethnic5smr <- tabulate.freqs.regressions(varnames="ethnic5.smr", outcome="CASE",
-                                       data=cc.severe[!is.na(cc.severe$ethnic5.smr), ])
+table.ethnic5smr <-
+    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home",
+                                          "SIMD.quintile"),
+                               outcome="CASE",
+                               data=cc.severe[!is.na(cc.severe$ethnic5.smr), ])
 rownames(table.ethnic5smr) <- replace.names(rownames(table.ethnic5smr))
 
 
@@ -717,6 +667,24 @@ for(listed in levels(cc.nocare$listed.any)) {
 
 ################################################################
 
+## backwards selection of smallest subset of BNF chapters that explains most of the scrip.any effect
+    
+x <- cc.nocare.notlisted[, drugs]
+x <- matrix(as.integer(as.matrix(x)), nrow=nrow(x))
+colnames(x) <- drugs
+y <- cc.nocare.notlisted$CASE
+stratum <- cc.nocare.notlisted$stratum
+
+stepwise.drop <- stepwise.union.dropcols(x=x, y=y, stratum=stratum)
+
+x <- cc.nocare.notlisted[, subparanames]
+x <- matrix(as.integer(as.matrix(x)), nrow=nrow(x))
+colnames(x) <- subparanames
+
+cat("Stepwise drop procedure over subparas in BNF chapters 1 and 2 ...")
+stepwise.drop.subparas <- stepwise.union.dropcols(x=x, y=y, stratum=stratum)
+cat("done\n")
+
 ## tabulate associations with drug chapters in those not in care homes and without listed conditions 
 table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs, 
                                                            data=cc.nocare.notlisted)
@@ -748,6 +716,18 @@ table.bnfchapter10 <- tabulate.bnfsubparas(chnum=10, data=cc.nocare.notlisted)
 
 ## fix to tabulate BNF chemical substance
 
+
+####################################################
+
+tabulate.freqs.regressions(varnames=c("care.home",
+                                      "neoplasm.any", "neuro.any", 
+                                      "esoph.stomach.duod",
+                                      "antiplatelet",
+                                      "antipsychotic", 
+                                      "nsaid", "opioid.analgesic", "nonopioid.analgesic",
+                                      "osmotic.laxative", "protonpump"),
+                           data=cc.severe[cc.severe$AGE < 60, ])
+
 ############# proton pump #########################
 
 ####### effects of scrip and protonpump by care home status ######################
@@ -762,25 +742,28 @@ for(residence in levels(cc.severe$care.home)) {
 }
 
 ## tabulate associations with and without covariate adjustment, excluding care home residents
+table.scrips.protonpump <- tabulate.freqs.regressions(varnames="scrips.protonpump",
+                                                      data=cc.severe)
+
 
 table.protonpump <- NULL
-withcovariates.formula <- as.formula("CASE ~ esoph.stomach.duod + nsaid + antiplatelet +  protonpump + nonopioid.analgesic + strata(stratum)")
+withcovariates.formula <- as.formula("CASE ~ care.home + esoph.stomach.duod + nsaid + antiplatelet +  protonpump + strata(stratum)")
 coeff.row <- 5
 
-for(agegr in levels(cc.nocare$agegr20)) {
+for(agegr in levels(cc.severe$agegr20)) {
     x <- tabulate.freqs.regressions(varnames="protonpump",
-                                    data=cc.nocare[cc.nocare$agegr20==agegr, ])[, 1:4]
+                                    data=cc.severe[cc.severe$agegr20==agegr, ])[, 1:4]
     y <- summary(clogit(formula=withcovariates.formula,
-                        data=cc.nocare[cc.nocare$agegr20==agegr, ]))$coefficients[coeff.row, , drop=FALSE]
+                        data=cc.severe[cc.severe$agegr20==agegr, ]))$coefficients[coeff.row, , drop=FALSE]
     x$m.ci <- or.ci(y[, 1], y[, 3])
     x$m.pvalue <- pvalue.latex(y[, 5])
     rownames(x) <- agegr
     colnames(x)[1:2] <- c("Controls", "Cases")
     table.protonpump <- rbind(table.protonpump, x)
 }
-x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.nocare)[, 1:4]
+x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.severe)[, 1:4]
 y <- summary(clogit(formula=withcovariates.formula,
-                    data=cc.nocare))$coefficients[coeff.row, , drop=FALSE]
+                    data=cc.severe))$coefficients[coeff.row, , drop=FALSE]
 x$m.ci <- or.ci(y[, 1], y[, 3])
 x$m.pvalue <- pvalue.latex(y[, 5])
 rownames(x) <- "All"

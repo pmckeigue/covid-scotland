@@ -38,7 +38,6 @@ scrips$sectioncode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 4))
 scrips$chapternum[is.na(scrips$chapternum)] <- 14
 scrips$chapternum[scrips$chapternum > 14] <- 14
 
-
 icdchapters <- data.frame(names(icd10_chapters),
                              t(matrix(as.character(unlist(icd10_chapters)), nrow=2)))
 colnames(icdchapters) <- c("name", "start", "end")
@@ -173,23 +172,43 @@ cc.all$casegroup <- car::recode(cc.all$casegroup,
 cc.all$casegroup <- as.factor(cc.all$casegroup)
 cc.all <- within(cc.all, casegroup <- relevel(casegroup, ref="Critical care or fatal"))
 
-## recode diabetes type
+########################################################################################
+###  diabetes based on combining Sci-Diabetes records with ICD codes and drugs 
+## add in BNF codes 6.1 for diabetes drugs and
+## E10 to E14 for diabetes
+
+## diabetes.any includes primary immunodeficiency and secondary immunosuppression
+ids.icd.diabetes <- unique(diagnoses$ANON_ID[grep("^E1[0-4]", diagnoses$ICD10)])
+
+## 802 other immunomodulating drugs
+## Methotrexate and chloroquine appear in musculoskeletal chapter 
+ids.bnf.diabetes <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 601])
+
+ids.diabetes.extra <- unique(c(ids.icd.diabetes, ids.bnf.diabetes))
+
+# recode diabetes type
 cc.all$dm.type <- as.integer(cc.all$dm.type)
 ## missing recoded as zero
 cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
-cc.all$diabetes.any <- as.factor(car::recode(cc.all$dm.type, 
-                                             "0='Not diabetic'; 1:hi='Diabetic'"))
-cc.all <- within(cc.all, diabetes.any <- relevel(diabetes.any, ref="Not diabetic"))
+## code diagnoses detected from discharges or BNF codes as unknown type
+## we could classify those not on insulin as definite Type 2
+cc.all$dm.type[cc.all$dm.type & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
+
 cc.all$dm.type <- 
   as.factor(car::recode(cc.all$dm.type, 
                         "c(0, 10)='Not diabetic';
                          c(1, 101, 102)='Type 1';
                          c(2, 202, 203)='Type 2'; 
-                         3:9='Other diabetes type';
-                         11:100='Other diabetes type'"))
+                         3:9='Other/unknown diabetes type';
+                         11:100='Other/unknown diabetes type'"))
 
 cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
 cc.all$dm.type <- factor(cc.all$dm.type, levels=levels(cc.all$dm.type)[c(1, 3, 4, 2)])
+
+## define an indicator variable for any diabetes
+cc.all$diabetes.any <- as.factor(car::recode(cc.all$dm.type, 
+                                             "0='Not diabetic'; 1:hi='Diabetic'"))
+cc.all <- within(cc.all, diabetes.any <- relevel(diabetes.any, ref="Not diabetic"))
 
 ###############################
 
@@ -324,8 +343,6 @@ for(j in bnfcols) {
 chnums = c(1, 2)
 cc.severe <- merge.bnfsubparas(chnums=chnums, data=cc.severe)
 
-
-
 ## merge ICD diagnoses
 
 ## chapter is assigned as the position of the first element in icdchapters$start that x is greater than or equal to
@@ -369,16 +386,20 @@ cc.severe <- within(cc.severe, num.icdchapters <- relevel(num.icdchapters, ref="
 
 source("comorbidity.R")
 
+## 8 listed conditions designated by NHS
+
+listed.conditions <- c("diabetes.any", "IHD.any", "heart.other.any", "oad.any",
+                       "ckd.any", "neuro.any", "liver.any", "immune.any")
 
 ############ extract predefined disease categories #################
+## as these are coded as factors, lowest level will be 1
+
 cc.severe$listed.any <-
     as.factor(as.integer(with(cc.severe,
-                              !(dm.type == "Not diabetic") | IHD.any==1 |
+                              diabetes.any==1 | IHD.any==1 |
                               heart.other.any==1 |
                               ckd.any==1 | oad.any==1 |
                               neuro.any==1 | liver.any==1 | immune.any==1)))
-
-
 
 ########### variable lists for tabulating
 
@@ -464,7 +485,7 @@ antihypertensives <- c(antihypertensive.classes[4:9], "antihypertensive.other")
 ########################################################
 
 varnames.listed <- c("care.home", "scrip.any", "diag.any",
-                  "diabetes.any", listed.conditions)
+                     listed.conditions)
 
 table.agegr <- NULL
 for(agegr in levels(cc.severe$agegr20)) {
@@ -534,9 +555,10 @@ table.listed.conditions.lt60 <-
 table.listed.conditions.ge60 <-
     tabulate.freqs.regressions(varnames=listed.conditions,
                                data=cc.severe[cc.severe$AGE >= 60, ])
-## all variables
+
+## full multivariate model variables -- for this use dm.type rather than diabetes.any 
 multivariate.all <-
-    multivariate.clogit(varnames=c(demog, "dm.type", listed.conditions,
+    multivariate.clogit(varnames=c(demog, "dm.type", listed.conditions[-1],
                                    "diag.any", conditions, "scrip.any", drugs,
                                    "protonpump"),
                         data=cc.severe, add.reflevel=TRUE)
@@ -576,24 +598,23 @@ table.drugs.aug <- tabulate.freqs.regressions(varnames=drugs,
                                               data=cc.notlisted)
 
 #############################################################################
-## tabulate scrip.any effect by carehome
-table.scrip.any.carehome <- NULL
-for(residence in levels(cc.severe$care.home)) {
-    x <- tabulate.freqs.regressions(varnames="scrip.any",
-                                    data=cc.severe[cc.severe$care.home==residence, ])[, 1:4]
-    rownames(x) <- residence
-    colnames(x)[1:2] <- c("Controls", "Cases")
-    table.scrip.any.carehome <- rbind(table.scrip.any.carehome, x)
-}
+## tabulate scrip.any effect by carehome and listed.any
 
-## tabulate scrip.any effect by listed.any in those not resident in care homes
-table.scrip.any.nocare.listed <- NULL
-for(listed in levels(cc.nocare$listed.any)) {
+## code care home residents as 1, other as 0
+cc.severe$cats3 <-  as.integer(cc.severe$care.home == "Care home resident")
+cc.severe$cats3[cc.severe$cats3==0 & cc.severe$listed.any==1] <- 2 
+cc.severe$cats3[cc.severe$cats3==0 & cc.severe$listed.any==0] <- 3
+cc.severe$cats3 <- as.factor(car::recode(cc.severe$cats3, "1='Care home resident';
+                               2='Independent living, listed condition';
+                               3='Independent living, no listed condition'"))     
+
+table.scrip.cats3 <- NULL
+for(cat in levels(cc.severe$cats3)) {
     x <- tabulate.freqs.regressions(varnames="scrip.any",
-                                    data=cc.nocare[cc.nocare$listed.any==listed, ])[, 1:4]
-    rownames(x) <- listed
+                                    data=cc.severe[cc.severe$cats3==cat, ])[, 1:4]
+    rownames(x) <- cat
     colnames(x)[1:2] <- c("Controls", "Cases")
-    table.scrip.any.nocare.listed <- rbind(table.scrip.any.nocare.listed, x)
+    table.scrip.cats3 <- rbind(table.scrip.cats3, x)
 }
 
 ################################################################

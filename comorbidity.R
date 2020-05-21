@@ -28,7 +28,7 @@ cc.severe$heart.other.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.hea
 
 ############# chronic kidney disease ##########################
 
-## this includes CKD stage 3
+## this includes CKD stage 4
 ids.icd.ckd <- unique(diagnoses$ANON_ID[grep("^N18[45]|^Z49[0-2]|^Z94[02]",
                                              diagnoses$ICD10)])
 
@@ -87,18 +87,6 @@ ids.bnf.immune <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 802 |
 ids.immune.any <- unique(c(ids.icd.immune, ids.bnf.immune))
 cc.severe$immune.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.immune.any))
 
-
-#######################################################################################
-###  diabetes based on combining Sci-Diabetes records with ICD codes and drugs ############
-
-## add in BNF codes 6.1 for diabetes drugs and
-## E10 to E14 for diabetes
-
-###### seven listed conditions,  should add diabetes.any ###############################
-
-listed.conditions <- c("IHD.any", "heart.other.any", "oad.any",
-                       "ckd.any", "neuro.any", "liver.any", "immune.any")
-
 ############# neoplasms ################
 
 ids.icd.neoplasm <- unique(diagnoses$ANON_ID[grep("^C[0-9]|^D[0-4]", diagnoses$ICD10)])
@@ -106,8 +94,7 @@ ids.bnf.neoplasm <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 801]
 ids.neoplasm.any <- unique(c(ids.icd.neoplasm, ids.bnf.neoplasm))
 cc.severe$neoplasm.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.neoplasm.any))
 
-
-###### disorders of esophagus, stomach and duodenum ################################
+###### disorders of esophagus, stomach and duodenum ############################
 
 ids.esoph.stomach.duod <-  unique(diagnoses$ANON_ID[grep("^K2[0-9]|^K3[01]", diagnoses$ICD10)])
 cc.severe$esoph.stomach.duod <-

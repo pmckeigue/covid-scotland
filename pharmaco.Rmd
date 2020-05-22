@@ -1,9 +1,9 @@
 ---
 title: 'Associations of severe COVID-19 with drug prescribing in the REACT-SCOT case-control study'
 author: 
-  - name: Paul M McKeigue
+  - name: Paul M McKeigue\textsuperscript{\getAff{Usher}}
     email: paul.mckeigue@ed.ac.uk
-    affiliation: Usher
+    affiliation: HPS
   - name: Amanda Weir 
     affiliation: HPS
   - name: Jen Bishop
@@ -26,8 +26,10 @@ author:
     affiliation: IGMM
   - name: Sharon Hutchinson 
     affiliation: GCU
-  - name: Helen M Colhoun
-    affiliation: IGMM
+  - name: Helen M Colhoun\textsuperscript{\getAff{IGMM}}
+    affiliation: HPS
+  - name: Public Health Scotland COVID-19 Health Protection Study Group
+    affiliation: HPS
 address: 
    - code: Usher
      address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland. PM - Professor of Genetic Epidemiology and Statistical Genetics. NL - Clinical Senior Lecturer in Critical Care
@@ -65,8 +67,6 @@ output:
     latex_engine: lualatex
     fig_caption: true
     keep_tex: true
-#    toc: true
-#    toc_depth: 2
 csl: ../plos.csl
 urlcolor: red
 
@@ -75,13 +75,12 @@ urlcolor: red
 ---
 
 ```{r functions, echo=FALSE}
+library(knitr)
+library(kableExtra)
 
 source("helperfunctions.R")
 
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
-
-library(knitr)
-library(kableExtra)
 
 ```
 
@@ -107,7 +106,7 @@ A striking preliminary finding of the REACT-SCOT study was the strong associatio
 The design of the REACT-SCOT case-control study is described in detail in the accompanying paper. 
 
 ## Case ascertainment and sampling of controls 
-The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally, using the Community Health Index (CHI) identifier. All individuals testing positive for nucleic acid for SARS-CoV-2 up to `r format(max(cc.all$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained.  Hospital admissions from the time of testing were obtained from the RAPID-24 database which is updated each day and the weekly updated Scottish Morbidity Record 01. Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care units across Scotland. Death registrations up to `r format(max(cc.all$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.   
+The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally, using the Community Health Index (CHI) identifier. All individuals testing positive for nucleic acid for SARS-CoV-2 up to `r format(max(cc.severe$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained.  Hospital admissions from the time of testing were obtained from the RAPID-24 database which is updated each day and the weekly updated Scottish Morbidity Record 01. Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care units across Scotland. Death registrations up to `r format(max(cc.severe$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.   
 
 For each test-positive case, the CHI database was used to select ten controls matched for sex, one-year age band and registered with the same primary care practice, who were alive on the same day as the date of test in the case using the Community Health Index (CHI) database.  With this incidence density sampling design, odds ratios in conditional logistic regression models are equivalent to rate ratios.  
 
@@ -131,7 +130,7 @@ This led us to examine further the association of proton pump inhibitors with se
 
 Table \ref{tab:bnfchapter1} shows that dispensed prescriptions of most classes of drugs for the gastrointestinal system were associated with severe COVID-19, but only proton pump inhibitors, osmotic laxatives, and aminosalicylates were independently associated with disease in a multivariate analysis.  Proton pump inhibitors were far more commonly prescribed than other drug classes in this chapter.  
 
- Table \ref{tab:bnfchapter2} shows that We also examined the univariate and multivariate associations of prescribed drugs for the cardiovascular system (BNF chapter 2) with severe COVID-19.  lists associations with drug classes (BNF subparagraphs) in this chapter.  Prescriptions of most classes of drugs for the cardiovascular system were associated with severe COVID-19. In a multivariate analysis the strongest associations were with loop diuretics and calcium-channel blockers.  All commonly-used drug classes used to treat hypertension were associated with moderately elevated risk of severed disease, with rate ratios from ranging from about 1.4 to 2.2.  The rate ratios associated with ACE inhibitors and angiotensin-II receptor blockers were in the middle of this range. Prescriptions of anticoagulant, antiplatelet and lipid-lowering drugs were associated with severe disease in univariate analyses, but these association were weaker in a multivariate analysis.  
+ Table \ref{tab:bnfchapter2} shows that We also examined the univariate and multivariate associations of prescribed drugs for the cardiovascular system (BNF chapter 2) with severe COVID-19.  lists associations with drug classes (BNF subparagraphs) in this chapter.  Prescriptions of most classes of drugs for the cardiovascular system were associated with severe COVID-19. In a multivariate analysis the strongest associations were with loop diuretics and calcium-channel blockers.  All commonly-used drug classes used to treat hypertension were associated with moderately elevated risk of severe disease, with rate ratios from ranging from about 1.4 to 2.2.  The rate ratios associated with ACE inhibitors and angiotensin-II receptor blockers were in the middle of this range. Prescriptions of anticoagulant, antiplatelet and lipid-lowering drugs were associated with severe disease in univariate analyses, but these association were weaker in a multivariate analysis.  
 
 # Discussion 
 We have shown that the association of dispensed drug prescriptions with severe COVID-19 remains after excluding people who are at high risk for reasons that are associated with higher rates of prescribing; residence in care homes or a hospital diagnosis of a designated high-risk condition.  We have shown further that this most of this association is accounted for by drugs prescribed for the gastrointestinal system and drugs prescribed for the cardiovascular system.  There are smaller independent contributions from drugs prescribed for the nervous and musculoskeletal systems.  
@@ -160,6 +159,27 @@ Because this case-control study is matched on primary care practice, variation o
 
 ## Conclusion
 Although some of the association of severe COVID-19 with dispensing of prescriptions can be accounted for underlying cardiovascular diseases that are not captured by hospital discharge diagnoses, there remains a residual association with prescription of proton pump inhibitors that is not easily explained by co-morbidity.  Increased risk of community-acquired pneumonia is an established adverse effect of the use of these drugs, We recommend that public health agencies should reinforce existing guidelines on the overprescribing of proton pump inhibitors, and should advise against their use without a recognized medical indication.  
+
+# Acknowledgements
+We thank all staff in critical care units who submitted data to the SICSAG database, the Scottish Morbidity Record Data Team, the staff of the National Registers of Scotland and the Public Health Scotland Terminology Services. 
+
+## Public Health Scotland COVID-19 Health Protection Study Group
+AliceÂ Whettlock$^1$, Alison Smith-Palmer$^1$, Allan McLeod$^1$, Andrew Gasiorowski$^1$, Andrew Merrick$^1$, Andy McAuley$^1$, April Went$^1$, Calum Purdie$^1$, Colin Fischbacher$^1$, Colin Ramsay$^1$, Dave Yirrell$^1$, David Henderson$^1$, DiogoÂ Marques$^1$, Eisin McDonald$^1$, Genna Drennan$^1$, Graeme Gowans$^1$, Graeme Reid$^1$, Heather Murdoch$^1$, Jade Carruthers$^1$, Janet Fleming$^1$, Jade Carruthers$^1$, JimÂ McMenamim$^1$, Joseph Jasperse$^1$,  Josie Murray$^1$,  KarenÂ Heatlie$^1$,  Lindsay Mathie$^1$,  Lorraine Donaldson$^1$, Martin Paton$^1$,  Martin Reid$^1$,  Melissa Llano$^1$,  Michael Lockhart$^1$,  Michelle Murphy-HallÂ $^1$,  Paul Smith$^1$,  Ros Hall$^1$,  Ross Cameron$^1$,  Susan Brownlie$^1$,  Adam Gaffney$^2$,  Aynsley Milne$^2$,  Christopher Sullivan$^2$,  Edward McArdle$^2$,  Elaine Glass$^2$,  Johanna Young$^2$,  William Malcolm$^2$,  Kate Templeton$^3$,  Nazir Lone$^4$,  Rory Gunson$^4$   
+
+1  Health Protection Scotland (Public Health Scotland), Meridian Court, 5 Cadogan Street, Glasgow G2 6QE. 
+
+2  NHS National Services Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE. 
+
+3  NHS Lothian, Royal Infirmary of Edinburgh, 51 Little France Crescent, Old Dalkeith Road, Edinburgh EH16 4SA.  
+
+4  Usher Institute, University of Edinburgh, Teviot Place, Edinburgh, EH8 9AG. 
+
+## Conflicts of interest
+HC receives research support and honoraria and is a member of advisory panels or speaker’s bureaus for Sanofi Aventis, Regeneron, Novartis, Novo-Nordisk and Eli Lilly. HC receives or has recently received non-binding research support from Pfizer, AstraZeneca and Novo-Nordisk. 
+
+## Supplementary material
+The R and Rmarkdown scripts used to generate this article, which include the code used to derive variables, will be made available with this manuscript. 
+
 
 # References {-}
 

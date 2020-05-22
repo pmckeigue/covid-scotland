@@ -53,12 +53,12 @@ full.formula <- as.formula(paste0("CASE ~ ",
                             paste(full.varnames, collapse="+"), 
                             " + strata(stratum)"))
 
-cc.nonmissing <- nonmissing.obs(cc.severe, full.varnames)
+nonmissing <- nonmissing.obs(cc.severe, full.varnames)
 
 ## fit models
-demog.model <- clogit(formula=demog.formula, data=cc.nonmissing)
-listed.model <- clogit(formula=listed.formula, data=cc.nonmissing)
-full.model <- clogit(formula=full.formula, data=cc.nonmissing)
+demog.model <- clogit(formula=demog.formula, data=cc.severe[nonmissing, ])
+listed.model <- clogit(formula=listed.formula, data=cc.severe[nonmissing, ])
+full.model <- clogit(formula=full.formula, data=cc.severe[nonmissing, ])
 
 if(stepwise) {
     ## stepwise for full variable set
@@ -71,13 +71,11 @@ if(stepwise) {
 
 ################ cross-validation of stepwise regression ######
    
-    cc.nonmissing <- nonmissing.obs(cc.severe, full.varnames)
-
-    test.folds <- testfolds.bystratum(stratum=cc.nonmissing$stratum,
-                                      y=cc.nonmissing$CASE, nfold=nfold)
+    test.folds <- testfolds.bystratum(stratum=cc.severe[nonmissing, ]$stratum,
+                                      y=cc.severe[nonmissing, ]$CASE, nfold=nfold)
     ## test.folds has one row per stratum, one column per fold containing indicator vars
     ## merge by stratum adds single column test.fold
-    cv.data <- merge(cc.nonmissing, test.folds, by="stratum")
+    cv.data <- merge(cc.severe[nonmissing, ], test.folds, by="stratum")
     cv.data <- cv.data[, c("test.fold", "CASE", "stratum", full.varnames)]
     cat("cv.data has", nrow(cv.data), "rows\n")
 

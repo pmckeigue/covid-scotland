@@ -169,8 +169,8 @@ multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FAL
     multivariate.formula <- as.formula(paste(outcome, "~",
                                   paste(varnames, collapse=" + "),
                                   "+ strata(stratum)"))
-    data.nonmissing <- nonmissing.obs(data, varnames)
-    multivariate.model <- clogit(formula=multivariate.formula, data=data.nonmissing)
+    nonmissing <- nonmissing.obs(data, varnames)
+    multivariate.model <- clogit(formula=multivariate.formula, data=data[nonmissing, ])
     multivariate.coeffs <- summary(multivariate.model)$coefficients
     multivariate.table <- NULL
    
@@ -180,33 +180,33 @@ multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FAL
         ## is length(levels) -1 for factor variables
         numrows.i <- 1
         ## set number of rows in multivariate.coeffs for factor variable as num levels -1 
-        if(with(data.nonmissing, is.factor(eval(str2expression(varnames[i]))))) {
+        if(with(data[nonmissing, ], is.factor(eval(str2expression(varnames[i]))))) {
             numrows.i <-
-                with(data.nonmissing, length(levels(eval(str2expression(varnames[i]))))) - 1
+                with(data[nonmissing, ], length(levels(eval(str2expression(varnames[i]))))) - 1
         }
         ## if variable is factor, > 2 levels and add.reflevel
-        if(with(data.nonmissing, is.factor(eval(str2expression(varnames[i])))) &
-           with(data.nonmissing, length(levels(eval(str2expression(varnames[i]))))) > 2 &
+        if(with(data[nonmissing, ], is.factor(eval(str2expression(varnames[i])))) &
+           with(data[nonmissing, ], length(levels(eval(str2expression(varnames[i]))))) > 2 &
            add.reflevel) {
             ## add empty line to multivariate.table
             multivariate.table <- rbind(multivariate.table,
                                         rep(NA, ncol(multivariate.coeffs)))
             ## label this empty line as reference level of factor
             rownames(multivariate.table)[nrow(multivariate.table)] <-
-                 with(data.nonmissing, levels(eval(str2expression(varnames[i])))[1])
+                 with(data[nonmissing, ], levels(eval(str2expression(varnames[i])))[1])
         }
         ## label rows of multivariate.coeffs that will be added
         ## this step is run irrespective of add.reflevel
         ## if variable is factor with >2 levels
-        if(with(data.nonmissing, is.factor(eval(str2expression(varnames[i])))) &
-           with(data.nonmissing, length(levels(eval(str2expression(varnames[i]))))) > 2) {
+        if(with(data[nonmissing, ], is.factor(eval(str2expression(varnames[i])))) &
+           with(data[nonmissing, ], length(levels(eval(str2expression(varnames[i]))))) > 2) {
             ## label rows with levels
             rownames(multivariate.coeffs)[1:numrows.i] <-
-                with(data.nonmissing, levels(eval(str2expression(varnames[i])))[-1])
+                with(data[nonmissing, ], levels(eval(str2expression(varnames[i])))[-1])
         } else { # if numeric, or factor with 2 levels
             ## label single row with variable name
             rownames(multivariate.coeffs)[1] <-
-                with(data.nonmissing, varnames[i])
+                with(data[nonmissing, ], varnames[i])
         }
 
         ## add rows from multivariate.coeffs    
@@ -635,7 +635,7 @@ nonmissing.obs <- function(x, varnames) { ## subset rows nonmissing for varnames
     for(j in 1:length(varnames)) {
         keep[is.na(x[, match(varnames[j], colnames(x))])] <- FALSE
     }
-    return(x[keep, ])
+    return(keep)
 }
 
 normalize.predictions <- function(unnorm.p, stratum, y) { # format a pvalue in latex

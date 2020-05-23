@@ -49,14 +49,14 @@
 #'98'='Refused/Not provided by patient';
 #'99'='Not Known'")
 
-## extra codes: 1[DEFGHJ] White, 3[ABC] South Asian, 3[E] Chinese, 3D Other Asian, 4[ABCE] presumably African
+## extra codes: 1[DEFGHJ] White, 3[ABC] South Asian, 3[E] Chinese, 3D Other Asian, 4[ABCE]  African
 
 ethnic5.smr <- character(length(ethnic.smr))
 ethnic5.smr[grep("^1[A-Z]$", ethnic.smr)] <- "White"
 ethnic5.smr[grep("^2[A-Z]$", ethnic.smr)] <- "Other"
 ethnic5.smr[grep("^3[ABCFGH]$", ethnic.smr)] <- "South Asian"
 ethnic5.smr[grep("^3[EJ]$", ethnic.smr)] <- "Chinese"
-ethnic5.smr[grep("^3D$", ethnic.smr)] <- "Other"
+ethnic5.smr[grep("^3[DZ]$", ethnic.smr)] <- "Other"
 ethnic5.smr[grep("^4[ABCDEY]$", ethnic.smr)] <- "Black"
 ethnic5.smr[grep("^5[ABCDY]$", ethnic.smr)] <- "Black"
 ethnic5.smr[grep("^6[AZ]$", ethnic.smr)] <- "Other"
@@ -66,7 +66,7 @@ ethnic5.smr <- as.factor(ethnic5.smr)
 ethnic5.smr <- factor(ethnic5.smr, levels=levels(ethnic5.smr)[c(5, 4, 2, 1, 3)])
 
 if(length(OnolyticsType) > 0) {
-    OnolyticsType <- recode(OnolyticsType,
+    OnolyticsType <- car::recode(OnolyticsType,
                             "'NOT FOUND'=NA; 'INTERNATIONAL'=NA; 'UNCLASSIFIED'=NA; 'VOID'=NA; 'VOID - FORENAME'=NA; 'VOID INITIAL'=NA")
     
     table(OnolyticsType[GeographicalArea=="SOUTH ASIA"])
@@ -102,6 +102,6 @@ if(length(OnolyticsType) > 0) {
     eth[OnolyticsType == "BLACK CARIBBEAN"] <- "Black Caribbean"
     
     ## reduce to 5 categories: White, South Asian, Chinese, Black, Other
-    ethnic5 <- recode(eth, "'Black African'='Black'; 'Black Caribbean'='Black';  'Britain&Ireland'='White';  'Other Europe'='White';  'East Med'='Other'; 'Other Asia & Pacific'='Other'; 'Muslim, not localized'='Other'") 
+    ethnic5 <- car::recode(eth, "'Black African'='Black'; 'Black Caribbean'='Black';  'Britain&Ireland'='White';  'Other Europe'='White';  'East Med'='Other'; 'Other Asia & Pacific'='Other'; 'Muslim, not localized'='Other'") 
     ethnic5 <- relevel(as.factor(ethnic5), ref="White")
 }

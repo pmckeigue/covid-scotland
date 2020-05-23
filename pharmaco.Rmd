@@ -4,14 +4,14 @@ author:
   - name: Paul M McKeigue\textsuperscript{\getAff{Usher}}
     email: paul.mckeigue@ed.ac.uk
     affiliation: HPS
+  - name: Sharon Kennedy
+    affiliation: HPS
   - name: Amanda Weir 
     affiliation: HPS
   - name: Jen Bishop
     affiliation: HPS
   - name: Stuart McGurnaghan
     affiliation: IGMM
-  - name: Sharon Kennedy
-    affiliation: HPS
   - name: David McAllister 
     affiliation: Glasgow
   - name: Chris Robertson 
@@ -106,19 +106,16 @@ A striking preliminary finding of the REACT-SCOT study was the strong associatio
 The design of the REACT-SCOT case-control study is described in detail in the accompanying paper. 
 
 ## Case ascertainment and sampling of controls 
-The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally, using the Community Health Index (CHI) identifier. All individuals testing positive for nucleic acid for SARS-CoV-2 up to `r format(max(cc.severe$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained.  Hospital admissions from the time of testing were obtained from the RAPID-24 database which is updated each day and the weekly updated Scottish Morbidity Record 01. Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care units across Scotland. Death registrations up to `r format(max(cc.severe$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.   
+The Electronic Communication of Surveillance in Scotland (ECOSS) database captures all virology testing in all NHS laboratories nationally, using the Community Health Index (CHI) identifier. All individuals testing positive for nucleic acid for SARS-CoV-2 up to `r format(max(cc.severe$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained for this study.  Hospital admissions from the time of testing were obtained from the RAPID-24 database which is updated each day and the weekly updated Scottish Morbidity Record 01. Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care units across Scotland. Death registrations up to `r format(max(cc.severe$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  Severe or fatal COVID-19 was defined by a record of entering critical care in the SICSAG database, or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.  
 
 For each test-positive case, the CHI database was used to select ten controls matched for sex, one-year age band and registered with the same primary care practice, who were alive on the same day as the date of test in the case using the Community Health Index (CHI) database.  With this incidence density sampling design, odds ratios in conditional logistic regression models are equivalent to rate ratios.  
 
 ## Morbidity and drug prescribing
-For all cases and controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-Cov-2 and using all codes on the discharge. Diagnosed cases of diabetes were identified through linkage to the national diabetes register (SCI-Diabetes), with a clinical classification of diabetes type as Type 1, Type 2 or Other.  British National Formulary (BNF) drug codes were extracted from the last year of encashed prescriptions, excluding those encashed less than 25 days before testing positive for SARS-CoV-2.  The BNF classification groups drugs by chapter (2 digits), section (2 digits), paragraph (2 digits), subparagraph (1 digit), and chemical substance (2 characters).  For this analysis prescription codes from chapters 14 and above, comprising vaccines, anaesthesia, other preparations, dressings and appliances, were grouped as "Other". Most of these codes are for dressings and appliances rather than drugs.  
+For all `r table(cc.severe$CASE)[2]` cases and `r table(cc.severe$CASE)[1]` controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-Cov-2 and using all codes on the discharge. Diagnosed cases of diabetes were identified through linkage to the national diabetes register (SCI-Diabetes), with a clinical classification of diabetes type as Type 1, Type 2 or Other.  British National Formulary (BNF) drug codes were extracted from all prescriptions dispensed since 1 June 2019, excluding those dispensed less than 25 days before testing positive for SARS-CoV-2.  The BNF classification groups drugs by chapter (2 digits), section (2 digits), paragraph (2 digits), subparagraph (1 digit), and chemical substance (2 characters).  For this analysis prescription codes from chapters 14 and above, comprising vaccines, anaesthesia, other preparations, dressings and appliances, were grouped as "Other". Most of these codes are for dressings and appliances rather than drugs.  Defined daily doses (DDDs) were obtained from the DDD/ATC Index of the WHO Collaborating Centre for Drug Statistics Methodology.  Average daily doses were calculated for each individual as the sum of (strength $\times$ quantity) over all prescriptions dispensed, divided by (interval length $\times$ DDD)  the time in
 
 # Data analysis 
 We derived indicator variables for a list of conditions that have been included as risk conditions for COVID-19 by public health agencies [@nhs_whos_2020].  These co-morbid conditions were assigned based on either a diagnostic code in any hospital discharge record during the last five years, or an encashed prescription of a drug for which that diagnostic code is the only indication.  The ICD-10 codes and drug codes used to define each variable are listed in the R scripts provided as Supplementary Material. 
 Rate ratios were estimated from conditional logistic regression models, implemented as Cox regression in the R function `survival::clogit`.  
-
-## Information governance
-This study was conducted under approvals from the Public Benefit and Privacy Panel that allow Health Protection Scotland staff to link any PHI controlled datasets <!--- janet to add detail and reference numbers ---> and amendment 1617-0147 that covers transfer of diabetes data to Health Protection Scotland. Datasets were de-identified before analysis.  
 
 # Results
 ## Dispensing of any prescription by care home status and presence of any listed condition
@@ -126,7 +123,8 @@ Table \ref{tab:scrip.cats3} shows that at least one prescription had been dispen
 
 To investigate which drug classes in Chapters 1 and 2 contribute to the "any dispensed prescription" effect, we repeated the backward stepwise variable selection procedure on all BNF subparagraph codes in these two chapters.  Subparagraph codes correspond generally to drugs classified by their mode of action.  Of the 48 subparagraph codes in Chapters 1 and 2, only the last ten retained by the stepwise variable selection decreased the log-likelihood when dropped.  The results of the stepwise variable selection for these last ten are shown in Table \ref{tab:stepwise.subparas}.  The cardiovascular drug classes retained at this stage were oral anticoagulants, angiotensin-II receptor antagonists, angiotensin-converting enzyme inhibitors, loop diuretics and calcium-channel blockers.  The gastrointestinal drug classes retained at this stage were drugs altering gut motility, osmotic laxatives and proton pump inhibitors.  The last variable retained by backward selection, and thus the variable with largest independent explanatory power, was proton pump inhibitors.  
 
-This led us to examine further the association of proton pump inhibitors with severe disease, without restricting the analysis to those not resident in care homes and without a diagnosis of a listed condition.  Table \ref{tab:protonpump.adjusted} shows the association with proton pump inhibitors by age group, without and with adjustment for NSAIDs, antiplatelet drugs and any past hospital diagnosis in the ICD subchapter "Disorders of esophagus, stomach and duodenum".  The association was strongest in those aged under 40 years, and was reduced by adjusting for covariates.  
+This led us to examine further the association of proton pump inhibitors with severe disease, without restricting the analysis to those not resident in care homes and without a diagnosis of a listed condition.  Table \ref{tab:protonpump.adjusted} shows the association with proton pump inhibitors by age group, without and with adjustment for NSAIDs, antiplatelet drugs and any past hospital diagnosis in the ICD subchapter "Disorders of esophagus, stomach and duodenum".  The association was strongest in those aged under 40 years, and was reduced by adjusting for covariates.  Table \ref{tab:dose.protonpump} shows how the effect size varies with the dose of proton pump inibitor, calculated as average defined daily doses dispensed per day since 1 June 2019.  There is a strong dose-response relationship in the two younger age groups, but not in those aged over 75 years.  
+
 
 Table \ref{tab:bnfchapter1} shows that dispensed prescriptions of most classes of drugs for the gastrointestinal system were associated with severe COVID-19, but only proton pump inhibitors, osmotic laxatives, and aminosalicylates were independently associated with disease in a multivariate analysis.  Proton pump inhibitors were far more commonly prescribed than other drug classes in this chapter.  
 
@@ -160,6 +158,13 @@ Because this case-control study is matched on primary care practice, variation o
 ## Conclusion
 Although some of the association of severe COVID-19 with dispensing of prescriptions can be accounted for underlying cardiovascular diseases that are not captured by hospital discharge diagnoses, there remains a residual association with prescription of proton pump inhibitors that is not easily explained by co-morbidity.  Increased risk of community-acquired pneumonia is an established adverse effect of the use of these drugs, We recommend that public health agencies should reinforce existing guidelines on the overprescribing of proton pump inhibitors, and should advise against their use without a recognized medical indication.  
 
+# Declarations
+## Information governance
+This study was conducted under approvals from the Public Benefit and Privacy Panel that allow Health Protection Scotland staff to link any PHI controlled datasets and amendment 1617-0147 that covers transfer of diabetes data to Health Protection Scotland. Datasets were de-identified before analysis.  
+
+## Conflicts of interest
+HC receives research support and honoraria and is a member of advisory panels or speaker’s bureaus for Sanofi Aventis, Regeneron, Novartis, Novo-Nordisk and Eli Lilly. HC receives or has recently received non-binding research support from Pfizer, AstraZeneca and Novo-Nordisk. 
+
 # Acknowledgements
 We thank all staff in critical care units who submitted data to the SICSAG database, the Scottish Morbidity Record Data Team, the staff of the National Registers of Scotland and the Public Health Scotland Terminology Services. 
 
@@ -174,9 +179,6 @@ AliceÂ Whettlock$^1$, Alison Smith-Palmer$^1$, Allan McLeod$^1$, Andrew Gasior
 
 4  Usher Institute, University of Edinburgh, Teviot Place, Edinburgh, EH8 9AG. 
 
-## Conflicts of interest
-HC receives research support and honoraria and is a member of advisory panels or speaker’s bureaus for Sanofi Aventis, Regeneron, Novartis, Novo-Nordisk and Eli Lilly. HC receives or has recently received non-binding research support from Pfizer, AstraZeneca and Novo-Nordisk. 
-
 ## Supplementary material
 The R and Rmarkdown scripts used to generate this article, which include the code used to derive variables, will be made available with this manuscript. 
 
@@ -189,6 +191,7 @@ The R and Rmarkdown scripts used to generate this article, which include the cod
 \newpage
 
 ```{r cats3, echo=FALSE, warning=FALSE, message=FALSE}
+options(knitr.kable.NA = '')
 
 knitr::kable(table.scrip.cats3,
              escape=FALSE, 
@@ -275,6 +278,26 @@ knitr::kable(table.protonpump,
              caption="Associations of severe disease with prescription of a proton pump inhibitor, with and without adjustment for covariates: care home residence, hospital diagnosis of upper GI tract disorder, prescriptions of NSAIDs,  antiplatelet agents") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
     kable_styling(latex_options="hold_position") %>%
+    landscape()
+
+```
+
+```{r dose.protonpump, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.dose.protonpump,
+             escape=FALSE,
+             label="dose.protonpump", 
+             booktabs=TRUE,
+             row.names=FALSE,
+             col.names=c("Average DDDs/day", "Controls", "Cases",
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
+             caption="Associations of severe disease with average dose of proton pump inhibitor (daily defined doses/day) dispensed since 1 June 2019, by age group") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Adjusted for covariates"=2)) %>%
+    kable_styling(latex_options="hold_position") %>%
+    group_rows("Ages 0-59 years", 1, 5) %>%
+    group_rows("Ages 60-74 years", 6, 10) %>%
+    group_rows("Ages 75+ years", 11, 15) %>%
     landscape()
 
 ```

@@ -14,7 +14,7 @@ library(readxl)
 library(DescTools)
 library(icd.data)
 library(gam)
-library(plyr) # ? needed to access .() function
+# library(plyr) # ? needed to access .() function
 library(dplyr)
 
 registerDoParallel(cores=2)
@@ -24,7 +24,7 @@ source("helperfunctions.R")
 scotpop <- read_excel("./Scotland_midyearpop_est2019.xlsx")
 
 old <- TRUE
-old <- FALSE
+#old <- FALSE
 
 if(old) {
     cc.all <- readRDS("./data/CC_linked_ANON_20200501 (2).rds")
@@ -136,17 +136,19 @@ cc.all$SIMD.quintile <- car::recode(cc.all$SIMD.quintile, "'Unknown'=NA")
 cc.all$scrip.any <- as.factor(as.integer(cc.all$ANON_ID %in% scrips$ANON_ID))
 cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
 
-#cc.all$emerg <- as.factor(cc.all$emerg.x25)
-#cc.all$icu.hdu.ccu <- as.factor(cc.all$icu.hdu.ccu.x25)
-#cc.all$inpat <- as.factor(cc.all$inpat.x25)
-
+cc.all$scripordiag <- as.integer(with(cc.all, as.integer(diag.any)==2 |
+                                                    as.integer(scrip.any)==2))
+                  
 cc.all$sex <- car::recode(as.factor(cc.all$sex), "1='Male'; 2='Female'")
 cc.all <- within(cc.all, sex <- relevel(sex, ref="Female"))
 
-#cc.all$agegr20 <- 20 * floor(0.05 * (cc.all$AGE - 15)) + 15
 cc.all$agegr20 <- as.factor(car::recode(as.integer(cc.all$AGE),
                               "0:39='0-39'; 40:59='40-59';
                                   60:74='60-74'; 75:hi='75 or more'"))
+
+cc.all$agegr3 <-
+    as.factor(car::recode(cc.all$AGE,
+                          "0:59='0-60 years'; 60:74='60-74 years'; 75:hi='75+ years'"))
 
 cc.all$care.home[cc.all$NURSINGHOME==1] <- 1
 cc.all$care.home <- as.factor(car::recode(cc.all$care.home, "0='Independent'; 1='Care/nursing home'"))
@@ -188,14 +190,11 @@ if(!old) {
 
 ## with(cc.all[cc.all$CASE==1, ], table(icu.hdu.ccu, exclude=NULL))
 
-# browser("unit")
-
 ## coding of case groups -- check this is correct
 cc.all$group <- NA
-cc.all$group[cc.all$CASE==1 & cc.all$adm28== 0] <- "C"
-cc.all$group[cc.all$CASE==1 & cc.all$adm28==1] <- "B"
-cc.all$group[cc.all$CASE==1 &
-             (cc.all$icu==1 | cc.all$deathwithin28==1)]  <- "A"
+cc.all$group[cc.all$CASE==1 & cc.all$adm28== 0 & cc.all$inhosp==0] <- "C"
+cc.all$group[cc.all$CASE==1 & (cc.all$adm28==1 | cc.all$inhosp==1)] <- "B"
+cc.all$group[cc.all$CASE==1 & (cc.all$icu==1 | cc.all$deathwithin28==1)]  <- "A"
 table(cc.all$deathwithin28, cc.all$group, exclude=NULL)
 
 ## assign controls to same group as matched case i.e. A, B, C and create a new variable named casegroup
@@ -212,7 +211,6 @@ cc.all$casegroup <- car::recode(cc.all$casegroup,
 cc.all$casegroup <- as.factor(cc.all$casegroup)
 cc.all <- within(cc.all, casegroup <- relevel(casegroup, ref="Critical care or fatal"))
 
-
 ######## coding ethnicity ##############################
 
 OnolyticsType <- cc.all$OnolyticsType
@@ -224,14 +222,20 @@ source("ethnic_assign.R")
 cc.all$ethnic5.smr <- ethnic5.smr
 
 ## recode SMR ethnicity to 4 categories: White, Black, South Asian, Other
-cc.all$ethnic4.smr <- car::recode(cc.all$ethnic5.smr, "'Chinese'='Other'")
-cc.all <- within(cc.all, ethnic4.smr <- relevel(as.factor(ethnic4.smr), ref="White"))
-   
+cc.all$ethnic4.smr <- as.factor(car::recode(cc.all$ethnic5.smr, "'Chinese'='Other'"))
+cc.all <- within(cc.all, ethnic4.smr <- factor(ethnic4.smr,
+                                               levels=levels(ethnic4.smr)[c(4, 3, 1, 2)]))   
 if(length(OnolyticsType) > 0) {
     cc.all$ethnic5 <- ethnic5
    
     ## tabulate ONOMAP ethnicity against SMR ethnicity
     table.ethnic <- table(cc.all$ethnic5, cc.all$ethnic5.smr, exclude=NULL)
+    
+    tn <- table(cc.all$ethnic5, cc.all$ethnic5.smr)
+    SouthAsian.sensitivity <- 100 * tn[5, 2] / sum(tn[, 2])
+    SouthAsian.specificity <- 100 * (sum(tn[, -2]) - sum(tn[5, ]) + tn[5, 2]) / sum(tn[, -2])
+    sum.xtabulate <- sum(tn)
+                                                       
     table.ethnic <- paste.colpercent(table.ethnic)
 
     ## recode ONOMAP ethnicity to 4 categories: White, South Asian, Chinese, Other
@@ -252,7 +256,8 @@ if(length(OnolyticsType) > 0) {
 ## add in BNF codes 6.1 for diabetes drugs and
 ## E10 to E14 for diabetes
 
-## diabetes.any includes primary immunodeficiency and secondary immunosuppression
+## immune.any includes primary immunodeficiency and secondary immunosuppression
+
 ids.icd.diabetes <- unique(diagnoses$ANON_ID[grep("^E1[0-4]", diagnoses$ICD10)])
 
 ## 802 other immunomodulating drugs
@@ -272,17 +277,18 @@ cc.all$dm.type[cc.all$dm.type==0 & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
 cc.all$dm.type <- 
   as.factor(car::recode(cc.all$dm.type, 
                         "c(0, 10)='Not diabetic';
-                         c(1, 101, 102)='Type 1';
-                         c(2, 202, 203)='Type 2'; 
-                         3:9='Other/unknown diabetes type';
-                         11:100='Other/unknown diabetes type'"))
+                         c(1, 101, 102)='Type 1 diabetes';
+                         c(2, 202, 203)='Type 2 diabetes'; 
+                         3:9='Other/unknown type';
+                         11:100='Other/unknown type'"))
 
 cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
 cc.all$dm.type <- factor(cc.all$dm.type, levels=levels(cc.all$dm.type)[c(1, 3, 4, 2)])
 
 ## define an indicator variable for any diabetes
-cc.all$diabetes.any <- as.factor(car::recode(cc.all$dm.type, 
-                                             "0='Not diabetic'; 1:hi='Diabetic'"))
+cc.all$diabetes.any <- as.integer(cc.all$dm.type != "Not diabetic")
+cc.all$diabetes.any <- as.factor(car::recode(cc.all$diabetes.any,
+                                        "0='Not diabetic'; 1='Diabetic'"))
 cc.all <- within(cc.all, diabetes.any <- relevel(diabetes.any, ref="Not diabetic"))
 
 ####### drug exposure specifically relevant to proton pump ##################
@@ -291,44 +297,86 @@ ids.protonpump <- unique(scrips$ANON_ID[scrips$bnf_paragraph_code == "0103050"])
 cc.all$protonpump <- as.factor(as.integer(cc.all$ANON_ID %in% ids.protonpump))
 cc.all$y.protonpump <- as.integer(cc.all$protonpump =="1")
 
-if(!old) {
-numscrips.protonpump <- reshape2::dcast(scrips.protonpump,
-                                        ANON_ID ~ num_items,
-                                        value.var="num_items", fun.aggregate=sum)
-colnames(numscrips.protonpump)[2] <- "numscrips.protonpump"
-cc.all <- merge(cc.all, numscrips.protonpump, by="ANON_ID", all.x=TRUE)
-cc.all$numscrips.protonpump[is.na(cc.all$numscrips.protonpump)] <- 0
+TW <- 120 # time window in days
 
-## check specdate - date of dispensing last scrip 
-with(scrips.protonpump, tapply(item_strength, approved_name, mean))
+if(!old) {
+    ## get SPECDATE into scrips.protonpump
+    scrips.protonpump <- merge(scrips.protonpump, cc.all[, c("ANON_ID", "SPECDATE")],
+                               by="ANON_ID", all.x=TRUE) 
+    scrips.protonpump$daysbefore <- as.integer(scrips.protonpump$SPECDATE -
+                                               scrips.protonpump$dispensed_date)
+    ## minimum value is 16 days -- the 15-day cutoff has been applied to the scrips table
+
+    scrips.protonpump$dispensing.days <- as.integer(scrips.protonpump$SPECDATE - 15 - 
+                                                    as.Date("2019-06-01"))
+    scrips.protonpump$intervalTWday <- ceiling((scrips.protonpump$daysbefore - 15) / TW)
+    scrips.protonpump$intervalTWday[scrips.protonpump$intervalTWday > 3] <- 3
 
 ## https://www.whocc.no/atc_ddd_index/?code=A02BC&showdescription=yes gives defined daily doses
 ##
 ##ATC code  	Name  	DDD 	 U 	Adm.R	 Note
 ##A02BC05 	esomeprazole 	30 	mg 	O
-##A02BC03 	lansoprazole 	30 	mg 	O 	
+##A02BC03 	lansoprazole 	30 	mg 	O 
 ##A02BC01 	omeprazole 	20 	mg 	O 
 ##A02BC02 	pantoprazole 	40 	mg 	O 	
 ##A02BC04 	rabeprazole 	20 	mg 	O 	
+    DDD5 <- c(30, 30, 20, 40, 20)
 
-scrips.protonpump$dose <- scrips.protonpump$item_strength * scrips.protonpump$quantity
-dose.protonpump <-  reshape2::dcast(data=scrips.protonpump,
-                                    formula=ANON_ID ~ approved_name,
+    scrips.protonpump$dose <- scrips.protonpump$item_strength * scrips.protonpump$quantity 
+
+    ## calculate dose of each drug over entire period
+    dose.protonpump <-  reshape2::dcast(data=scrips.protonpump,
+                                        formula=ANON_ID + dispensing.days ~ approved_name,
+                                        value.var="dose",
+                                        fun.aggregate=sum)
+
+    for(j in 1:5) { # loop over approved names to divide by DDD x dispensing.days 
+
+        dose.protonpump[, j + 2] <- dose.protonpump[, j + 2] /
+            (DDD5[j] * dose.protonpump$dispensing.days) 
+    }
+    dose.protonpump$DDDs.all <- rowSums(dose.protonpump[, -(1:2)])
+
+    ###############  average dose in each TW-day interval ######################## 
+    doseTWday.protonpump <-  reshape2::dcast(data=scrips.protonpump,
+                                    formula=ANON_ID + intervalTWday ~ approved_name,
                                     value.var="dose",
                                     fun.aggregate=sum)
-DDD5 <- c(30, 30, 20, 40, 20)
-for(j in 1:5) {
-    dose.protonpump[, j + 1] <- dose.protonpump[, j + 1] / DDD5[j]
-}
-dose.protonpump$DDDs.all <- rowSums(dose.protonpump[, -1])
+    ## strictly, each interval should be divided by the number of days in that interval for that individual
+    ## for now, use TW days
+    for(j in 1:5) { # loop over approved names to divide by DDD x TW 
+        doseTWday.protonpump[, j + 2] <- doseTWday.protonpump[, j + 2] /
+            (DDD5[j] * TW)
+    }
+    doseTWday.protonpump$DDDsTWday.all <- rowSums(doseTWday.protonpump[, -(1:2)])
+    print(summary(doseTWday.protonpump))
 
-cc.all <- merge(cc.all, dose.protonpump, by="ANON_ID", all.x=TRUE)
-cc.all$DDDs.all[is.na(cc.all$DDDs.all)] <- 0
-cc.all$dispensing.days <- as.integer(cc.all$SPECDATE - as.Date("2019-06-01"))
-cc.all$DDDs.average <- cc.all$DDDs.all / cc.all$dispensing.days
-cc.severe$DDDsgr <- 0.5 * ceiling(2 * cc.severe$DDDs.average)
-cc.severe$DDDsgr <- as.factor(car::recode(cc.severe$DDDsgr, "2:hi='2 or more'"))
+    ## drop columns for individual drugs, and cast again to get one column for each interval
+    doseTWday.protonpump <- doseTWday.protonpump[, c("ANON_ID", "intervalTWday", "DDDsTWday.all")]
+    doseTWday.protonpump <- doseTWday.protonpump[!is.na(doseTWday.protonpump$intervalTWday), ]
 
+    doseTWday.protonpump.wide <-  reshape2::dcast(data=doseTWday.protonpump,
+                                    formula=ANON_ID ~ intervalTWday,
+                                    value.var="DDDsTWday.all",
+                                    fun.aggregate=sum)
+    colnames(doseTWday.protonpump.wide)[-1] <- c("DDD.interval1", "DDD.interval2", "DDD.interval3") 
+
+    cc.all <- merge(cc.all, dose.protonpump, by="ANON_ID", all.x=TRUE)
+    cc.all$DDDs.all[is.na(cc.all$DDDs.all)] <- 0
+    cc.all$ESOMEPRAZOLE[is.na(cc.all$ESOMEPRAZOLE)] <- 0
+    cc.all$LANSOPRAZOLE[is.na(cc.all$LANSOPRAZOLE)] <- 0
+    cc.all$OMEPRAZOLE[is.na(cc.all$OMEPRAZOLE)] <- 0
+    cc.all$PANTOPRAZOLE[is.na(cc.all$PANTOPRAZOLE)] <- 0
+    cc.all$RABEPRAZOLE[is.na(cc.all$RABEPRAZOLE)] <- 0
+    cc.all$dispensing.days <- as.integer(cc.all$SPECDATE - as.Date("2019-06-01"))
+                                        #cc.all$DDDs.average <- cc.all$DDDs.all / cc.all$dispensing.days
+    cc.all$DDDsgr <- 0.5 * ceiling(2 * cc.all$DDDs.all)
+    cc.all$DDDsgr <- as.factor(car::recode(cc.all$DDDsgr, "2:hi='2 or more'"))
+    
+    cc.all <- merge(cc.all, doseTWday.protonpump.wide, by="ANON_ID", all.x=TRUE)
+    cc.all$DDD.interval1[is.na(cc.all$DDD.interval1)] <- 0
+    cc.all$DDD.interval2[is.na(cc.all$DDD.interval2)] <- 0
+    cc.all$DDD.interval3[is.na(cc.all$DDD.interval3)] <- 0
 }
 
 ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40701])
@@ -465,7 +513,7 @@ cc.severe <- within(cc.severe, num.icdchapters <- relevel(num.icdchapters, ref="
 source("comorbidity.R")
 
 ## 8 listed conditions designated by NHS
-listed.conditions <- c("diabetes.any", "IHD.any", "heart.other.any", "oad.any",
+listed.conditions <- c("dm.type", "IHD.any", "heart.other.any", "oad.any",
                        "ckd.any", "neuro.any", "liver.any", "immune.any")
 
 ############ extract predefined disease categories #################
@@ -517,40 +565,65 @@ antihypertensives <- c(antihypertensive.classes[4:9], "antihypertensive.other")
 
 ########################################################
 
-
 table.severe.demog <-
     tabulate.freqs.regressions(varnames=demog,
                                data=cc.severe)
 
-table.scripordiag <- with(cc.severe[cc.severe$AGE < 40, ],
-                          table(as.integer(diag.any)==2 | as.integer(scrip.any)==2, CASE))
-table.scripordiag <- paste.colpercent(table.scripordiag)
+cc.severe$diag.other <- as.integer(cc.severe$listed.any==0 & cc.severe$diag.any==1)
+cc.severe$diag.other <- as.factor(car::recode(cc.severe$diag.other,
+                                  "0='Listed condition or no diagnosis';
+                                   1='No listed condition, other diagnosis'"))
 
-table.scripordiag.fatal <- with(cc.severe[cc.severe$AGE < 60, ],
-                                table(as.integer(diag.any)==2 | as.integer(scrip.any)==2,
-                                      deathwithin28))
-table.scripordiag.fatal <- paste.colpercent(table.scripordiag.fatal)
+table.scripordiag <- NULL
+for(agegr in levels(cc.severe$agegr20)) {
+    x <- with(cc.severe[cc.severe$agegr20==agegr, ],
+              table(scripordiag, CASE))
+    colnames(x) <- c("Controls", "Cases")
+    x <- paste.colpercent(x)
+    y <- with(cc.severe[cc.severe$agegr20==agegr, ],
+              table(listed.any, CASE))
+    y <- paste.colpercent(y)
+    y <- y[2, , drop=FALSE]
+    rownames(y) <- "Any listed condition"
+    z <- with(cc.severe[cc.severe$agegr20==agegr, ],
+              table(listed.any==0 & diag.any==1, CASE))
+    z <- paste.colpercent(z)
+    z <- z[2, , drop=FALSE]
+    rownames(z) <- "No listed condition, other diagnosis"
+    
+    x <- rbind(x[1, , drop=FALSE], y, z, x[2, , drop=FALSE])
+    table.scripordiag <- cbind(table.scripordiag, x)
+}
 
-varnames.listed <- c("care.home", "scrip.any", "diag.any",
-                     listed.conditions)
+
+table.scripordiag.fatal <- NULL
+for(agegr in levels(cc.severe$agegr3)) {
+    x <- with(cc.severe[cc.severe$agegr3==agegr, ],
+              table(scripordiag, fatalcase))
+    colnames(x) <- c("Controls", "Fatal cases")
+    x <- paste.colpercent(x)
+    x <- x[1, , drop=FALSE]
+    rownames(x) <- agegr
+    table.scripordiag.fatal <- rbind(table.scripordiag.fatal, x)
+}
+
+varnames.listed <- c("care.home", "scrip.any", "diag.any", "listed.any", "diag.other",
+                     "scripordiag", listed.conditions)
 
 table.agegr <- NULL
 for(agegr in levels(cc.severe$agegr20)) {
-    x <- univariate.tabulate(varnames=c("deathwithin28", varnames.listed, "listed.any"), 
+    x <- univariate.tabulate(varnames=c("deathwithin28", varnames.listed), 
                              outcome="CASE",
                              data=cc.severe[cc.severe$agegr20==agegr, ],
                              drop.reflevel=FALSE)
     table.agegr <- cbind(table.agegr, x)
 }
+#table.agegr <- rbind(table.agegr, table.scripordiag)
 
-freqs.all <- univariate.tabulate(varnames=c("deathwithin28", varnames.listed, "listed.any"), 
+freqs.all <- univariate.tabulate(varnames=c("deathwithin28", varnames.listed, "listed.any"),
                              outcome="CASE",
                              data=cc.severe,
                              drop.reflevel=FALSE)
-
-cc.severe$agegr3 <-
-    as.factor(car::recode(cc.severe$AGE,
-                          "0:59='0-60 years'; 60:74='60-74 years'; 75:hi='75+ years'"))
 
 keep.varnames <- logical(length(varnames.listed))
 for(i in 1:length(varnames.listed)) {
@@ -564,11 +637,13 @@ tables.agegr <- vector("list", length(levels(cc.severe$agegr3)))
 for(i in 1:length(levels(cc.severe$agegr3))) {
     agegr <- levels(cc.severe$agegr3)[i]
     tables.agegr[[i]] <-
-        tabulate.freqs.regressions(varnames=varnames.listed,
+        tabulate.freqs.regressions(varnames=c("care.home", "scrip.any",
+                                              "diag.any", listed.conditions),
                                    data=cc.severe[cc.severe$agegr3==agegr, ])
 }
 
-table.agegr.all <- tabulate.freqs.regressions(varnames=varnames.listed,
+table.agegr.all <- tabulate.freqs.regressions(varnames=c("care.home", "scrip.any",
+                                              "diag.any", listed.conditions),
                                                data=cc.severe)
 
 ## demographic vars
@@ -594,7 +669,6 @@ table.ethnic5smr <-
 rownames(table.ethnic5smr) <- replace.names(rownames(table.ethnic5smr))
 
 ## listed conditions
-
 table.listed.conditions.lt60 <-
     tabulate.freqs.regressions(varnames=listed.conditions,
                                data=cc.severe[cc.severe$AGE < 60, ])
@@ -609,7 +683,6 @@ multivariate.all <-
                                    "protonpump"),
                         data=cc.severe, add.reflevel=TRUE)
 
-                                                          
 ################# restrict to those without listed conditions #############
 
 nocare <- cc.severe$care.home=="Independent"
@@ -711,35 +784,65 @@ table.bnfchapter10 <- tabulate.bnfsubparas(chnum=10, data=cc.severe[nocare.notli
 
 ## fix to tabulate BNF chemical substance
 
-####################################################
-## univariate and multivariate analyses for proton pump and covariates
-tabulate.freqs.regressions(varnames=c("care.home",
-                                      "neoplasm.any", "neuro.any", 
-                                      "esoph.stomach.duod",
-                                      "antiplatelet",
-                                      "antipsychotic", 
-                                      "nsaid", "opioid.analgesic", "nonopioid.analgesic",
-                                      "osmotic.laxative", "protonpump"),
-                           data=cc.severe[cc.severe$AGE < 60, ])
-
+if(!old) {
 ############# proton pump #########################
 
-####### effects of scrip and protonpump by care home status ######################
+## calculate propensity score trained on cc.hosp
 
-table.protonpump.carehome <- NULL
-for(residence in levels(cc.severe$care.home)) {
+source("propensity.R")
+
+cc.severe$propensity <- propensity
+
+####### effects of scrip and protonpump by care home / listed condition status ######################
+
+table.protonpump.cats3 <- NULL
+for(condition in levels(cc.severe$cats3)) {
     x <- tabulate.freqs.regressions(varnames="protonpump",
-                                    data=cc.severe[cc.severe$care.home==residence, ])[, 1:4]
-    rownames(x) <- residence
+                                    data=cc.severe[cc.severe$cats3==condition, ])[, 1:4]
+    rownames(x) <- condition
     colnames(x)[1:2] <- c("Controls", "Cases")
-    table.protonpump.carehome <- rbind(table.protonpump.carehome, x)
+    table.protonpump.cats3 <- rbind(table.protonpump.cats3, x)
 }
 
 ####### tabulate dose-response effect  ##########################################
 
+## tabulate.freqs.regressions() can only be used with factor variables
+
 table.dose.protonpump <- NULL
-#withcovariates.formula <- as.formula("CASE ~ DDDsgr + strata(stratum)")
-withcovariates.formula <- as.formula("CASE ~ DDDsgr + care.home + esoph.stomach.duod + nsaid + antiplatelet + strata(stratum)")
+withcovariates.formula <- as.formula("CASE ~ DDDs.all + propensity + strata(stratum)")
+coeff.row <- 1
+
+for(agegr in levels(cc.severe$agegr3)) {
+    x <- summary(clogit(formula=CASE ~ DDDs.all + strata(stratum), 
+                        data=cc.severe[cc.severe$agegr3==agegr, ]))$coefficients[coeff.row, , drop=FALSE]
+    x <- as.data.frame(x)
+    x$u.ci <- or.ci(x[, 1], x[, 3])
+    x$u.pvalue <- pvalue.latex(x[, 5])
+    x <- x[, c("u.ci", "u.pvalue")]
+    y <- summary(clogit(formula=withcovariates.formula,
+                        data=cc.severe[cc.severe$agegr3==agegr, ]))$coefficients[coeff.row, , drop=FALSE]
+    y <- as.data.frame(y)
+    y$m.ci <- or.ci(y[, 1], y[, 3])
+    y$m.pvalue <- pvalue.latex(y[, 5])
+    y <- y[, c("m.ci", "m.pvalue")]
+    x <- data.frame(x, y)               
+    table.dose.protonpump <- rbind(table.dose.protonpump, x)
+}
+
+rownames(table.dose.protonpump) <- NULL
+freqs <- paste.colpercent(with(cc.severe, table(agegr3, CASE)))
+colnames(freqs)[1:2] <- c("Controls", "Cases")
+freqs <- as.data.frame(freqs)
+table.dose.protonpump  <- cbind(freqs, table.dose.protonpump)
+
+print(table.dose.protonpump)
+
+####### tabulate dose-response effect  ##########################################
+
+## tabulate.freqs.regressions() can only be used with factor variables
+
+table.dosegr.protonpump <- NULL
+withcovariates.formula <- as.formula("CASE ~ DDDsgr + propensity + strata(stratum)")
 coeff.rows <- 1:4
 
 for(agegr in levels(cc.severe$agegr3)) {
@@ -749,7 +852,6 @@ for(agegr in levels(cc.severe$agegr3)) {
     x$u.ci <- or.ci(x[, 1], x[, 3])
     x$u.pvalue <- pvalue.latex(x[, 5])
     x <- x[, c("u.ci", "u.pvalue")]
-
     y <- summary(clogit(formula=withcovariates.formula,
                         data=cc.severe[cc.severe$agegr3==agegr, ]))$coefficients[coeff.rows, ] # drop=FALSE]
     y <- as.data.frame(y)
@@ -763,16 +865,26 @@ for(agegr in levels(cc.severe$agegr3)) {
     colnames(freqs)[1:2] <- c("Controls", "Cases")
     x <- data.frame(DDD.average=rownames(freqs), freqs, x)
     rownames(x) <- paste0(agegr, ": ", rownames(x))
-    table.dose.protonpump <- rbind(table.dose.protonpump, x)
+    table.dosegr.protonpump <- rbind(table.dosegr.protonpump, x)
 }
-print(table.dose.protonpump)
+print(table.dosegr.protonpump)
 
+################# tabulate ever-use effect
 
-for(agegr in levels(cc.severe$agegr3)) {
+withcovariates.formula <- as.formula("CASE ~ protonpump + propensity + strata(stratum)")
+
+coeff.row <- 1
+table.everuse.protonpump <- NULL
+for(agegr in levels(cc.severe$agegr20)) {
+    x <- tabulate.freqs.regressions(varnames="protonpump",
+                                    data=cc.severe[cc.severe$agegr20==agegr, ])[, 1:4]
+    y <- summary(clogit(formula=withcovariates.formula,
+                        data=cc.severe[cc.severe$agegr20==agegr, ]))$coefficients[coeff.row, , drop=FALSE]
     x$m.ci <- or.ci(y[, 1], y[, 3])
     x$m.pvalue <- pvalue.latex(y[, 5])
     rownames(x) <- agegr
     colnames(x)[1:2] <- c("Controls", "Cases")
+    table.everuse.protonpump <- rbind(table.everuse.protonpump, x)
 }
 x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.severe)[, 1:4]
 y <- summary(clogit(formula=withcovariates.formula,
@@ -780,13 +892,63 @@ y <- summary(clogit(formula=withcovariates.formula,
 x$m.ci <- or.ci(y[, 1], y[, 3])
 x$m.pvalue <- pvalue.latex(y[, 5])
 rownames(x) <- "All"
-colnames(table.dose.protonpump)[1:2] <- colnames(x)[1:2]
-table.dose.protonpump <- rbind(table.dose.protonpump, x)
+colnames(table.everuse.protonpump)[1:2] <- colnames(x)[1:2]
+table.everuse.protonpump <- rbind(table.everuse.protonpump, x)
 
+#### time window #######################
+
+cc.severe$exposure.nonrecent <- as.integer(cc.severe$DDD.interval2 > 0 | cc.severe$DDD.interval3 > 0)
+cc.severe$exposure.recent <- as.integer(cc.severe$DDD.interval1 > 0)
+
+cc.severe$exposurecat <- integer(nrow(cc.severe))
+cc.severe$exposurecat[cc.severe$exposure.nonrecent==0 & cc.severe$exposure.recent==0] <- 0
+cc.severe$exposurecat[cc.severe$exposure.nonrecent==1 & cc.severe$exposure.recent==0] <- 1
+cc.severe$exposurecat[cc.severe$exposure.nonrecent==0 & cc.severe$exposure.recent==1] <- 2
+cc.severe$exposurecat[cc.severe$exposure.nonrecent==1 & cc.severe$exposure.recent==1] <- 3
+
+cc.severe$exposurecat <- as.factor(car::recode(cc.severe$exposurecat,
+                                "0='No prescriptions'; 1='Non-recent only'; 2='Recent only';
+                                 3='Prescriptions in both time windows'"))
+cc.severe$exposurecat <- factor(cc.severe$exposurecat,
+                                levels=levels(cc.severe$exposurecat)[c(4, 2, 3, 1)])
+
+summary(clogit(formula=CASE ~ exposurecat + strata(stratum), 
+               data=cc.severe[cc.severe$AGE < 75, ]))$coefficients
+
+## FIXME: this function reorders levels of the factor exposurecat
+table.timewindow.protonpump <- tabulate.freqs.regressions(varnames="exposurecat",
+                                                          data=cc.severe)[, 1:4]
+ 
+###########################################
+
+## tabulate effect of each drug
+ppinames <- grep("PRAZOLE$", names(cc.severe), value=TRUE)
+ppinames.formula <- as.formula(paste("CASE ~", paste(ppinames, collapse="+"), "+ strata(stratum)"))
+
+ppi.means <- cbind(
+    round(apply(cc.severe[cc.severe$CASE==0, ppinames], 2, mean), 4),
+    round(apply(cc.severe[cc.severe$CASE==1, ppinames], 2, mean), 4)
+)
+
+table.ppinames <- NULL
+for(ppi in ppinames) {
+    x  <- summary(clogit(formula=as.formula(paste("CASE ~", ppi, "+ strata(stratum)")),
+                         data=cc.severe))$coefficients
+    table.ppinames <- rbind(table.ppinames, x)
+}
+y <- summary(clogit(formula=ppinames.formula, 
+                    data=cc.severe))$coefficients
+x <- as.data.frame(table.ppinames)
+x$u.ci <- or.ci(x[, 1], x[, 3])
+x$u.pvalue <- pvalue.latex(x[, 5])
+x$m.ci <- or.ci(y[, 1], y[, 3])
+x$m.pvalue <- pvalue.latex(y[, 5])
+x <- x[, c("u.ci", "u.pvalue", "m.ci", "m.pvalue")]
+table.ppinames <- data.frame(ppi.means, x)
 
 ################# tabulate effect of any proton pump exposure by age group #############################
 
-withcovariates.formula <- as.formula("CASE ~ protonpump + care.home + esoph.stomach.duod + nsaid + antiplatelet + strata(stratum)")
+withcovariates.formula <- as.formula("CASE ~ protonpump + propensity + strata(stratum)")
 coeff.row <- 1
 
 table.protonpump <- NULL
@@ -824,7 +986,7 @@ x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.severe)[, 1:4]
 rownames(x) <- "All"
 colnames(x)[1:2] <- c("Controls", "Cases")
 table.fatal.protonpump <- rbind(table.fatal.protonpump, x)
-
+}
 ######## stepwise regressions use saved version #####################
 nfold <- 4
 #stepwise <- TRUE
@@ -846,50 +1008,3 @@ if(old) {
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(objmem)
 
-
-if(FALSE) {
-## calculate propensity score for proton pump using hospitalized not severe
-## select columns containing BNF subpara codes
-subparacols <- grep("^subpara\\.", colnames(cc.hosp))
-
-subparanames.orig <- colnames(cc.hosp)[subparacols]
-
-## clean up the column names so they can be used in a formula
-colnames(cc.hosp)[subparacols] <- gsub(" |,|-|\\(|\\)|/", "\\.", colnames(cc.hosp)[subparacols])
-
-## select subparas with frequency > 0.1
-subparanames.clean <- grep("^subpara\\.", colnames(cc.hosp), value=TRUE)
-subparanames.clean.sums <- apply(cc.hosp[, subparanames.clean], 2,
-                                  function(x) sum(as.integer(x)))
-keep <- subparanames.clean.sums >= 0.1 * nrow(cc.hosp)
-subparanames.clean <- subparanames.clean[keep]
-
-## drop the PPI column from the vector of column names
-which.ppi <- which(subparanames.clean == "subpara.103050.Proton.pump.inhibitors")
-subparanames.notppi <- subparanames.clean[-which.ppi]
-
-lower.formula <- as.formula("y.protonpump ~ AGE + sex")
-upper.formula <- as.formula(paste("y.protonpump ~ AGE + sex +",
-                            paste(subparanames.notppi, collapse=" + ")))
-
-full.model <- glm(formula=upper.formula, data=cc.hosp, family="binomial")
-
-cat("Stepwise regression to construct propensity score for proton pump ...")
-stepwise.full <- step(full.model,
-                       scope=list(lower=lower.formula, upper=upper.formula),
-                      direction="both", method="approximate", trace=-1)
-cat("done\n")
-
-## get coeffs, dropping age and sex
-coeffs.full <- summary(stepwise.full)$coefficients[, 1][-(1:3)]
-x.full <- cc.severe[, subparanames.orig]
-
-## fix predict to ignore age and sex
-cc.severe$propensity <- predict(object=stepwise.full, newdata=cc.severe,
-                                na.action="na.pass", type="link")
-
-propensity.formula <- as.formula("CASE ~ propensity + protonpump + strata(stratum)")
-summary(clogit(formula=propensity.formula,
-                        data=cc.severe))$coefficients
-}
-######################################################################

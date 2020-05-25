@@ -44,6 +44,7 @@ stepwise.union.dropcols <- function(x, y, stratum) {
 }
 
 lookup.names <- data.frame(varname=c("deathwithin28", "scrip.any", "diag.any", "care.home",
+                                     "diag.other", "scripordiag", 
                                      "emerg", "icu.hdu.ccu", "inpat",
                                      "protonpump",
                                      "diabetes.any",
@@ -83,6 +84,8 @@ lookup.names <- data.frame(varname=c("deathwithin28", "scrip.any", "diag.any", "
                                      ),
                            longname=c("Death within 28 days of test",
                                       "Any prescription", "Any admission", "Care home",
+                                      "No listed condition, other diagnosis",
+                                      "Diagnosis or prescription",
                                       "Emergency admission last year",
                                       "Critical care admission last year",
                                       "Any admission last year",

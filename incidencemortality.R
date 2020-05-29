@@ -1,13 +1,16 @@
+
+scotpop <- read_excel("./Scotland_midyearpop_est2019.xlsx")
+
+# load("casefreqs.RData") ## national cumulative cases and deaths by sex and one year age group
+
 ####### incidence and mortality using national population estimates ######################
 
-case.freqs <- with(cc.severe[cc.severe$CASE==1, ], table(AGE, sex, exclude=NULL))
 case.freqs <- data.frame(Age=as.integer(rownames(case.freqs)),
                          Females=as.integer(case.freqs[, 1]),
                          Males=as.integer(case.freqs[, 2]))
 case.long <- reshape2::melt(case.freqs, id="Age")
 colnames(case.long) <- c("Age", "Sex", "Cases")
 
-death.freqs <- with(cc.severe[cc.severe$fatalcase==1, ], table(AGE, sex, exclude=NULL))
 death.freqs <- data.frame(Age=as.integer(rownames(death.freqs)),
                          Females=as.integer(death.freqs[, 1]),
                          Males=as.integer(death.freqs[, 2]))
@@ -29,7 +32,6 @@ y.cases <- cbind(as.integer(discrim$Cases), as.integer(discrim$Noncases))
 
 discrim$Survivors <- discrim$Population - discrim$Deaths
 y.deaths <- cbind(as.integer(discrim$Deaths), as.integer(discrim$Survivors))
-
 
 cases.model <- glm(formula=y.cases ~ Sex + Age, family="binomial", data=discrim)
 deaths.model <- glm(formula=y.deaths ~ Sex + Age, family="binomial", data=discrim)

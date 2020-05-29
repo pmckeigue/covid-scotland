@@ -14,6 +14,7 @@ ids.IHD <- unique(c(ids.icd.IHD, ids.bnf.IHD, ids.procedures.IHD))
 cc.severe$IHD.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.IHD))
 
 ##### other heart disease ####################################
+## heart disease is I05 to I52
 
 ids.icd.heart.other <- unique(diagnoses$ANON_ID[grep("^I0[01256789]|^I1[0-5]|^I2[6-8]|^I3[0-9]|^I4[0-9]|^I5[0-2]",
                                   diagnoses$ICD10)])
@@ -25,6 +26,15 @@ ids.procedures.heart.other <- unique(procedures$ANON_ID[grep("^K57", procedures$
 
 ids.heart.other <- unique(c(ids.icd.heart.other, ids.bnf.heart.other, ids.procedures.heart.other))
 cc.severe$heart.other.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.heart.other))
+
+#######################################################################
+## other circulatory disease is I60 to I99
+
+ids.icd.circulatory.other <-
+    unique(diagnoses$ANON_ID[grep("^I[6-9]|^Z95", diagnoses$ICD10)])
+
+cc.severe$circulatory.other <-
+    as.factor(as.integer(cc.severe$ANON_ID %in% ids.icd.circulatory.other))
 
 ############# chronic kidney disease ##########################
 

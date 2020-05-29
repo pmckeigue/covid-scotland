@@ -2,15 +2,15 @@
 ## helperfunctions for COVID analyses
 
 select.union <- function(x, y, stratum) {
-    ## x is matrix of indicator variables
-    ## select column of x to drop that maximizes loglik of clogit model using all other cols of x
+    ## select j as column of x to drop that maximizes loglik of
+    ## clogit model using rowSums([x, -j])
     loglik.dropcol <- numeric(ncol(x))
-    x.u <- as.integer(rowSums(x) > 0)
+    x.u <- rowSums(x) 
     model.full <- summary(clogit(y ~ x.u + strata(stratum)))
     beta.full <- model.full$coefficients[1, 1]
     loglik.full <- model.full$loglik[2]
     for(j in 1:ncol(x)) {
-        x.u <- as.integer(rowSums(x[, -j, drop=FALSE]) > 0)
+        x.u <- rowSums(x[, -j, drop=FALSE])
         loglik.dropcol[j] <- summary(clogit(y ~ x.u + strata(stratum)))$loglik[2]
     }
 
@@ -481,7 +481,8 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
                 
                 ## this should reformat pvalues
                 table.icd.ch.aug <- combine.tables2(ftable=table.icd.ch, utable=univariate.icd.ch)
-                table.icd.ch.aug[, 4] <- pvalue.latex(table.icd.ch.aug[, 4])
+                #browser("tabulateicd")
+                # table.icd.ch.aug[, 4] <- pvalue.latex(table.icd.ch.aug[, 4])
                 print(table.icd.ch.aug) # without this line the first two cols are dropped?
             } else {
                 return(NULL)
@@ -498,11 +499,11 @@ combine.tables3 <- function(ftable, utable, mtable)  {# returns single table fro
     
     u.ci <- or.ci(utable[, 1], utable[, 3]) 
     u.pvalue <- signif(utable[, 5], 1)
-    u.pvalue <- pvalue.latex(u.pvalue)
+    u.pvalue <- as.character(pvalue.latex(u.pvalue))
     
     mult.ci <- or.ci(mtable[, 1], mtable[, 3])
     mult.pvalue <- signif(mtable[, 5], 1)
-    mult.pvalue <- pvalue.latex(mult.pvalue)
+    mult.pvalue <- as.character(pvalue.latex(mult.pvalue))
      
     table.aug <- data.frame(ftable,
                             u.ci, u.pvalue,
@@ -514,40 +515,30 @@ combine.tables2 <- function(ftable, utable)  {# returns single table from freqs,
     
     u.ci <- or.ci(utable[, 1], utable[, 3]) 
     u.pvalue <- signif(utable[, 5], 1)
-    pvalue <- pvalue.latex(u.pvalue)
+    u.pvalue <- as.character(pvalue.latex(u.pvalue))
     
     table.aug <- data.frame(ftable,
                             u.ci, u.pvalue)
     return(table.aug)
 }    
 
-pvalue.char <- function(x, n=1, nexp=1) {
-    ## returns a character vector
-    y <- as.character(signif(x, 1)) ## coerces all to sci notation
-    y[is.na(x)] <- NA
-    y[!is.na(x) & x >= 0.001] <- signif(x[!is.na(x) & x >= 0.001], 1) ## set these to ordinary notation
-    which.reformat <- which(!is.na(x) & x <0.001)
-    
-    for(i in which.reformat) {
-        z <- as.numeric(unlist(strsplit(as.character(y[i]), "e"))) 
-        y[i] <- paste0(z[1], " x 10^", z[2])
-    }
-    return(y)
-}
+ 
 
-## format a pvalue in latex
+## format a vector of pvalues in LaTeX and return a vector of mode character 
 pvalue.latex <- function(x, n=1, nexp=1) {
-  sapply(x, function(z) {
-    if (is.na(z)) {
-        return(NA)
-    } else if(z >= 0.001) {
-        return(signif(z, 1))
-    } else {
-    z <- sprintf("%.*E", 0, signif(z, n)) # default is 1 sig fig
-    z <- as.numeric(unlist(strsplit(z, "E"))) # split z at E
-    sprintf("\\ensuremath{%.*f\\times 10^{%0*d}}", 0, z[1], nexp, z[2])
-    }
-  })
+    x <- as.numeric(x)
+    pvalue <- sapply(x, function(z) { # sapply returns a vector applying FUN to each element of z
+        if (is.na(z)) {
+            return(NA)
+        } else if(z >= 0.001) {
+            return(signif(z, 1))
+        } else {
+            z <- sprintf("%.*E", 0, signif(z, n)) # default is 1 sig fig
+            z <- as.numeric(unlist(strsplit(z, "E"))) # split z at E
+            sprintf("\\ensuremath{%.*f\\times 10^{%0*d}}", 0, z[1], nexp, z[2])
+        }
+    })
+    return(as.character(pvalue))
 }
 
 

@@ -11,11 +11,6 @@ train.data <- cc.hosp[, train.cols]
 colnames(train.data) <-
     gsub("(subpara\\.[0-9]+)(.+)", "\\1", colnames(train.data))                
 
-#subparanames.orig <- colnames(cc.hosp)[subparacols]
-
-## clean up the column names so they can be used in a formula
-#colnames(cc.hosp)[subparacols] <- gsub(" |,|-|\\(|\\)|/", "\\.", #colnames(cc.hosp)[subparacols])
-
 ## select subparas with frequency > 0.1
 
 subparanames <- grep("^subpara\\.", colnames(train.data), value=TRUE)
@@ -36,12 +31,14 @@ stepwise.full <- step(full.model,
                        scope=list(lower=lower.formula, upper=upper.formula),
                       direction="both", method="approximate", trace=-1)
 cat("done\n")
+rm(full.model)
+#rm(train.data)
 
 ## get coeffs, dropping age and sex
 coeffs.full <- summary(stepwise.full)$coefficients[, 1][-(1:3)]
+rm(stepwise.full) 
 
 names(coeffs.full) <- gsub("(.+)1$", "\\1", names(coeffs.full))
-
 names(coeffs.full) <- subpara.colnames[match(names(coeffs.full),
                                              gsub("(subpara\\.[0-9]+)(.+)", "\\1",
                                                   subpara.colnames))]

@@ -31,10 +31,11 @@ if(old) {
 } else {
     cc.all <- readRDS("./data/CC_linked_ANON_20200515.rds")
     diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200515.rds")
-    procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200515.rds") 
-    scrips <- readRDS("./data/CC_PIS_x15_ANON_20200515.rds")[, c("ANON_ID",
-                                                           "bnf_paragraph_code",
-                                                           "bnf_paragraph_description")] 
+    procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200515.rds")
+    scrips.filename <- "./data/CC_PIS_x15_ANON_20200515.rds" 
+    scrips <- readRDS(scrips.filename)[, c("ANON_ID", "bnf_paragraph_code",
+                                           "bnf_paragraph_description")] 
+
     ## scrips should be 2 tables to save space
     ## one record per scrip
     scripvars <- c("ANON_ID", "dispensed_date", "bnf_paragraph_code",
@@ -50,7 +51,7 @@ if(old) {
     ## data/CC_PIS_15_ANON_20200515.rds
 
     scrips.protonpump <-
-        readRDS("./data/CC_PIS_x15_ANON_20200515.rds") %>%
+        readRDS(scrips.filename) %>%
         subset(bnf_paragraph_code=="0103050")
 }
 
@@ -426,7 +427,19 @@ cc.all$antipsychotic <- as.factor(as.integer(cc.all$ANON_ID %in%
 
 ids.osmotic.laxative <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 10604])
 cc.all$osmotic.laxative <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                   ids.osmotic.laxative))
+                                                ids.osmotic.laxative))
+
+ids.anticoagulant.any <-
+    unique(scrips$ANON_ID[scrips$bnf_paragraph_code == "0208010" |
+                          scrips$bnf_paragraph_code == "0208020"])
+cc.all$anticoagulant.any <- as.factor(as.integer(cc.all$ANON_ID %in%
+                                                ids.anticoagulant.any))
+
+ids.hydroxychloroquine <- readRDS(scrips.filename) %>%
+    subset(subset=approved_name=="HYDROXYCHLOROQUINE SULFATE", select=ANON_ID)
+ids.hydroxychloroquine <- unique(ids.hydroxychloroquine$ANON_ID)
+
+cc.all$hydroxychloroquine <- as.factor(as.integer(cc.all$ANON_ID %in% ids.hydroxychloroquine))
 
 ############# some tables for ethnicity report ##########################
 ########################################################################
@@ -558,11 +571,11 @@ for(j in icdcols) {
 
 cc.severe$num.icdchapters <- rowSums(matrix(as.integer(as.matrix(cc.severe[, icdcols])),
                                             nrow=nrow(cc.severe)))
-cc.severe$num.icdchapters <-
+cc.severe$num.icdchapters.gr <-
     as.factor(car::recode(cc.severe$num.icdchapters,
-                          "0='No discharge records'; 1:2='1-2 ICD-10 chapters'; 3:4='3-4 chapters'; 5:hi='5 or more chapters'")
+                          "0='No discharge records'; 1:2='1-2 ICD-10 chapters'; 3:hi='3 or more chapters'")
                          )
-cc.severe <- within(cc.severe, num.icdchapters <- relevel(num.icdchapters, ref="No discharge records"))
+cc.severe <- within(cc.severe, num.icdchapters.gr <- relevel(num.icdchapters.gr, ref="No discharge records"))
 
 ###########################################
 
@@ -807,19 +820,6 @@ cc.severe$cats3 <- as.factor(car::recode(cc.severe$cats3, "1='Care/nursing home'
 table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs, 
                                                            data=cc.severe[nocare.notlisted, ])
 
-## tabulate para or subpara codes in BNF chapters of interest
-table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=cc.severe[nocare.notlisted, ])
-table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.severe[nocare.notlisted, ])
-table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.severe[nocare.notlisted, ])
-table.bnfchapter9 <- tabulate.bnfsubparas(chnum=9, data=cc.severe[nocare.notlisted, ])
-table.bnfchapter10 <- tabulate.bnfsubparas(chnum=10, data=cc.severe[nocare.notlisted, ])
-
-## fix to tabulate BNF chemical substance
-
-## move this to pharmaco.R after fixing to save and restore cc.hosp
-
-if(!old) source("pharmaco.R")
-
 ######## stepwise regressions use saved version #####################
 
 nfold <- 4
@@ -830,17 +830,16 @@ source("stepwise.R")
 
 #####################################################################
 
+if(!old) source("pharmaco.R")
+
+#####################################################
 if(old) {
     rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
 } else  {
     rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
 } 
 
-#rmarkdown::render("Covid_ethnicity_Scotland.Rmd")
-
 ## remove large objects from memory
-
-rm(train.data)
 
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))

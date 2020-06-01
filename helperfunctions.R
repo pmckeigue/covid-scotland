@@ -1,6 +1,12 @@
 
 ## helperfunctions for COVID analyses
 
+tolower.exceptfirstchar <- function(x) {
+    lowercase.str <- substr(tolower(x), 2, nchar(x))
+    x <- paste0(substr(x, 1, 1), lowercase.str)
+    return(x)
+}
+
 select.union <- function(x, y, stratum) {
     ## select j as column of x to drop that maximizes loglik of
     ## clogit model using rowSums([x, -j])
@@ -390,14 +396,16 @@ tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsu
     }
 }
 
-tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe) {
-    ## get chemicalcode in wide format,one col per subchapter
-    ## FIXME: we do not have the chemical code,  is misnamed bnf_paragraph_code
-    scrips.ch.wide <- reshape2::dcast(scrips[scrips$chapternum==chnum, ],
-                                         ANON_ID ~ bnf_paragraph_code, fun.aggregate=length,
-                                         value.var="bnf_paragraph_code")
-    colnames(scrips.ch.wide)[-1] <- paste0("chemical.",
-                                              as.integer(colnames(scrips.ch.wide)[-1]))
+tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=50) {
+    ## get drug names in wide format,one col per approved_name
+    chnum.str <- sprintf("%02d", chnum)
+    scrips.ch <- readRDS(scrips.filename) %>%
+        subset(substr(bnf_paragraph_code, 1, 2)==chnum.str)
+    scrips.ch.wide <- reshape2::dcast(scrips.ch,
+                                         ANON_ID ~ approved_name, fun.aggregate=length,
+                                         value.var="approved_name")
+    #colnames(scrips.ch.wide)[-1] <- paste0("chemical.",
+    #                                          as.integer(colnames(scrips.ch.wide)[-1]))
     ## drop rare chemicalgraphcodes
     scrips.ch.wide <- scrips.ch.wide[, colSums(scrips.ch.wide) > 20]
     
@@ -405,23 +413,22 @@ tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe) {
                        scrips.ch.wide,
                        by="ANON_ID", all.x=TRUE)
     ## now fix colnames and set missing to 0
-    bnfcols <- grep("^chemical.", colnames(cc.bnf.ch))
+    bnfcols <- 4:ncol(cc.bnf.ch)
     for(j in bnfcols) {
         cc.bnf.ch[, j][is.na(cc.bnf.ch[, j])] <- 0
         cc.bnf.ch[, j][cc.bnf.ch[, j] > 1] <- 1
         cc.bnf.ch[, j] <- as.factor(cc.bnf.ch[, j])
     }
+
+    ## approved names contain spaces that have to be replaced with . for use in formula
+    colnames(cc.bnf.ch) <- gsub(" ", "\\.", colnames(cc.bnf.ch))
     
     bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
     table.bnf.ch <- univariate.tabulate(varnames=bnf.ch, outcome=outcome, data=cc.bnf.ch,
-                                        drop.sparserows=TRUE)
+                                        drop.sparserows=TRUE, minrowsum=minrowsum)
     ## regressions fixed to use only rows retained by univariate.tabulate
     if(nrow(table.bnf.ch) >= 1) { 
         bnf.ch <- rownames(table.bnf.ch)
-        ## get chemical names
-        chemicalcodes <- as.integer(gsub("chemical.", "", rownames(table.bnf.ch)))
-        rownames(table.bnf.ch) <-
-            bnfchemicalcodes$chemicalname[match(chemicalcodes, bnfchemicalcodes$chemicalcode)]
         univariate.bnf.ch <- NULL
         for(i in 1:length(bnf.ch)) {
             univariate.formula <- as.formula(paste(outcome, "~", bnf.ch[i], " + strata(stratum)"))

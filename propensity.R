@@ -31,8 +31,6 @@ stepwise.full <- step(full.model,
                        scope=list(lower=lower.formula, upper=upper.formula),
                       direction="both", method="approximate", trace=-1)
 cat("done\n")
-rm(full.model)
-#rm(train.data)
 
 ## get coeffs, dropping age and sex
 coeffs.full <- summary(stepwise.full)$coefficients[, 1][-(1:3)]
@@ -51,3 +49,8 @@ propensity <- newdata.x %*% matrix(coeffs.full, ncol=1)
 
 coeffs.propensity <- data.frame(subpara=gsub("subpara\\.", "", names(coeffs.full)),
                                 coefficient=as.numeric(coeffs.full))
+
+rm(newdata.x)
+rm(full.model)
+rm(stepwise.full)
+rm(train.data)

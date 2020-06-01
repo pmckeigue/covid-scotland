@@ -70,6 +70,7 @@ ids.icd.neuro <- unique(diagnoses$ANON_ID[grep("^F03|^G[1236789]", diagnoses$ICD
 ids.bnf.neuro <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 409 |
                                          as.integer(scrips$sectioncode) == 411])
 table(ids.bnf.neuro %in% ids.icd.neuro)
+## these drugs listed by HPS pharmacist as used for multiple sclerosis
 ## interferon beta 080204M, Glatiramer acetate 0802040U0, Natalizumab 0802040W0
 ## Dimethyl fumar 0802040AK, Teriflunomide 0802040AL, Alemtuzumab 0802030
 ## no records in scrips for these drugs

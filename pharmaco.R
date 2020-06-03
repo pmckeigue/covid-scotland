@@ -13,6 +13,15 @@ table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.severe, minrowsum=50)
 ## chapter 10 has to be disaggregated to drug names as grouping of DMARDs is too broad
 table.bnfchapter10 <- tabulate.bnfchemicals(chnum=10, data=cc.severe, minrowsum=50)
 
+nocare.drugfreqs <- sapply(cc.severe[cc.severe$care.home=="Independent" &
+                              cc.severe$CASE==0, subparacols],
+       function(x) table(x)[2] / sum(table(x))) %>% sort(decreasing=TRUE) %>% head(20)
+
+care.drugfreqs <- sapply(cc.severe[cc.severe$care.home=="Care/nursing home" &
+                              cc.severe$CASE==0, subparacols],
+       function(x) table(x)[2] / sum(table(x))) %>% sort(decreasing=TRUE) %>% head(20)
+
+
 #############################
 
 coeff.anticoagulant.univariate <- summary(clogit(formula=CASE ~ anticoagulant.any + strata(stratum),
@@ -28,6 +37,7 @@ coeff.hydroxychlor.univariate <- summary(clogit(formula=CASE ~ hydroxychloroquin
 
 coeff.hydroxychlor.adjusted <- summary(clogit(formula=CASE ~ hydroxychloroquine + protonpump + strata(stratum),
                data=cc.severe))$coefficients[1, ]
+
 
 
 ##############################################################################
@@ -70,7 +80,8 @@ for(numicd in levels(cc.severe$num.icdchapters.gr)) {
     table.numdrugsgr.num.icdch <- rbind(table.numdrugsgr.num.icdch, x)
 }
 table.numdrugsgr.num.icdch <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 3),
-                               table.numdrugsgr.num.icdch)
+                                         table.numdrugsgr.num.icdch)
+colnames(table.numdrugsgr.num.icdch)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE)), rep(")", 2))
 
 ####################################################################################
 ## tabulate rate ratios for each numdrugs group, by agegr 
@@ -84,18 +95,33 @@ for(agegr in levels(cc.severe$agegr3)) {
 }
 table.numdrugsgr.agegr <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 3),
                                table.numdrugsgr.agegr)
+colnames(table.numdrugsgr.agegr)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE)), rep(")", 2))
 
-## tabulate rate ratios for each num drug group by cats3 (carehome, listed conditions)
+## tabulate rate ratios for each num drug group by listed.any
 
-table.numdrugsgr.cats3 <- NULL
-for(cat in levels(cc.severe$cats3)) {
+table.numdrugsgr.listed.any <- NULL
+for(cat in levels(cc.severe$listed.any)) {
     x <- tabulate.freqs.regressions(varnames="numdrugsgr",
-                                    data=cc.severe[cc.severe$cats3==cat, ])[, 1:4]
+                                    data=cc.severe[cc.severe$listed.any==cat, ])[, 1:4]
     colnames(x)[1:2] <- c("controls", "cases")
-    table.numdrugsgr.cats3 <- rbind(table.numdrugsgr.cats3, x)
+    table.numdrugsgr.listed.any <- rbind(table.numdrugsgr.listed.any, x)
 }
-table.numdrugsgr.cats3 <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 3),
-                                     table.numdrugsgr.cats3)
+table.numdrugsgr.listed.any <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 2),
+                                     table.numdrugsgr.listed.any)
+colnames(table.numdrugsgr.listed.any)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE)), rep(")", 2))
+
+## tabulate rate ratios for each num drug group by care home in those without listed conditions)
+
+table.numdrugsgr.carehome <- NULL
+for(cat in levels(cc.severe$care.home)) {
+    x <- tabulate.freqs.regressions(varnames="numdrugsgr",
+                                    data=cc.severe[cc.severe$listed.any==0 &
+                                                   cc.severe$care.home==cat, ])[, 1:4]
+    colnames(x)[1:2] <- c("controls", "cases")
+    table.numdrugsgr.carehome <- rbind(table.numdrugsgr.carehome, x)
+}
+table.numdrugsgr.carehome <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 2),
+                                     table.numdrugsgr.carehome)
 
 ## fit joint model for num cardiovascular and num non-cardiovascular drugs
 
@@ -126,6 +152,7 @@ table.jointcardiovasc <- data.frame(drugscat=tj$drugscat,
 ################################################################
 
 subparacols <- grep("^subpara\\.", colnames(cc.severe))
+
 y <- cc.severe[nocare.notlisted, "CASE"]
 stratum <- cc.severe[nocare.notlisted, "stratum"]
 subparacols.keep <- NULL
@@ -156,18 +183,26 @@ colnames(subpara.coeffs)[2:3] <- paste0(c("Controls (", "Cases ("),
                                         freqs, rep(")", 2))
 print(subpara.coeffs)
 
+#############################################################################
+
+
+
+#############################################################################
+
 subparacols.forstepwisedrop <- subparacols[match(subparacols.keep, subparacols)] ## reduces to 61 subpara codes
 
 x <- cc.severe[nocare.notlisted, ][, subparacols.forstepwisedrop]
 x <- matrix(as.integer(as.matrix(x)), nrow=nrow(x))
 colnames(x) <- colnames(cc.severe)[subparacols.forstepwisedrop]
+y <- cc.severe[nocare.notlisted, "CASE"]
+stratum <- cc.severe[nocare.notlisted, "stratum"]
 cat("Stepwise drop procedure over BNF subpara codes ...")
 stepwise.drop.subparas <- stepwise.union.dropcols(x=x, y=y, stratum=stratum)
 cat("done\n")
 
 ## tabulate associations with drug chapters in those not in care homes and without listed conditions 
-table.drugs.notlisted <- tabulate.freqs.regressions(varnames=drugs, 
-                                                           data=cc.severe[notlisted, ])
+table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs, 
+                                                           data=cc.severe[nocare.notlisted, ])
 
 ############# proton pump #########################
 
@@ -181,9 +216,11 @@ rm(cc.hosp)
 cc.severe$propensity <- propensity
 cc.severe$propensitygr <- ceiling(cc.severe$propensity)
 cc.severe$propensitygr <- as.factor(car::recode(cc.severe$propensitygr,
-                                                "5:hi='>4'"))
+                                                "1='>0 to 1'; 2='>1 to 2';
+                                                 3='>2 to 3'; 4=;'>3 to 4'; 5:hi='>4'"))
+
 cc.severe$propensitygr <- factor(cc.severe$propensitygr,
-                                 levels=levels(cc.severe$propensitygr)[c(2:6, 1)])
+                                 levels=levels(cc.severe$propensitygr)[c(5, 1:4)])
 
 ######### tabulate ever-use effect with adjustment for prespecified covariates
 
@@ -248,9 +285,13 @@ for(agegr in levels(cc.severe$agegr3)) {
 
 rownames(table.dose.protonpump) <- NULL
 freqs <- paste.colpercent(with(cc.severe, table(agegr3, CASE)))
-colnames(freqs)[1:2] <- c("Controls", "Cases")
+colnames(freqs)[1:2] <- paste0(c("Controls (", "Cases ("),
+                               as.integer(table(cc.severe$CASE)), rep(")", 2))
 freqs <- as.data.frame(freqs)
 table.dose.protonpump  <- cbind(freqs, table.dose.protonpump)
+colnames(table.dose.protonpump)[1:2] <- paste0(c("Controls (", "Cases ("),
+                                               as.integer(table(cc.severe$CASE)), rep(")", 2))
+
 
                                         # print(table.dose.protonpump)
 
@@ -262,7 +303,6 @@ table.dosegr.protonpump <- NULL
 withcovariates.formula <- as.formula(paste("CASE ~ DDDsgr +",
                                            ppi.covariates.string, "+ strata(stratum)"))
 coeff.rows <- 1:4
-
 for(agegr in levels(cc.severe$agegr3)) {
     x <- summary(clogit(formula=CASE ~ DDDsgr + strata(stratum), 
                         data=cc.severe[cc.severe$agegr3==agegr, ]))$coefficients
@@ -280,11 +320,12 @@ for(agegr in levels(cc.severe$agegr3)) {
    
     x <- rbind(rep(NA, ncol(x)), x)
     freqs <- paste.colpercent(with(cc.severe[cc.severe$agegr3==agegr, ], table(DDDsgr, CASE)))
-    colnames(freqs)[1:2] <- c("Controls", "Cases")
     x <- data.frame(DDD.average=rownames(freqs), freqs, x)
     rownames(x) <- paste0(agegr, ": ", rownames(x))
     table.dosegr.protonpump <- rbind(table.dosegr.protonpump, x)
 }
+colnames(table.dosegr.protonpump)[2:3] <- paste0(c("Controls (", "Cases ("),
+                                                 as.integer(table(cc.severe$CASE)), rep(")", 2))
 # print(table.dosegr.protonpump)
 
 ################# tabulate ever-use effect with adjustment for numdrugs
@@ -439,6 +480,8 @@ colnames.casecontrol <- colnames(table.propensitygr)[1:2]
     }
     table.protonpump.bynumdrugs <- table.protonpump.bynumdrugs[, 1:4]
 
+summary(clogit(formula=CASE ~ protonpump + numdrugs.notppi + strata(stratum),
+               data=cc.severe[nocare.notlisted & cc.severe$AGE < 60, ]))$coefficients
 
 #############################################################################
 
@@ -451,16 +494,16 @@ for(pr in levels(cc.severe$propensitygr)) {
     table.dose.propensity <- rbind(table.dose.propensity, x)
 }
 
-    cc.severe$exposurecat <- factor(cc.severe$exposurecat,
-                                    levels=levels(cc.severe$exposurecat)[c(4, 1, 2, 3)])
+cc.severe$exposurecat <- factor(cc.severe$exposurecat,
+                                levels=levels(cc.severe$exposurecat)[c(4, 1, 2, 3)])
 
-    table.timewindow.protonpump <- tabulate.freqs.regressions(varnames="exposurecat",
+table.timewindow.protonpump <- tabulate.freqs.regressions(varnames="exposurecat",
                                                           data=cc.severe)[, 1:4]
 
-    table.timewindow.protonpump.propensity0 <-
-        tabulate.freqs.regressions(varnames="exposurecat",
-                                   data=cc.severe[cc.severe$propensity==0, ])[, 1:4]
-    
+table.timewindow.protonpump.nocare.notlisted <-
+    tabulate.freqs.regressions(varnames="exposurecat",
+                               data=cc.severe[nocare.notlisted, ])[, 1:4]
+
 #####################################
     
 ## tabulate fatal cases  by age group

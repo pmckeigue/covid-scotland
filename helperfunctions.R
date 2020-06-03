@@ -10,6 +10,7 @@ tolower.exceptfirstchar <- function(x) {
 select.union <- function(x, y, stratum) {
     ## select j as column of x to drop that maximizes loglik of
     ## clogit model using rowSums([x, -j])
+    ## returns coeff and loglik of full model without a dropped column,
     loglik.dropcol <- numeric(ncol(x))
     x.u <- rowSums(x) 
     model.full <- summary(clogit(y ~ x.u + strata(stratum)))
@@ -34,8 +35,9 @@ stepwise.union.dropcols <- function(x, y, stratum) {
         select.drop <- select.union(x=x.drop, y=y, stratum=stratum)
         stepwise.drop <- rbind(stepwise.drop, select.drop)
         x.drop <- x.drop[, -select.drop$col.drop, drop=FALSE]
+        ## for each dropped variable, stepwise.drop has the coeff and loglik of the full model before that variable was dropped  
     }
-    ## add row for last variable retained
+    ## add extra row for last variable retained
     last.name <- colnames(x)[!colnames(x) %in% stepwise.drop$name]
     last.col <- match(last.name, colnames(x))
     last.model <- summary(clogit(y ~ x[, last.col] + strata(stratum)))
@@ -44,8 +46,14 @@ stepwise.union.dropcols <- function(x, y, stratum) {
                                       name=last.name,
                                       beta.full=last.model$coefficients[1, 1],
                                       loglik.full=last.model$loglik[2]))
-    stepwise.drop$loglik.full <- stepwise.drop$loglik.full - stepwise.drop$loglik.full[1]
+    loglik.initial <- stepwise.drop$loglik.full[1]
+    ## shift the log likelihood values up one row so that the values are
+    ## the log lik after dropping the corresponding variable
     stepwise.drop$loglik.full <- c(stepwise.drop$loglik.full[-1], NA)
+    ## append the log-likelihood of the null model
+    stepwise.drop$loglik.full[nrow(stepwise.drop)] <- last.model$loglik[1]
+    ## scale the log likelihood as difference from loglik of initial full model  
+    stepwise.drop$loglik.full <- stepwise.drop$loglik.full - loglik.initial
     return(stepwise.drop[, -1])
 }
 

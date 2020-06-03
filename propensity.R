@@ -52,5 +52,4 @@ coeffs.propensity <- data.frame(subpara=gsub("subpara\\.", "", names(coeffs.full
 
 rm(newdata.x)
 rm(full.model)
-rm(stepwise.full)
 rm(train.data)

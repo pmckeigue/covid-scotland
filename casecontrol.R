@@ -288,10 +288,17 @@ ids.diabetes.extra <- unique(c(ids.icd.diabetes, ids.bnf.diabetes))
 cc.all$dm.type <- as.integer(cc.all$dm.type)
 ## missing recoded as zero
 cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
+
 ## code diagnoses detected from discharges or BNF codes as unknown type
-## we could classify those not on insulin as definite Type 2
+## we could classify those not on insulin as definite Type 2 but Helen says no
 cc.all$dm.type[cc.all$dm.type==0 & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
 
+## add in extra cases notified directly from SCI-Diabetes register, without assignment
+## of diabetes type from SDRN database
+if(!old) {
+    cc.all$dm.type[cc.all$dm.type==0 & cc.all$diab.reg==1] <- 3
+}
+    
 cc.all$dm.type <- 
   as.factor(car::recode(cc.all$dm.type, 
                         "c(0, 10)='Not diabetic';

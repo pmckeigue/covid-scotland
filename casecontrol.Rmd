@@ -313,7 +313,6 @@ The crude receiver operator characteristic (ROC) curve is computed by calculatin
 \newpage
 
 # Tables
-
 ```{r demog, echo=FALSE, warning=FALSE, message=FALSE}
 options(knitr.kable.NA = '')
 

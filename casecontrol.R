@@ -137,8 +137,12 @@ cc.all$scrip.any <- as.factor(as.integer(cc.all$ANON_ID %in% scrips$ANON_ID))
 cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
 
 cc.all$scripordiag <- as.integer(with(cc.all, as.integer(diag.any)==2 |
-                                                    as.integer(scrip.any)==2))
-                  
+                                              as.integer(scrip.any)==2))
+
+## TEMPORARY FIX: drop half the controls with scripordiag==0
+
+
+
 cc.all$sex <- car::recode(as.factor(cc.all$sex), "1='Male'; 2='Female'")
 cc.all <- within(cc.all, sex <- relevel(sex, ref="Female"))
 
@@ -175,7 +179,9 @@ cc.all$unitcategory[cc.all$CASE==0] <- NA
 cc.all$unitcategory <- car::recode(cc.all$unitcategory,
                                    "0='Hospitalized, no HDU or ICU'; 1='HDU only'; 2='ICU only'; 3='HDU and ICU'")
 
-print(with(cc.all[cc.all$CASE==1, ], paste.colpercent(table(deathwithin28, unitcategory))))
+if(!old) {
+    print(with(cc.all[cc.all$CASE==1, ], paste.colpercent(table(deathwithin28, unitcategory))))
+}
 
 ## check this is correct: all those with icu==1 or icu.hdu.ccu==1 should be coded as severe
 
@@ -195,17 +201,22 @@ if(old) {
 } # old dataset did not include test-neg cases ascertained through death registration
 
 cc.all$group <- NA
+## Cases ascertained only through NRS coded as D
 cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==1] <- "D"
-table(cc.all$deathwithin28, cc.all$group, exclude=NULL)
-cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==0 &
-             cc.all$adm28== 0 & cc.all$inhosp==0] <- "C"
 
+## Cases not tested in hospital and not admitted within 29 days coded as C  
 cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==0 &
-             (cc.all$adm28==1 | cc.all$inhosp==1)] <- "B"
+             cc.all$adm28==0 & cc.all$inhosp==0] <- "C"
+
+## Cases tested in hospit
+cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==0 &
+             (cc.all$adm28 > 0 | cc.all$inhosp > 0)] <- "B"
 table(cc.all$deathwithin28, cc.all$group, exclude=NULL)
 
 cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==0 &
                  (cc.all$icu==1 | cc.all$hdu==1 | cc.all$deathwithin28==1)]  <- "A"
+
+print(table(cc.all$CASE, cc.all$group, exclude=NULL))
 
 ## assign controls to same group as matched case i.e. A, B, C and create a new variable named casegroup
 casegroups <- cc.all[cc.all$CASE==1, ][, c("stratum", "group")]
@@ -301,11 +312,13 @@ if(!old) {
     
 cc.all$dm.type <- 
   as.factor(car::recode(cc.all$dm.type, 
-                        "c(0, 10)='Not diabetic';
+                        "c(0, 10, 17, 97)='Not diabetic';
                          c(1, 101, 102)='Type 1 diabetes';
                          c(2, 202, 203)='Type 2 diabetes'; 
                          3:9='Other/unknown type';
-                         11:100='Other/unknown type'"))
+                         11:16='Other/unknown type';
+                         18:96='Other/unknown type';
+                         98:100='Other/unknown type'"))
 
 cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
 cc.all$dm.type <- factor(cc.all$dm.type, levels=levels(cc.all$dm.type)[c(1, 3, 4, 2)])

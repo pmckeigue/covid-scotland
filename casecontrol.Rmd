@@ -528,7 +528,7 @@ clean.header <- function(x) {
     return(x)
 }
 
-knitr::kable(table.icdsubchapters,
+knitr::kable(table.icdsubchapters[grep("times", table.icdsubchapters$u.pvalue), ],
              escape=FALSE, 
              booktabs=TRUE,
 			 longtable=TRUE, 

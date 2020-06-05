@@ -113,6 +113,7 @@ if(stepwise) {
     }
 ###################################
     demog.predicted <- cv.predicted
+    demog.predicted <- demog.predicted[demog.predicted$prior.p < 1, ]
     demog.densities <- with(demog.predicted,
                             Wdensities(y, posterior.p, prior.p,
                                        recalibrate=FALSE))
@@ -153,6 +154,7 @@ if(stepwise) {
     }
 ###################################
     listed.predicted <- cv.predicted
+    listed.predicted <- listed.predicted[listed.predicted$prior.p < 1, ]
     listed.densities <- with(listed.predicted,
                             Wdensities(y, posterior.p, prior.p,
                                        recalibrate=FALSE))
@@ -195,6 +197,7 @@ if(stepwise) {
 ###################################
 
     full.predicted <- cv.predicted
+    full.predicted <- full.predicted[full.predicted$prior.p < 1, ]
     full.densities <- with(full.predicted,
                            Wdensities(y, posterior.p, prior.p,
                                       recalibrate=FALSE))

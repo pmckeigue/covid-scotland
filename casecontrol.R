@@ -21,13 +21,14 @@ registerDoParallel(cores=2)
 source("helperfunctions.R")
 
 old <- TRUE
-#old <- FALSE
+old <- FALSE
 
 if(old) {
     cc.all <- readRDS("./data/CC_linked_ANON_20200501 (2).rds")
     diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200501.rds") 
     procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200501.rds")
     scrips <- readRDS("./data/CC_PIS_x15_ANON_20200501.rds")
+    controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-05.rds")
 } else {
     cc.all <- readRDS("./data/CC_linked_ANON_20200515.rds")
     diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200515.rds")
@@ -35,6 +36,7 @@ if(old) {
     scrips.filename <- "./data/CC_PIS_x15_ANON_20200515.rds" 
     scrips <- readRDS(scrips.filename)[, c("ANON_ID", "bnf_paragraph_code",
                                            "bnf_paragraph_description")] 
+    controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-15.rds")
 
     ## scrips should be 2 tables to save space
     ## one record per scrip
@@ -116,6 +118,26 @@ names(cc.all) <- gsub("^age$", "AGE", names(cc.all))
 
 ## HAI is based on the ECDC definition of nosocomial infection
 
+
+cc.all$scrip.any <- as.factor(as.integer(cc.all$ANON_ID %in% scrips$ANON_ID))
+cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
+
+## exclude controls not observable
+
+controls.status <- controls.status[, c("ANON_ID", "CHI.EXTENDED.STATUS", "CHI.DATE.OF.DEATH",
+                                   "CHI.Explanation")]
+cc.all <- merge(cc.all, controls.status, by="ANON_ID", all.x=TRUE)
+
+print(with(cc.all, table(CHI.Explanation, scrip.any)))
+print(with(cc.all, table(CHI.Explanation, diag.any)))
+
+browser("status")
+
+cc.all <- subset(cc.all, subset=is.na(CHI.Explanation) |
+                             CHI.Explanation=="Current and no history" |
+                             CHI.Explanation=="Current with history")
+
+
 ## exclude controls already dead on date of test of case they were matched to
 controls.deceased <- with(cc.all, CASE==0 &
                                   !is.na(Date.Death) &
@@ -133,15 +155,9 @@ cat("done:", length(which(!keep)), "observations dropped\n")
 
 cc.all$SIMD.quintile <- car::recode(cc.all$SIMD.quintile, "'Unknown'=NA")
 
-cc.all$scrip.any <- as.factor(as.integer(cc.all$ANON_ID %in% scrips$ANON_ID))
-cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
 
 cc.all$scripordiag <- as.integer(with(cc.all, as.integer(diag.any)==2 |
                                               as.integer(scrip.any)==2))
-
-## TEMPORARY FIX: drop half the controls with scripordiag==0
-
-
 
 cc.all$sex <- car::recode(as.factor(cc.all$sex), "1='Male'; 2='Female'")
 cc.all <- within(cc.all, sex <- relevel(sex, ref="Female"))
@@ -842,7 +858,7 @@ table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs,
 ######## stepwise regressions use saved version #####################
 
 nfold <- 4
-#stepwise <- TRUE
+stepwise <- TRUE
 stepwise <- FALSE
 
 source("stepwise.R")
@@ -853,8 +869,9 @@ if(!old) source("pharmaco.R")
 
 #####################################################
 if(old) {
-    rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
+    rmarkdown::render("casecontrol.Rmd", output_file="casecontrol5May.pdf")
 } else  {
+    rmarkdown::render("casecontrol.Rmd", output_file="casecontrol15May.pdf")
     rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
 } 
 

@@ -60,6 +60,8 @@ norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
                                         y=cc.severe.nonmissing$CASE)
 rm(cc.severe.nonmissing)
 
+norm.predicted <- norm.predicted[norm.predicted$prior.p < 1, ]
+
 ## FIXME -- fitted densities are not compatible with Turing identity
 numdrugs.densities <- with(norm.predicted,
                            Wdensities(y, posterior.p, prior.p,

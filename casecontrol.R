@@ -21,7 +21,7 @@ registerDoParallel(cores=2)
 source("helperfunctions.R")
 
 old <- TRUE
-old <- FALSE
+#old <- FALSE
 
 if(old) {
     cc.all <- readRDS("./data/CC_linked_ANON_20200501 (2).rds")
@@ -441,13 +441,12 @@ ids.anticoagulant.any <-
                           scrips$bnf_paragraph_code == "0208020"])
 cc.all$anticoagulant.any <- as.factor(as.integer(cc.all$ANON_ID %in%
                                                 ids.anticoagulant.any))
-
+if(!old) {
 ids.hydroxychloroquine <- readRDS(scrips.filename) %>%
     subset(subset=approved_name=="HYDROXYCHLOROQUINE SULFATE", select=ANON_ID)
 ids.hydroxychloroquine <- unique(ids.hydroxychloroquine$ANON_ID)
-
 cc.all$hydroxychloroquine <- as.factor(as.integer(cc.all$ANON_ID %in% ids.hydroxychloroquine))
-
+}
 ############# some tables for ethnicity report ##########################
 ########################################################################
 

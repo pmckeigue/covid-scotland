@@ -27,14 +27,14 @@ upper.formula <- as.formula(paste("y.protonpump ~ AGE + sex +",
 full.model <- glm(formula=upper.formula, data=train.data, family="binomial")
 
 cat("Stepwise regression to construct propensity score for proton pump ...")
-stepwise.full <- step(full.model,
+propensity.stepwise.full <- step(full.model,
                        scope=list(lower=lower.formula, upper=upper.formula),
                       direction="both", method="approximate", trace=-1)
 cat("done\n")
 
 ## get coeffs, dropping age and sex
-coeffs.full <- summary(stepwise.full)$coefficients[, 1][-(1:3)]
-rm(stepwise.full) 
+coeffs.full <- summary(propensity.stepwise.full)$coefficients[, 1][-(1:3)]
+rm(propensity.stepwise.full) 
 
 names(coeffs.full) <- gsub("(.+)1$", "\\1", names(coeffs.full))
 names(coeffs.full) <- subpara.colnames[match(names(coeffs.full),

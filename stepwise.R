@@ -204,12 +204,23 @@ if(stepwise) {
     pander(summary(full.densities), table.style="multiline",
            split.cells=c(5, 5, 5, 5, 5, 5, 5), split.table="Inf",
            caption="Prediction of severe COVID-19 from full variable set")
-    
+
+    if(old) {
     save(stepwise.full,
          demog.densities, listed.densities, full.densities, 
          file="./data/stepwise.RData")
+    } else {
+            save(stepwise.full,
+         demog.densities, listed.densities, full.densities, 
+         file="./data/stepwise_15May.RData")
+
+    }
 
 } else {
-    load("./data/stepwise.RData")
+    if(old) {
+        load("./data/stepwise.RData")
+    } else {
+         load("./data/stepwise_15May.RData")
+    }
 }
 

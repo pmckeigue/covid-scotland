@@ -21,7 +21,15 @@ registerDoParallel(cores=2)
 source("helperfunctions.R")
 
 old <- TRUE
-old <- FALSE
+old <- FALSE # uncomment to use 15 May linkage
+
+nrs <- TRUE
+nrs <- FALSE # uncomment to exclude NRS-only deaths
+
+stepwise <- TRUE   
+#stepwise <- FALSE ## uncomment to save time if old version still valid
+
+
 
 if(old) {
     cc.all <- readRDS("./data/CC_linked_ANON_20200501 (2).rds")
@@ -118,7 +126,6 @@ names(cc.all) <- gsub("^age$", "AGE", names(cc.all))
 
 ## HAI is based on the ECDC definition of nosocomial infection
 
-
 cc.all$scrip.any <- as.factor(as.integer(cc.all$ANON_ID %in% scrips$ANON_ID))
 cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
 
@@ -126,13 +133,13 @@ cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
 
 controls.status <- controls.status[, c("ANON_ID", "CHI.EXTENDED.STATUS", "CHI.DATE.OF.DEATH",
                                    "CHI.Explanation")]
+
 cc.all <- merge(cc.all, controls.status, by="ANON_ID", all.x=TRUE)
 
 print(with(cc.all, table(CHI.Explanation, scrip.any)))
 print(with(cc.all, table(CHI.Explanation, diag.any)))
 
-browser("status")
-
+## exclude controls classified on CHI database as no longer current
 cc.all <- subset(cc.all, subset=is.na(CHI.Explanation) |
                              CHI.Explanation=="Current and no history" |
                              CHI.Explanation=="Current with history")
@@ -316,16 +323,22 @@ cc.all$dm.type <- as.integer(cc.all$dm.type)
 ## missing recoded as zero
 cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
 
-## code diagnoses detected from discharges or BNF codes as unknown type
-## we could classify those not on insulin as definite Type 2 but Helen says no
-cc.all$dm.type[cc.all$dm.type==0 & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
-
 ## add in extra cases notified directly from SCI-Diabetes register, without assignment
 ## of diabetes type from SDRN database
 if(!old) {
     cc.all$dm.type[cc.all$dm.type==0 & cc.all$diab.reg==1] <- 3
 }
-    
+
+print(table(cc.all$dm.type, cc.all$ANON_ID %in% ids.diabetes.extra))
+
+browser("diabetes.extra")
+
+## code diagnoses detected from discharges or BNF codes as unknown type
+## we could classify those not on insulin as definite Type 2 but Helen says no
+
+## REVISION: for consistency with the diabetes paper, we will not include the extra cases identified through diagnostic codes or drug codes
+# cc.all$dm.type[cc.all$dm.type==0 & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
+
 cc.all$dm.type <- 
   as.factor(car::recode(cc.all$dm.type, 
                         "c(0, 10, 17, 97)='Not diabetic';
@@ -526,7 +539,13 @@ rm(cc.hosp)
 
 ########## restrict to severe cases and matched controls ###################### 
 cat("Restricting to severe cases and matched controls\n")
-cc.severe <- cc.all[cc.all$casegroup=="Critical care or fatal", ]
+if(!nrs) {
+    cc.severe <- cc.all[cc.all$casegroup=="Critical care or fatal", ]
+} else {
+    cc.severe <- cc.all[cc.all$casegroup=="Critical care or fatal" |
+                      cc.all$casegroup=="COVID mention on death cert, no test", ]
+}
+
 rm(cc.all)
 
 ## merge drugs, one variable per chapter
@@ -619,9 +638,9 @@ source("comorbidity.R")
 ## 8 listed conditions designated by NHS
 listed.conditions <- c("dm.type", "IHD.any", "heart.other.any", "oad.any",
                        "ckd.any", "neuro.any", "liver.any", "immune.any")
-if(!old) {
-    listed.conditions <- c(listed.conditions, "circulatory.other")
-}
+#if(!old) {
+#    listed.conditions <- c(listed.conditions, "circulatory.other")
+#}
 
 ############ extract predefined disease categories #################
 ## as these are coded as factors, lowest level will be 1
@@ -858,9 +877,6 @@ table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs,
 ######## stepwise regressions use saved version #####################
 
 nfold <- 4
-stepwise <- TRUE
-stepwise <- FALSE
-
 source("stepwise.R")
 
 #####################################################################
@@ -871,11 +887,25 @@ if(!old) source("pharmaco.R")
 if(old) {
     rmarkdown::render("casecontrol.Rmd", output_file="casecontrol5May.pdf")
 } else  {
-    rmarkdown::render("casecontrol.Rmd", output_file="casecontrol15May.pdf")
-    rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
-} 
+    if(!nrs) {
+        rmarkdown::render("casecontrol.Rmd", output_file="casecontrol15May.pdf")
+        rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
+    } else {
+        rmarkdown::render("casecontrol.Rmd", output_file="casecontrol15May_withNRS.pdf")
+    } 
+}
 
 ## remove large objects from memory
 
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
+
+if(old) {
+    save.image(file="casecontrol5May.RData")
+} else {
+    if(!nrs) {
+        save.image(file="casecontrol15May.RData")
+    } else {
+        saveRDS(table.agegr, file="table.agegr.withNRS.rds")
+    }
+}

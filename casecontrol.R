@@ -18,7 +18,7 @@ library(dplyr)
 
 registerDoParallel(cores=2)
 
-source("helperfunctions.R")
+bsource("helperfunctions.R")
 
 old <- TRUE
 old <- FALSE # uncomment to use 15 May linkage

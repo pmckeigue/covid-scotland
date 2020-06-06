@@ -165,9 +165,9 @@ for(col in subparacols) {
                              cc.severe[nocare.notlisted, "CASE"])
     
     if(nrow(freqs.cc) > 1 & ncol(freqs.cc) > 1) {
-        if(freqs.cc[2, 2] >= 10) { # if at least 10 in each cell
+        if(sum(freqs.cc[2, ]) >= 50) { # if at least 10 in each cell
             coeffs <- summary(clogit(formula=y ~ x + strata(stratum)))$coefficients
-            if(coeffs[1, 5] < 0.001 & coeffs[1, 1] > 0) {
+            if(coeffs[1, 5] < 0.001) {
                 subpara.coeffs <- rbind(subpara.coeffs,
                                         data.frame(subpara=colnames(cc.severe)[col],
                                                    controls=freqs.cc[2, 1],

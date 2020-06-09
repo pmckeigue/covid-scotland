@@ -26,12 +26,15 @@
 #		3.  first.stratum.number: next unused stratum number, starting from 1. 
 #		
 #		Martin -- if you fix your code to work with this function, we will get it written.
+#' Given data frames containing cases and a background population, randomly sample up to 10 records from
+#'   the background population for each case, with strata matching on the mkey column. A data.frame containing both cases and matched
+#'   controls are returned, along with a flag identifying which are cases/controls.
 #' @param cases data.frame - columns: upi, mkey: upi unique character, mkey integer duplicated - up to 1000 rows
 #' @param popextract data.frame - same columns as cases
 #' @param first.stratum.number +ve int
 #' @return A data.frame of mixed cases and controls. Columns upi (character),
-#'   mkey (integer), strata (integer) and is.case (boolean)
-case.match <- function(cases, popextract, first.stratum.number) {
+#'   mkey (integer), strata (integer) and is.case (boolean). This should be no more than 11*size(cases) in size.
+SelectMatchedControls <- function(cases, popextract, first.stratum.number) {
 
 	cases <- data.table::data.table(cases)
 	popextract <- data.table::data.table(popextract)

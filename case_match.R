@@ -26,13 +26,16 @@
 #		3.  first.stratum.number: next unused stratum number, starting from 1. 
 #		
 #		Martin -- if you fix your code to work with this function, we will get it written.
-#' @param cases data.table - columns: upi, mkey: upi unique character, mkey integer duplicated - up to 1000 rows
-#' @param popextract data.table - same columns as cases
+#' @param cases data.frame - columns: upi, mkey: upi unique character, mkey integer duplicated - up to 1000 rows
+#' @param popextract data.frame - same columns as cases
 #' @param first.stratum.number +ve int
-#' @return A data.table of mixed cases and controls. Columns upi (character),
+#' @return A data.frame of mixed cases and controls. Columns upi (character),
 #'   mkey (integer), strata (integer) and is.case (boolean)
 case.match <- function(cases, popextract, first.stratum.number) {
 
+	cases <- data.table::data.table(cases)
+	popextract <- data.table::data.table(popextract)
+	
     # Make a copy of cases so do not alter original by reference
 	cases.mkey <- data.table::copy(cases)
 	
@@ -63,7 +66,7 @@ case.match <- function(cases, popextract, first.stratum.number) {
 	stratum.vals <- seq(first.stratum.number,first.stratum.number+length(mkey.vals) - 1)
 	ret.table[, stratum := as.integer(as.character(factor(mkey, mkey.vals, stratum.vals)))][]
 	
-	return(ret.table)
+	return(as.data.frame(ret.table))
 }
 	
 	

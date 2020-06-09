@@ -7,18 +7,31 @@ tolower.exceptfirstchar <- function(x) {
     return(x)
 }
 
-select.union <- function(x, y, stratum) {
+select.union <- function(x, y, covariates, stratum) {
     ## select j as column of x to drop that maximizes loglik of
     ## clogit model using rowSums([x, -j])
     ## returns coeff and loglik of full model without a dropped column,
     loglik.dropcol <- numeric(ncol(x))
-    x.u <- rowSums(x) 
-    model.full <- summary(clogit(y ~ x.u + strata(stratum)))
+    x.u <- rowSums(x)
+    covariates <- as.data.frame(covariates)
+    names(covariates) <- paste0("c", 1:ncol(covariates)) 
+    cl.formula <- as.formula(paste("y ~ x.u", ifelse(is.null(covariates), "", "+"),
+                                   paste(names(covariates), collapse=" + "),
+                                   "+ strata(stratum)"))
+    cl.data <- data.frame(y=y, x.u=x.u, covariates, stratum=stratum)
+    
+    #browser("select")
+    model.full <- summary(clogit(formula=cl.formula, data=cl.data))
     beta.full <- model.full$coefficients[1, 1]
     loglik.full <- model.full$loglik[2]
     for(j in 1:ncol(x)) {
         x.u <- rowSums(x[, -j, drop=FALSE])
-        loglik.dropcol[j] <- summary(clogit(y ~ x.u + strata(stratum)))$loglik[2]
+        cl.formula <- as.formula(paste("y ~ x.u", ifelse(is.null(covariates), "", "+"),
+                                       paste(names(covariates), collapse=" + "),
+                                       "+ strata(stratum)"))
+        cl.data <- data.frame(y=y, x.u=x.u, covariates, stratum=stratum)
+        
+        loglik.dropcol[j] <- summary(clogit(formula=cl.formula, data=cl.data))$loglik[2]
     }
 
     j.max <- which.max(loglik.dropcol)
@@ -28,11 +41,11 @@ select.union <- function(x, y, stratum) {
                       loglik.full=loglik.full))
 }
 
-stepwise.union.dropcols <- function(x, y, stratum) {
+stepwise.union.dropcols <- function(x, y, covariates=NULL, stratum) {
     x.drop <- x
     stepwise.drop <- NULL
     for(j in 1:(ncol(x) - 1)) {
-        select.drop <- select.union(x=x.drop, y=y, stratum=stratum)
+        select.drop <- select.union(x=x.drop, y=y, covariates=covariates, stratum=stratum)
         stepwise.drop <- rbind(stepwise.drop, select.drop)
         x.drop <- x.drop[, -select.drop$col.drop, drop=FALSE]
         ## for each dropped variable, stepwise.drop has the coeff and loglik of the full model before that variable was dropped  

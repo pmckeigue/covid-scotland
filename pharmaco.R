@@ -77,13 +77,13 @@ pander(summary(numdrugs.densities), table.style="multiline",
 table.numdrugsgr.num.icdch <- NULL
 for(numicd in levels(cc.severe$num.icdchapters.gr)) {
     x <- tabulate.freqs.regressions(varnames="numdrugsgr",
-                                    data=cc.severe[cc.severe$num.icdchapters.gr==numicd, ])[, 1:4]
+                                    data=cc.severe[notlisted & cc.severe$num.icdchapters.gr==numicd, ])[, 1:4]
     colnames(x)[1:2] <- c("controls", "cases")
     table.numdrugsgr.num.icdch <- rbind(table.numdrugsgr.num.icdch, x)
 }
 table.numdrugsgr.num.icdch <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 3),
                                          table.numdrugsgr.num.icdch)
-colnames(table.numdrugsgr.num.icdch)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE)), rep(")", 2))
+colnames(table.numdrugsgr.num.icdch)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe[notlisted, ]$CASE)), rep(")", 2))
 
 ####################################################################################
 ## tabulate rate ratios for each numdrugs group, by agegr 
@@ -165,7 +165,7 @@ for(col in subparacols) {
                              cc.severe[nocare.notlisted, "CASE"])
     
     if(nrow(freqs.cc) > 1 & ncol(freqs.cc) > 1) {
-        if(sum(freqs.cc[2, ]) >= 50) { # if at least 10 in each cell
+        if(sum(freqs.cc[2, ]) >= 20) { # if at least 10 in each cell
             coeffs <- summary(clogit(formula=y ~ x + strata(stratum)))$coefficients
             if(coeffs[1, 5] < 0.001) {
                 subpara.coeffs <- rbind(subpara.coeffs,
@@ -190,17 +190,21 @@ print(subpara.coeffs)
 
 
 #############################################################################
+restrict <- notlisted & cc.severe$num.icdchapters < 3
 
 subparacols.forstepwisedrop <- subparacols[match(subparacols.keep, subparacols)] ## reduces to 61 subpara codes
 
-x <- cc.severe[nocare.notlisted, ][, subparacols.forstepwisedrop]
+x <- cc.severe[restrict, ][, subparacols.forstepwisedrop]
 x <- matrix(as.integer(as.matrix(x)), nrow=nrow(x))
 colnames(x) <- colnames(cc.severe)[subparacols.forstepwisedrop]
-y <- cc.severe[nocare.notlisted, "CASE"]
-stratum <- cc.severe[nocare.notlisted, "stratum"]
+y <- cc.severe[restrict, "CASE"]
+stratum <- cc.severe[restrict, "stratum"]
+covariates.subparas <- cc.severe[restrict, c("care.home")] 
 cat("Stepwise drop procedure over BNF subpara codes ...")
-stepwise.drop.subparas <- stepwise.union.dropcols(x=x, y=y, stratum=stratum)
+stepwise.drop.subparas <- stepwise.union.dropcols(x=x, y=y, covariates=covariates.subparas, stratum=stratum)
 cat("done\n")
+
+print(stepwise.drop.subparas)
 
 ## tabulate associations with drug chapters in those not in care homes and without listed conditions 
 table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs, 

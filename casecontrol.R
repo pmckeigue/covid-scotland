@@ -18,7 +18,7 @@ library(dplyr)
 
 registerDoParallel(cores=2)
 
-bsource("helperfunctions.R")
+source("helperfunctions.R")
 
 old <- TRUE
 old <- FALSE # uncomment to use 15 May linkage
@@ -27,9 +27,7 @@ nrs <- TRUE
 nrs <- FALSE # uncomment to exclude NRS-only deaths
 
 stepwise <- TRUE   
-#stepwise <- FALSE ## uncomment to save time if old version still valid
-
-
+stepwise <- FALSE ## uncomment to save time if old version still valid
 
 if(old) {
     cc.all <- readRDS("./data/CC_linked_ANON_20200501 (2).rds")
@@ -231,13 +229,15 @@ cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==1] <- "D"
 cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==0 &
              cc.all$adm28==0 & cc.all$inhosp==0] <- "C"
 
-## Cases tested in hospit
+## Cases tested in hospital
 cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==0 &
              (cc.all$adm28 > 0 | cc.all$inhosp > 0)] <- "B"
 table(cc.all$deathwithin28, cc.all$group, exclude=NULL)
 
-cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==0 &
-                 (cc.all$icu==1 | cc.all$hdu==1 | cc.all$deathwithin28==1)]  <- "A"
+## severe cases defined as CASE=1 AND (critical care or (death but not extra NRS death))
+cc.all$group[cc.all$CASE==1 &
+             ((cc.all$icu==1 | cc.all$hdu==1) |
+             (cc.all$deathwithin28==1 & cc.all$nrs_covid_case==0))]  <- "A"
 
 print(table(cc.all$CASE, cc.all$group, exclude=NULL))
 
@@ -248,6 +248,8 @@ cc.all <- merge(cc.all, casegroups, by=c("stratum"), all.x=T)
 table(cc.all$CASE, cc.all$casegroup)
 with(cc.all[cc.all$CASE==1, ], table(casegroup, deathwithin28, exclude=NULL))
 
+## all test-positive cases dying within 28 days are fatal cases -- excludes
+## deaths ascertained through NRS that were not test-positive 
 cc.all$fatalcase <- as.integer(cc.all$CASE==1 & cc.all$deathwithin28==1)
 
 if(old) {
@@ -262,6 +264,32 @@ cc.all$casegroup <- as.factor(cc.all$casegroup)
 cc.all <- within(cc.all, casegroup <- relevel(casegroup, ref="Critical care or fatal"))
 
 print(paste.colpercent(with(cc.all[cc.all$CASE==1, ], table(care.home, casegroup))))
+
+### incidence and mortality using national population estimates #####
+
+severe.case <- cc.all$CASE==1 & cc.all$casegroup=="Critical care or fatal"
+broad.case <- cc.all$CASE==1 & (cc.all$casegroup=="Critical care or fatal" |
+                                cc.all$casegroup=="Hospitalised, not severe" |
+                                cc.all$casegroup=="COVID mention on death cert, no test")
+narrow.fatalcase <- cc.all$fatalcase
+broad.fatalcase <- cc.all$fatalcase |
+    (cc.all$CASE==1 & cc.all$casegroup=="COVID mention on death cert, no test")
+
+
+## for graphing, we want three categories
+## severe cases as defined
+## broad cases as used for diabetes report: severe, hospitalized or NRS
+## fatal cases including NRS deaths
+
+narrow.case.freqs <- with(cc.all[severe.case, ], table(AGE, sex, exclude=NULL))
+broad.case.freqs <- with(cc.all[broad.case, ], table(AGE, sex, exclude=NULL))
+narrow.death.freqs <- with(cc.all[narrow.fatalcase, ], table(AGE, sex, exclude=NULL))
+broad.death.freqs <- with(cc.all[broad.fatalcase, ], table(AGE, sex, exclude=NULL))
+
+save(narrow.case.freqs, broad.case.freqs,
+     narrow.death.freqs, broad.death.freqs, file="casefreqs.4cats.agesex.RData")
+
+source("incidencemortality.R")
 
 ######## coding ethnicity ##############################
 
@@ -279,7 +307,7 @@ cc.all <- within(cc.all, ethnic4.smr <- factor(ethnic4.smr,
                                                levels=levels(ethnic4.smr)[c(4, 3, 1, 2)]))   
 #if(length(OnolyticsType) > 0) {
     cc.all$ethnic5 <- ethnic5
-   
+
     ## tabulate ONOMAP ethnicity against SMR ethnicity
     table.ethnic <- table(cc.all$ethnic5, cc.all$ethnic5.smr, exclude=NULL)
     
@@ -331,13 +359,12 @@ if(!old) {
 
 print(table(cc.all$dm.type, cc.all$ANON_ID %in% ids.diabetes.extra))
 
-browser("diabetes.extra")
-
 ## code diagnoses detected from discharges or BNF codes as unknown type
 ## we could classify those not on insulin as definite Type 2 but Helen says no
 
 ## REVISION: for consistency with the diabetes paper, we will not include the extra cases identified through diagnostic codes or drug codes
-# cc.all$dm.type[cc.all$dm.type==0 & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
+
+## cc.all$dm.type[cc.all$dm.type==0 & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
 
 cc.all$dm.type <- 
   as.factor(car::recode(cc.all$dm.type, 
@@ -678,14 +705,6 @@ drugs <- bnf.chapternames
 icd.chapternames <- colnames(cc.severe)[icdcols]
 conditions <- icd.chapternames
 
-### incidence and mortality using national population estimates #####
-
-case.freqs <- with(cc.severe[cc.severe$CASE==1, ], table(AGE, sex, exclude=NULL))
-death.freqs <- with(cc.severe[cc.severe$fatalcase==1, ], table(AGE, sex, exclude=NULL))
-
-save(case.freqs, death.freqs, file="casefreqs.agesex.RData")
-
-source("incidencemortality.R")
 
 ###############################################################
 

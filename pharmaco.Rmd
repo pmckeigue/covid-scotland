@@ -112,7 +112,7 @@ rows.print <- firstrow.neg:nrow(stepwise.drop.subparas)
 
 # Abstract
 
-_Background_-- We previously reported that dispensing of prescriptions from primary care in the past year was strongly associated with severe COVID-19 in Scotland, even in those without past diagnoses of conditions designated as increased risk (listed conditions). We report a further investigation of possible explanations for this association, which include specific co-morbidity or drug effects but also more diffuse effects of frailty or polypharmacy. 
+_Background_-- We previously reported that dispensing of prescriptions from primary care in the past year was associated with severe COVID-19 in Scotland, even in those without past diagnoses of conditions designated as increased risk (listed conditions). We report a further investigation of possible explanations for this association, which include specific co-morbidity or drug effects but also more diffuse effects of frailty or polypharmacy. 
 
 _Methods_ -- Cases of severe COVID-19 were ascertained as all those who tested positive for SARS-CoV-2 nucleic acid in the national database and entered a critical care unit or died within 28 days of testing.  From the national population register ten controls per case were selected, matched for sex, age and general practice. International Classification of Disease (ICD-10) codes were extracted from the past three years of hospital discharge records and British National Formulary (BNF) drug codes from dispensed prescriptions issued in primary care during the past nine months. Rate ratios were estimated by conditional logistic regression. 
 
@@ -123,9 +123,9 @@ _Methods_ -- Cases of severe COVID-19 were ascertained as all those who tested p
 \newpage
 
 # Background
-The REACT-SCOT study is a matched case control study of severe COVID-19 in Scotland.  In the first report of this study we reported a strong association of severe COVID-19 with having had at least one prescription dispensed in the past year [@mckeigue_rapid_2020].  The univariate rate ratios associated with at least one prescription varied from 10 in those aged under 60 years to 40 in those aged 75 years and over.  This association persisted after adjusting for care home residence, any hospital admission in the last five years and diagnoses of conditions designated as high-risk conditions for COVID-19 by the NHS and other public health agencies (hereafter listed conditions).  Partitioning of the "any prescription" variable between BNF chapters, which represent broad indication-based drug classes, showed that prescriptions in drugs in almost all chapters were associated with elevated rate ratios for COVID-19.  We concluded that although most associations of severe COVID-19 with drug prescribing were likely to be attributable to confounding by co-morbidity or frailty, causal effects of drugs on disease susceptibility could not be ruled out.  
+The REACT-SCOT study is a matched case control study of severe COVID-19 in Scotland.  In the first report of this study we reported a strong association of severe COVID-19 with having had at least one prescription dispensed in the past year [@mckeigue_rapid_2020].  The univariate rate ratios associated with at least one prescription varied from 4.4 in those aged under 60 years to 3.5 in those aged 75 years and over.  This association persisted after adjusting for care home residence, any hospital admission in the last five years and diagnoses of conditions designated as high-risk conditions for COVID-19 by the NHS and other public health agencies (hereafter listed conditions).  Partitioning of the "any prescription" variable between BNF chapters, which represent broad indication-based drug classes, showed that prescriptions in drugs in almost all chapters were associated with elevated rate ratios for COVID-19.  We concluded that although most associations of severe COVID-19 with drug prescribing were likely to be attributable to confounding by co-morbidity or frailty, causal effects of drugs on disease susceptibility could not be ruled out.  
 
-Thus the primary aim of this study was to explore the strong association of severe COVID-19 with dispensing of at least one prescription in the past year. Specifically we aimed to test whether this association is accounted for by confounding by co-morbidity and other health-related factors, or by direct effects of prescribed drugs.  A further aim was to determine whether the effects underlying this association are sparse or diffuse.  In the case of causal drug effects, this would correspond to distinguishing between large effects of a few drugs, or an effect of polypharmacy not attributable to any single drug.  In the case of confounding, this would correspond to distinguishing between identifying a few conditions that confer high-risk of COVID-19, or a diffuse effect of multimorbidity. 
+The primary aim of this study was to investigate the association of severe COVID-19 with drug prescribing.  Specifically we aimed to test whether this association is accounted for by confounding by co-morbidity and other health-related factors, or by direct effects of prescribed drugs.  A further aim was to determine whether the effects underlying this association are sparse or diffuse.  In the case of causal drug effects, this would correspond to distinguishing between large effects of a few drugs, or an effect of polypharmacy not attributable to any single drug.  In the case of confounding, this would correspond to distinguishing between identifying a few conditions that confer high-risk of COVID-19, or a diffuse effect of multimorbidity. 
 
 # Methods
 The design of the REACT-SCOT case-control study has been described in detail elsewhere [@mckeigue_rapid_2020].  In brief, all individuals testing positive for nucleic acid for SARS-CoV-2 in Scotland up to `r format(max(cc.severe$SPECDATE, na.rm=TRUE), "%d %B %Y")` were ascertained through the Electronic Communication of Surveillance in Scotland (ECOSS) database.  Admissions to critical care were obtained from the Scottish Intensive Care Society and Audit Group (SICSAG) database that captures admission to all critical care (intensive care or high dependency) units. Death registrations up to `r format(max(cc.severe$Date.Death, na.rm=TRUE), "%d %B %Y")` were obtained from linkage to the National Register of Scotland.  Severe or fatal COVID-19 was defined by entry to critical care or death within 28 days of a positive nucleic acid test, regardless of the cause of death given on the death certificate.  The ascertainment of cases and controls is refreshed every few weeks, For this study, the accrued number of cases had increased to `r nrow(cc.severe[cc.severe$CASE==1, ])` For each case, the Community Health Index database was used to select ten controls matched for sex, one-year age band and registered with the same primary care practice, who were alive on the same day as the first date that the case tested positive [and had not embarked -- to be checked in the CHI database by SW]. Socioeconomic status was encoded as quintile of the postcode-based Scottish Index of Multiple Deprivation (SIMD). 
@@ -143,9 +143,16 @@ To study the effect of a specific drug, we constructed a propensity score based 
 
 # Results
 ## Relation of severe COVID-19 to polypharmacy 
-We began by constructing an index of polypharmacy as the number of drug classes (BNF subparagraph codes) for which at least one prescription had been dispensed during the period of observation (from 1 June 2019 to 15 days before the date of testing positive). Table \ref{tab:numdrugsgr} shows that risk of COVID-19 was strongly related to polypharmacy in all age bands: with no dispensed prescriptions as baseline category, the rate ratios (95% CIs) associated with dispensing of 12 or more drug classes were `r table.numdrugsgr.agegr[6, 4]` in those aged less than 60 years, `r table.numdrugsgr.agegr[12, 4]` in those aged 60-74 years, and `r table.numdrugsgr.agegr[18, 4]` in those aged 75 years and over. The association of COVID-19 with polypharmacy was strongest in those who had no hospital diagnoses in the previous three years (because they had not been admitted to hospital).  In this group, with the no dispensed prescriptions category as baseline, the rate ratio ranged from `r table.numdrugsgr.num.icdch[2, 4]` in those with 1 to 3 drug classes dispensed to `r table.numdrugsgr.num.icdch[6, 4]` in those with more than 12 drug classes dispensed.
+We began by constructing an index of polypharmacy as the number of drug classes (BNF subparagraph codes) for which at least one prescription had been dispensed during the period of observation (from 1 June 2019 to 15 days before the date of testing positive). 
 
-To study further the relationship with polypharmacy, we restricted the analysis to those not resident in a care home and without a diagnosis of a listed condition.  The rationale for this restriction was to reduce the frequency of factors including multi-morbidity and frailty which might be expected to confound the association between polypharmacy and COVID-19.  In people with listed conditions, we might expect prescribing of multiple drugs in accordance with evidence-based guidelines for management of these conditions.  Supplementary Table \ref{tab:numdrugs.listed.any} shows that the association with COVID-19 was stronger in those without a diagnosis of a listed condition than in those with one or more listed conditions.  Residents in care homes are at high risk of severe COVID-19 for reasons unrelated to polypharmacy, and the profile of drugs most commonly prescribed to people in care homes differs from the profile of drugs most commonly prescribed to people living independently.  
+Table \ref{tab:numdrugs.listed.any} shows that the COVID-19 was associated with polypharmacy in those without a listed condition, but that in those with a listed condition the direction of this association was reversed: those with dispensed prescriptions of 1 to 12 drug classes were at lower risk than those with no dispensed prescription.  
+
+
+The association of COVID-19 with polypharmacy was strongest in those who had no hospital diagnoses in the previous three years (because they had not been admitted to hospital).  In this group, with the no dispensed prescriptions category as baseline, the rate ratio ranged from `r table.numdrugsgr.num.icdch[2, 4]` in those with 1 to 3 drug classes dispensed to `r table.numdrugsgr.num.icdch[6, 4]` in those with more than 12 drug classes dispensed.
+
+Risk of COVID-19 was strongly related to polypharmacy in all age bands: with no dispensed prescriptions as baseline category, the rate ratios (95% CIs) associated with dispensing of 12 or more drug classes were `r table.numdrugsgr.agegr[6, 4]` in those aged less than 60 years, `r table.numdrugsgr.agegr[12, 4]` in those aged 60-74 years, and `r table.numdrugsgr.agegr[18, 4]` in those aged 75 years and over. 
+
+To study further the relationship with polypharmacy, we restricted the analysis to those not resident in a care home and without a diagnosis of a listed condition.  The rationale for this restriction was to reduce the frequency of factors including multi-morbidity and frailty which might be expected to confound the association between polypharmacy and COVID-19.  In people with listed conditions, we might expect prescribing of multiple drugs in accordance with evidence-based guidelines for management of these conditions.   Residents in care homes are at high risk of severe COVID-19 for reasons unrelated to polypharmacy, and the profile of drugs most commonly prescribed to people in care homes differs from the profile of drugs most commonly prescribed to people living independently.  
 
 ## Associations of severe COVID-19 with drug classes
 We next examined univariate associations of dispensing of each of the `r length(subparacols)` BNF subparagraph codes with COVID-19.  Supplementary Table \ref{tab:subpara.coeffs} shows the univariate rate ratios for the `r length(subparacols.forstepwisedrop)` drug classes that were dispensed to at least 10 cases and were associated with severe disease at $p < 0.001$.  These COVID-19-associated drug classes include widely-prescribed cardiovascular drugs and also multiple drug classes previously identified in Scotland as indicators of overprescribing: laxatives, proton pump inhibitors, hypnotics, anxiolytics, antidepressants, analgesics and nutritional supplements.  
@@ -269,8 +276,33 @@ knitr::kable(stepwise.drop.subparas[rows.print, ],
 
 \newpage
 
+
+```{r numdrugs.listed.any, echo=FALSE, warning=FALSE, message=FALSE}
+
+freqs <- with(cc.severe, table(listed.any, CASE))
+
+knitr::kable(table.numdrugsgr.listed.any,
+             escape=FALSE,
+             booktabs=TRUE,
+             label="numdrugs.listed.any",
+             row.names=FALSE,
+             col.names=c("Number of drug classes", colnames(table.numdrugsgr.listed.any)[2:3], 
+                         "Rate ratio (95\\% CI)", "$p$-value"),
+             caption="Association of severe COVID-19 with polypharmacy, by diagnosis of at least one listed condition") %>%
+    column_spec(column=1, width="2cm") %>%
+    group_rows(paste0("No listed condition (",
+                      freqs[1, 1], " controls, ", freqs[1, 2], " cases)"),
+               1, 6) %>%
+    group_rows(paste0("Listed condition (",
+                      freqs[2, 1], " controls, ", freqs[2, 2], " cases)"),
+               7, 12) %>%
+    kable_styling(latex_options="hold_position")
+
+```
+
 ```{r numdrugs.agegr, echo=FALSE, warning=FALSE, message=FALSE}
 
+if(FALSE) {
 table.numdrugsgr <- rbind(table.numdrugsgr.agegr, table.numdrugsgr.num.icdch)
 
 knitr::kable(table.numdrugsgr,
@@ -289,11 +321,12 @@ knitr::kable(table.numdrugsgr,
     group_rows("1 to 2 ICD-10 chapters in hospital diagnoses", 25, 30) %>%
     group_rows("3 or more ICD-10 chapters in hospital diagnoses", 31, 36) %>%
     kable_styling(latex_options="hold_position")
+}
+
 ```
 
 
 ```{r numdrugs.num.icdch, echo=FALSE, warning=FALSE, message=FALSE}
-if(FALSE) {
 knitr::kable(table.numdrugsgr.num.icdch,
              escape=FALSE,
              booktabs=TRUE,
@@ -301,13 +334,12 @@ knitr::kable(table.numdrugsgr.num.icdch,
              row.names=FALSE,
              col.names=c("Number of drug classes", colnames(table.numdrugsgr.num.icdch)[2:3],  
                          "Rate ratio (95\\% CI)", "$p$-value"),
-             caption="Association of severe COVID-19 with polypharmacy, by number of ICD-10 chapters represented in hospital diagnoses") %>%
+             caption="Association of severe COVID-19 with polypharmacy in those without listed conditions, by number of ICD-10 chapters represented in hospital diagnoses") %>%
     column_spec(column=1, width="2cm") %>%
     group_rows("No admissions", 1, 6) %>%
     group_rows("1 to 2 ICD-10 chapters in hospital diagnoses", 7, 12) %>%
     group_rows("3 or more ICD-10 chapters in hospital diagnoses", 13, 18) %>%
     kable_styling(latex_options="hold_position")
-}
 ```
 
 ```{r dosegr.protonpump, echo=FALSE, warning=FALSE, message=FALSE}
@@ -365,23 +397,6 @@ knitr::kable(table.protonpump.bypropensity[, 1:4],
 
 # Supplementary Tables
 
-
-```{r numdrugs.listed.any, echo=FALSE, warning=FALSE, message=FALSE}
-
-knitr::kable(table.numdrugsgr.listed.any,
-             escape=FALSE,
-             booktabs=TRUE,
-             label="numdrugs.listed.any",
-             row.names=FALSE,
-             col.names=c("Number of drug classes", colnames(table.numdrugsgr.listed.any)[2:3], 
-                         "Rate ratio (95\\% CI)", "$p$-value"),
-             caption="Association of severe COVID-19 with polypharmacy, by diagnosis of at least one listed condition") %>%
-    column_spec(column=1, width="2cm") %>%
-    group_rows("No listed condition", 1, 6) %>%
-    group_rows("Listed condition", 7, 12) %>%
-    kable_styling(latex_options="hold_position")
-
-```
 
 ```{r subpara.coeffs, echo=FALSE, warning=FALSE, message=FALSE}
 

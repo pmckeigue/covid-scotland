@@ -5,16 +5,16 @@ scotpop <- read_excel("./Scotland_midyearpop_est2019.xlsx")
 
 ####### incidence and mortality using national population estimates ######################
 
-case.freqs <- data.frame(Age=as.integer(rownames(case.freqs)),
-                         Females=as.integer(case.freqs[, 1]),
-                         Males=as.integer(case.freqs[, 2]))
-case.long <- reshape2::melt(case.freqs, id="Age")
+narrow.case.freqs <- data.frame(Age=as.integer(rownames(narrow.case.freqs)),
+                         Females=as.integer(narrow.case.freqs[, 1]),
+                         Males=as.integer(narrow.case.freqs[, 2]))
+case.long <- reshape2::melt(narrow.case.freqs, id="Age")
 colnames(case.long) <- c("Age", "Sex", "Cases")
 
-death.freqs <- data.frame(Age=as.integer(rownames(death.freqs)),
-                         Females=as.integer(death.freqs[, 1]),
-                         Males=as.integer(death.freqs[, 2]))
-death.long <- reshape2::melt(death.freqs, id="Age")
+narrow.death.freqs <- data.frame(Age=as.integer(rownames(narrow.death.freqs)),
+                         Females=as.integer(narrow.death.freqs[, 1]),
+                         Males=as.integer(narrow.death.freqs[, 2]))
+death.long <- reshape2::melt(narrow.death.freqs, id="Age")
 colnames(death.long) <- c("Age", "Sex", "Deaths")
 
 scotpop.long <- reshape2::melt(scotpop[, -2], id="Age")

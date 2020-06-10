@@ -1,8 +1,7 @@
 # covid-scotland
 
 
-## Getting started with Github, from a Linux command line
-
+## Getting started with Github, from a Linux command line (can be accessed from RStudio)
 
 ### Saving your credentials in a config file (~/.git-credentials)
 
@@ -41,3 +40,13 @@ The first time you pull files from the repository you will be asked for a userna
 This is a useful tutorial on using git from the command line
 
 https://docs.gitlab.com/ee/gitlab-basics/start-using-git.html#add-and-commit-local-changes
+
+## Getting started from RStudio
+
+There is a built-in option to connect an RStudio project to Github
+
+## Getting started from MS-Windows
+
+Github provides a Windows client for Github
+
+https://help.github.com/en/desktop/getting-started-with-github-desktop/installing-github-desktop

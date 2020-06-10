@@ -1,0 +1,312 @@
+---
+title: "Briefing paper on Ethnicity and COVID-19 status in Scotland"
+
+author: Modelling & Research Cell, Public Health Scotland 
+
+date: "`r gsub('^0', '', format(Sys.time(), '%d %B %Y'))`"
+
+header-includes: |
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \usepackage{array}
+  \usepackage{longtable}
+  \usepackage{lscape}
+
+output:
+  pdf_document:
+  keep_tex: true
+  latex_engine: lualatex
+
+# rmarkdown::render("Covid_ethnicity_Scotland.Rmd")
+
+---
+
+  
+  
+```{r settings, echo = FALSE, results='asis', warning=FALSE, error=FALSE}
+
+# GLobal R options for this document
+options(knitr.table.format="latex")
+options(knitr.kable.NA='')
+
+
+```
+
+
+# Part B Tables
+In this paper we attempt carry out a more detailed disaggregation of ethnicity presented in the "Briefing paper on Ethnicity and COVID-19 status in Scotland".
+
+SMR recodes:-
+1L - White Polish.
+3B/3C/3F/3H - Pakistani/Bangladeshi.
+3A/3G - Indian.
+4A/4E/5C - Caribbean.
+4B/4D/4Y - African.
+
+ONOMAP "OnolyticsType" recodes:-
+White - White and White Polish.
+Black - Black African and Black Caribbean.
+Bangladeshi - Muslim South Asian.
+Muslim Indian - Muslim South Asian.
+Pakistani - Muslim South Asian.
+Pakistani Kashmir - Muslim South Asian.
+Muslim - Muslim South Asian.
+
+
+```{r ethnicB, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.ethnicB, 
+             escape=FALSE, 
+             booktabs=TRUE,
+             caption="\\label{tab:crosstab}Comparison of ethnicity assigned by ONOMAP name classification (rows) with ethnicity assigned in SMR  records (columns)") %>%
+  add_header_above(c(" "=1, "SMR records"= 10)) %>%
+  pack_rows("ONOMAP", 1, 5) %>%
+  landscape() %>%
+  kable_styling(latex_options="hold_position", font_size=8) 
+
+```
+
+```{r ethnicsmr.testposB, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.testpositives.demog.ethnicsmrB) <-
+  gsub("_", " ", rownames(table.testpositives.demog.ethnicsmrB))
+knitr::kable(table.testpositives.demog.ethnicsmrB,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="testpos.ethnicsmr",
+             col.names=c(clean.header(colnames(table.testpositives.demog.ethnicsmrB)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of test-positive status with ethnicity in those with ethnicity recorded in Scottish Morbidity record") %>%
+  kable_styling(latex_options="hold_position") %>% 
+  column_spec(column=1, width="2.7cm")  %>%
+  column_spec(column=2, width="2cm")  %>%
+  column_spec(column=3, width="1.85cm")  %>%
+  column_spec(column=4, width="2.5cm") %>%
+  column_spec(column=5, width="1.5cm") %>%
+  column_spec(column=6, width="2.5cm") %>%
+  column_spec(column=7, width="1.5cm")
+```
+
+
+```{r ethnicsmr.hospB, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.hospitalized.demog.ethnicsmrB) <-
+  gsub("_", " ", rownames(table.hospitalized.demog.ethnicsmrB))
+knitr::kable(table.hospitalized.demog.ethnicsmrB,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="ethnicsmr.hosp",
+             col.names=c(clean.header(colnames(table.hospitalized.demog.ethnicsmrB)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of hospitalized disease with ethnicity in those with ethnicity recorded in Scottish Morbidity record") %>%
+  kable_styling(latex_options="hold_position") %>% 
+  column_spec(column=1, width="2.7cm") %>%
+  column_spec(column=2, width="2cm")  %>%
+  column_spec(column=3, width="1.85cm")  %>%
+  column_spec(column=4, width="2.5cm") %>%
+  column_spec(column=5, width="1.5cm") %>%
+  column_spec(column=6, width="2.5cm") %>%
+  column_spec(column=7, width="1.5cm")
+
+```
+
+```{r ethnic5smrB, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.ethnic9smrB) <- gsub("_", " ", rownames(table.ethnic9smrB))
+knitr::kable(table.ethnic9smrB,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="ethnicsmr",
+             col.names=c(clean.header(colnames(table.ethnic9smrB)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease with ethnicity in those with ethnicity recorded in Scottish Morbidity record") %>%
+  kable_styling(latex_options="hold_position") %>% 
+  column_spec(column=1, width="2.7cm") %>%
+  column_spec(column=2, width="1.85cm")  %>%
+  column_spec(column=3, width="1.85cm")  %>%
+  column_spec(column=4, width="2.5cm") %>%
+  column_spec(column=5, width="1.5cm") %>%
+  column_spec(column=6, width="2.8cm") %>%
+  column_spec(column=7, width="1.5cm")
+```
+
+```{r ethnic9smrNRSB, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.ethnic9smrNRSB) <- gsub("_", " ", rownames(table.ethnic9smrNRSB))
+knitr::kable(table.ethnic9smrNRSB,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="ethnicsmrNRSB",
+             col.names=c(clean.header(colnames(table.ethnic9smrNRSB)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of severe disease OR a COVID-19 death with ethnicity in those with ethnicity recorded in Scottish Morbidity record") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    kable_styling(latex_options="hold_position") %>% 
+    column_spec(column=1, width="2.7cm") %>%
+    column_spec(column=2, width="1.85cm")  %>%
+    column_spec(column=3, width="1.85cm")  %>%
+    column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="1.5cm") %>%
+    column_spec(column=6, width="2.8cm") %>%
+    column_spec(column=7, width="1.5cm")
+```
+
+
+```{r testpositives.ethnic.smrB, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(testpositives.ethnic.smrB, 
+             escape=FALSE, 
+             booktabs=TRUE,
+             caption="\\label{tab:severity.smr}Severity of disease in test-positive cases, by ethnicity assigned in SMR records") %>%
+  kable_styling(latex_options="hold_position") 
+
+```
+
+
+\newpage
+
+```{r onomap.testposB, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.testpositives.demogB) <- gsub("_", " ", rownames(table.testpositives.demogB))
+knitr::kable(table.testpositives.demogB,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="testpos.onomap",
+             col.names=c(clean.header(colnames(table.testpositives.demogB)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of test-positive status with ethnicity based on name classification") %>%
+  add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+  kable_styling(latex_options="hold_position") %>% 
+  column_spec(column=1, width="2.7cm") %>%
+  column_spec(column=2, width="1.95cm")  %>%
+  column_spec(column=3, width="1.85cm")  %>%
+  column_spec(column=4, width="2.5cm") %>%
+  column_spec(column=5, width="1.5cm") %>%
+  column_spec(column=6, width="2.5cm") %>%
+  column_spec(column=7, width="1.5cm")
+
+```
+
+
+```{r onomap.hospB, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.hospitalized.demogB) <- gsub("_", " ", rownames(table.hospitalized.demogB))
+knitr::kable(table.hospitalized.demogB,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="onomap.hosp",
+             col.names=c(clean.header(colnames(table.hospitalized.demogB)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6), 
+             caption="Associations of hospitalized disease with demographic variables including ethnicity based on name classification") %>%
+  add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2))  %>%
+  kable_styling(latex_options="hold_position") %>% 
+  column_spec(column=1, width="2.7cm") %>%
+  column_spec(column=2, width="2cm")  %>%
+  column_spec(column=3, width="1.85cm")  %>%
+  column_spec(column=4, width="2.5cm") %>%
+  column_spec(column=5, width="1.5cm") %>%
+  column_spec(column=6, width="2.5cm") %>%
+  column_spec(column=7, width="1.5cm")
+
+```
+
+```{r onomapB, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.severe.demogB) <- gsub("_", " ", rownames(table.severe.demogB))
+knitr::kable(table.severe.demogB,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="onomap",
+             col.names=c(clean.header(colnames(table.severe.demogB)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6),
+             caption="Associations of severe disease with demographic variables including ethnicity based on name classification") %>%
+  kable_styling(latex_options="hold_position") %>% 
+  column_spec(column=1, width="2cm") %>%
+  add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+  column_spec(column=2, width="1.85cm")  %>%
+  column_spec(column=3, width="1.85cm")  %>%
+  column_spec(column=4, width="2.5cm") %>%
+  column_spec(column=5, width="1.5cm") %>%
+  column_spec(column=6, width="2.5cm") %>%
+  column_spec(column=7, width="1.5cm")
+
+```
+
+
+```{r onomapNRSB, echo=FALSE, warning=FALSE, message=FALSE}
+
+rownames(table.severe.demogNRSB) <- gsub("_", " ", rownames(table.severe.demogNRSB))
+knitr::kable(table.severe.demogNRSB,
+             escape=FALSE, 
+             booktabs=TRUE,
+             label="onomapNRSB",
+             col.names=c(clean.header(colnames(table.severe.demogNRSB)[1:2]),
+                         "Rate ratio (95\\% CI)", "p-value",
+                         "Rate ratio (95\\% CI)", "p-value"),
+             align=rep("c", 6),
+             caption="Associations of severe disease OR any COVID-19 death with demographic variables including ethnicity based on name classification") %>%
+    kable_styling(latex_options="hold_position") %>% 
+    column_spec(column=1, width="2cm") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    column_spec(column=2, width="1.85cm")  %>%
+    column_spec(column=3, width="1.85cm")  %>%
+    column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="1.5cm") %>%
+    column_spec(column=6, width="2.5cm") %>%
+    column_spec(column=7, width="1.5cm")
+
+```
+
+
+
+
+```{r testpositives.ethnicB, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(testpositives.ethnicB, 
+             escape=FALSE, 
+             booktabs=TRUE,
+             caption="\\label{tab:severity}Severity of disease in test-positive cases, by ethnicity assigned from ONOMAP name classification") %>%
+  kable_styling(latex_options="hold_position") 
+
+```
+
+```{r testpositives.carehomeB, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(testpositives.carehomeB, 
+             escape=FALSE, 
+             booktabs=TRUE,
+             caption="\\label{tab:carehome}Care home status in test-positive cases, by ethnicity assigned from ONOMAP name classification") %>%
+  kable_styling(latex_options="hold_position") 
+
+```
+
+\newpage 
+
+```{r testpositives.healthboardB, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(testpositives.healthboardB, 
+             escape=FALSE, 
+             booktabs=TRUE,
+             caption="\\label{tab:board}Health board of residence in test-positive cases, by ethnicity assigned from ONOMAP name classification") %>%
+  landscape() %>%
+  kable_styling(latex_options="hold_position") 
+
+```

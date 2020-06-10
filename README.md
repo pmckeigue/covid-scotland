@@ -5,7 +5,7 @@
 
 ### Saving your credentials in a config file (~/.git-credentials)
 
-> `git config --global credential.helper store"`
+> `git config --global credential.helper store`
 
 The first time you pull files from the repository you will be asked for a username and password, but after that they will be stored and you won't have to type them again. 
 

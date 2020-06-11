@@ -58,9 +58,18 @@ SelectMatchedControls <- function(cases, popextract, first.stratum.number) {
     ret.pop.lt.10$is.case <- FALSE
 	ret.table <- rbind(ret.table, ret.pop.lt.10)
 	
-	# For >=10*n[k] in each mkey in popextract then randomly sample 10 * n[k] with replacement
+	
+	
+	# For >=10*n[k] in each mkey in popextract then randomly sample 10 * n[k] without replacement
 	pop.m.gt.10 <- pop.m[(num.cases > 0) & (num.pop.mkey >= 10 * num.cases)]
-    ret.pop.gt.10 <- pop.m.gt.10[pop.m.gt.10[, sample(.N, unique(10*.SD$num.cases)), by=mkey]$V1][, .(upi, mkey)]
+	
+	# Randomly order the data.table for sampling
+	rand.order <- sample(nrow(pop.m.gt.10))
+	ret.pop.gt.10 <- pop.m.gt.10[rand.order]
+	
+	# Select first 10*num.cases from each subgroup (.SD)
+	ret.pop.gt.10 <- ret.pop.gt.10[, .SD[1:(10*unique(.SD$num.cases))], by=mkey]
+	
     ret.pop.gt.10$is.case <- FALSE
 	ret.table <- rbind(ret.table, ret.pop.gt.10)
 	

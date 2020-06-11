@@ -68,7 +68,7 @@ SelectMatchedControls <- function(cases, popextract, first.stratum.number) {
 	ret.pop.gt.10 <- pop.m.gt.10[rand.order]
 	
 	# Select first 10*num.cases from each subgroup (.SD)
-	ret.pop.gt.10 <- ret.pop.gt.10[, .SD[1:(10*unique(.SD$num.cases))], by=mkey]
+	ret.pop.gt.10 <- ret.pop.gt.10[, .SD[1:(10*unique(.SD$num.cases))], by=mkey][, .(upi, mkey)]
 	
     ret.pop.gt.10$is.case <- FALSE
 	ret.table <- rbind(ret.table, ret.pop.gt.10)

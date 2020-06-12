@@ -61,7 +61,7 @@ address:
 geometry: margin=1in
 fontsize: 11pt
 linenumbers: true
-bibliography: ../covid.bib
+bibliography: ./covid.bib
 
 header-includes: |
   \let\origquote\quote
@@ -78,12 +78,13 @@ output:
 #  pdf_document:
   rticles::plos_article:
     includes:
-      in_header: ../preamble.tex
+      in_header: ./preamble.tex
     latex_engine: lualatex
     fig_caption: true
     keep_tex: true
 
-csl: ../plos.csl
+always_allow_html: true
+csl: ./plos.csl
 urlcolor: blue
 ---
 
@@ -92,10 +93,11 @@ On behalf of Public Health Scotland COVID-19 Health Protection Study Group
 ```{r functions, echo=FALSE}
 library(knitr)
 library(kableExtra)
+library(bookdown)
 
 # rmarkdown::render("casecontrol.Rmd", output_file="casecontrol.pdf")
 
-
+options(knitr.table.format = "latex") # adds tab: prefix to labels
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 
 source("helperfunctions.R")
@@ -339,9 +341,9 @@ knitr::kable(table.demog.append[, 1:5],
     column_spec(column=2, width="2cm") %>%
     column_spec(column=3, width="1.8cm") %>%
     column_spec(column=4, width="2.5cm") %>%
-    group_rows("Ethnicity based on name classification", 1, 3, bold=FALSE) %>%
-    group_rows("SIMD quintile", 4, 8, bold=FALSE) %>%
-    group_rows("Ethnicity based on Scottish Morbidity Record", 10, 13, bold=FALSE,
+    kableExtra::group_rows("Ethnicity based on name classification", 1, 3, bold=FALSE) %>%
+    kableExtra::group_rows("SIMD quintile", 4, 8, bold=FALSE) %>%
+    kableExtra::group_rows("Ethnicity based on Scottish Morbidity Record", 10, 13, bold=FALSE,
                hline_before=TRUE, latex_gap_space="10pt") %>% 
     kable_styling(latex_options="hold_position") 
 
@@ -383,7 +385,7 @@ knitr::kable(table.agegr.all[-4, ],
                          "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with listed conditions over all age groups") %>%
-    # group_rows(" ", 4, nrow(table.agegr.all[-4, ])) %>%
+    # kableExtra::group_rows(" ", 4, nrow(table.agegr.all[-4, ])) %>%
     column_spec(column=1, width="5cm") %>%
     column_spec(column=2:7, width="2.5cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
@@ -400,9 +402,9 @@ knitr::kable(table.scripordiag.fatal,
              label="fatal",
              align=rep("c", 2), 
              caption="Proportions of fatal cases and matched controls without and with a  dispensed prescription or hospital diagnosis, by age group") %>%
-   group_rows("Age <60", 1, 2) %>%
-   group_rows("Age 60-74", 3, 4) %>%
-   group_rows("Age 75+", 5, 6) %>%
+   kableExtra::group_rows("Age <60", 1, 2) %>%
+   kableExtra::group_rows("Age 60-74", 3, 4) %>%
+   kableExtra::group_rows("Age 75+", 5, 6) %>%
    kable_styling(latex_options="hold_position") 
 
 ```
@@ -485,7 +487,7 @@ knitr::kable(tables.agegr[[1]][-4, ],
                          "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with listed conditions in those aged less than 60") %>%
-#   group_rows(" ", 4, nrow(tables.agegr[[1]]) - 1) %>%
+#   kableExtra::group_rows(" ", 4, nrow(tables.agegr[[1]]) - 1) %>%
     column_spec(column=1, width="4cm") %>%
     column_spec(column=2:7, width="2.7cm") %>%
    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
@@ -506,7 +508,7 @@ knitr::kable(tables.agegr[[2]][-4, ],
                          "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with listed conditions in those aged 60-74 years") %>%
- #   group_rows(" ", 4, nrow(tables.agegr[[2]]) - 1) %>%
+ #   kableExtra::group_rows(" ", 4, nrow(tables.agegr[[2]]) - 1) %>%
     column_spec(column=1, width="4cm") %>%
     column_spec(column=2:7, width="2.7cm") %>%
    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
@@ -527,7 +529,7 @@ knitr::kable(tables.agegr[[3]][-4, ],
                          "Rate ratio (95\\% CI)", "$p$-value"),
              align=rep("c", 6), 
              caption="Associations of severe disease with listed conditions in those aged 75 years and over") %>%
-#    group_rows(" ", 4, nrow(tables.agegr[[3]]) - 1) %>%
+#    kableExtra::group_rows(" ", 4, nrow(tables.agegr[[3]]) - 1) %>%
     column_spec(column=1, width="4cm") %>%
    column_spec(column=2:7, width="2.7cm") %>%
     add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
@@ -608,8 +610,8 @@ knitr::kable(retained.full,
              col.names=c("log rate ratio", "$p$-value"), 
              align=rep("c", 2),
              caption="Stepwise regression: variables retained in model for severe disease") %>%
-    group_rows("SIMD - quintile 1 as reference", 2, 5, bold=FALSE) %>%
-    group_rows("Diabetes - non-diabetic as reference", 6, 8, bold=FALSE) %>%
+    kableExtra::group_rows("SIMD - quintile 1 as reference", 2, 5, bold=FALSE) %>%
+    kableExtra::group_rows("Diabetes - non-diabetic as reference", 6, 8, bold=FALSE) %>%
     kable_styling(latex_options="hold_position") 
 
 ```

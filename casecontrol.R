@@ -1,6 +1,33 @@
 ## analysis script for case-control study
 rm(list=ls())
 
+## required system packages: libcurl4-openssl-dev, pandoc, pandoc-citeproc
+##   libssl-dev libxml2-dev
+## texlive-full or at least texlive-latex-extra, texlive-luatex
+
+## install all required R packages
+list.of.packages = c("car", 
+                     "survival", 
+                     "MASS", 
+                     "wevid", 
+                     "rmarkdown",
+                     "bookdown",
+                     "rticles",
+                     "kableExtra",
+                     "pander", 
+                     "ggplot2", 
+                     "doParallel", 
+                     "reshape2", 
+                     "readxl", 
+                     "DescTools", 
+                     "icd.data", 
+                     "gam", 
+                     "dplyr")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages) > 0) {install.packages(new.packages)}
+lapply(list.of.packages, require, character.only=T)
+
 library(car)
 library(survival)
 library(MASS)
@@ -141,7 +168,6 @@ print(with(cc.all, table(CHI.Explanation, diag.any)))
 cc.all <- subset(cc.all, subset=is.na(CHI.Explanation) |
                              CHI.Explanation=="Current and no history" |
                              CHI.Explanation=="Current with history")
-
 
 ## exclude controls already dead on date of test of case they were matched to
 controls.deceased <- with(cc.all, CASE==0 &

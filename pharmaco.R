@@ -5,7 +5,42 @@
 
 
 ########################################################
+## tabulate rate ratios for each num drug group by listed.any
+## this shows that the polypharmacy association is only in those without listed conditions
 
+table.numdrugsgr.listed.any <- NULL
+for(cat in levels(cc.severe$listed.any)) {
+    x <- tabulate.freqs.regressions(varnames="numdrugsgr",
+                                    data=cc.severe[cc.severe$listed.any==cat, ])[, 1:4]
+    colnames(x)[1:2] <- c("controls", "cases")
+    table.numdrugsgr.listed.any <- rbind(table.numdrugsgr.listed.any, x)
+}
+table.numdrugsgr.listed.any <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 2),
+                                     table.numdrugsgr.listed.any)
+colnames(table.numdrugsgr.listed.any)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE)), rep(")", 2))
+
+########################################################################
+
+## in those without listed conditions, fit joint model for num cardiovascular and num non-cardiovascular drugs
+
+tj <- summary(clogit(formula=CASE ~ numdrugs.cardiovasc + numdrugs.notcardiovasc + strata(stratum),
+                        data=cc.severe[notlisted, ]))$coefficients
+
+tj <- as.data.frame(tj)
+tj$u.ci <- or.ci(tj[, 1], tj[, 3])
+tj$pvalue <- pvalue.latex(tj[, 5])
+means.cardio <- with(cc.severe[notlisted, ], tapply(numdrugs.cardiovasc, CASE, mean)) 
+means.notcardio <- with(cc.severe[notlisted, ], tapply(numdrugs.notcardiovasc, CASE, mean))
+
+means.numdrugs <- rbind(means.cardio, means.notcardio)
+drugcat <- c("Cardiovascular", "Other")
+
+table.jointcardiovasc <- data.frame(drugcat, round(means.numdrugs, 1),
+                                    tj[, c("u.ci", "pvalue")])
+colnames(table.jointcardiovasc)[2:3] <- paste0(c("Controls (", "Cases ("),
+                                               table(cc.severe[notlisted, ]$CASE), rep(")", 2))
+
+#################################################################
 ## tabulate para or subpara codes in BNF chapters of interest
 table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=cc.severe, minrowsum=50)
 table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.severe, minrowsum=50)
@@ -37,8 +72,6 @@ coeff.hydroxychlor.univariate <- summary(clogit(formula=CASE ~ hydroxychloroquin
 
 coeff.hydroxychlor.adjusted <- summary(clogit(formula=CASE ~ hydroxychloroquine + protonpump + strata(stratum),
                data=cc.severe))$coefficients[1, ]
-
-
 
 ##############################################################################
 
@@ -99,19 +132,6 @@ table.numdrugsgr.agegr <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr)
                                table.numdrugsgr.agegr)
 colnames(table.numdrugsgr.agegr)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE)), rep(")", 2))
 
-## tabulate rate ratios for each num drug group by listed.any
-
-table.numdrugsgr.listed.any <- NULL
-for(cat in levels(cc.severe$listed.any)) {
-    x <- tabulate.freqs.regressions(varnames="numdrugsgr",
-                                    data=cc.severe[cc.severe$listed.any==cat, ])[, 1:4]
-    colnames(x)[1:2] <- c("controls", "cases")
-    table.numdrugsgr.listed.any <- rbind(table.numdrugsgr.listed.any, x)
-}
-table.numdrugsgr.listed.any <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 2),
-                                     table.numdrugsgr.listed.any)
-colnames(table.numdrugsgr.listed.any)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE)), rep(")", 2))
-
 ## tabulate rate ratios for each num drug group by care home in those without listed conditions)
 
 table.numdrugsgr.carehome <- NULL
@@ -125,31 +145,6 @@ for(cat in levels(cc.severe$care.home)) {
 table.numdrugsgr.carehome <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 2),
                                      table.numdrugsgr.carehome)
 
-## fit joint model for num cardiovascular and num non-cardiovascular drugs
-
-tj <- NULL
-for(agegr in levels(cc.severe$agegr3)) {
-    x <- summary(clogit(formula=CASE ~ numdrugs.cardiovasc + numdrugs.notcardiovasc + strata(stratum),
-                        data=cc.severe[nocare.notlisted & cc.severe$agegr3==agegr, ]))$coefficients
-    tj <- rbind(tj, x)
-}
-
-tj <- as.data.frame(tj)
-tj$u.ci <- or.ci(tj[, 1],
-                                    tj[, 3])
-tj$pvalue <- pvalue.latex(tj[, 5])
-tj$drugscat <- rep(c("Cardiovascular", "Non-cardiovascular"), 3)
-
-means.cardio <- with(cc.severe[nocare.notlisted, ], tapply(numdrugs.cardiovasc, list(CASE, agegr3), mean)) 
-means.notcardio <- with(cc.severe[nocare.notlisted, ], tapply(numdrugs.notcardiovasc, list(CASE, agegr3), mean))
-
-means.numdrugs <- rbind(means.cardio, means.notcardio)
-means.numdrugs <- t(matrix(means.numdrugs, nrow=2))
-colnames(means.numdrugs) <- c("Controls", "Cases")
-
-table.jointcardiovasc <- data.frame(drugscat=tj$drugscat,
-                                    round(means.numdrugs, 1),
-                                    tj[, c("u.ci", "pvalue")])
 
 ################################################################
 
@@ -190,9 +185,12 @@ print(subpara.coeffs)
 
 
 #############################################################################
-restrict <- notlisted & cc.severe$num.icdchapters < 3
+restrict <- notlisted
 
 subparacols.forstepwisedrop <- subparacols[match(subparacols.keep, subparacols)] ## reduces to 61 subpara codes
+notcardiovasc.subparacols <- !grepl("^subpara\\.2",
+                                   colnames(cc.severe)[subparacols.forstepwisedrop])
+subparacols.forstepwisedrop <- subparacols.forstepwisedrop[notcardiovasc.subparacols]
 
 x <- cc.severe[restrict, ][, subparacols.forstepwisedrop]
 x <- matrix(as.integer(as.matrix(x)), nrow=nrow(x))

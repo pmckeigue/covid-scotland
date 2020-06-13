@@ -22,7 +22,8 @@ list.of.packages = c("car",
                      "DescTools", 
                      "icd.data", 
                      "gam", 
-                     "dplyr")
+                     "dplyr",
+                     "data.table")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages) > 0) {install.packages(new.packages)}
@@ -41,7 +42,7 @@ library(readxl)
 library(DescTools)
 library(icd.data)
 library(gam)
-library(dplyr)
+library(data.table)
 
 registerDoParallel(cores=2)
 
@@ -63,7 +64,7 @@ if(old) {
     scrips <- readRDS("./data/CC_PIS_x15_ANON_20200501.rds")
     controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-05.rds")
 } else {
-    cc.all <- readRDS("./data/CC_linked_ANON_20200515.rds")
+    cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_20200515.rds"))
     diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200515.rds")
     procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200515.rds")
     scrips.filename <- "./data/CC_PIS_x15_ANON_20200515.rds" 
@@ -612,16 +613,16 @@ cc.severe <- merge(cc.severe, scrips.wide, by="ANON_ID", all.x=TRUE)
 
 bnfcols <- grep("^BNF", colnames(cc.severe))
 for(j in bnfcols) {
-    cc.severe[, j][is.na(cc.severe[, j])] <- 0
-    cc.severe[, j][cc.severe[, j] > 1] <- 1
-    cc.severe[, j] <- as.factor(cc.severe[, j])
+    cc.severe[[j]][is.na(cc.severe[[j]])] <- 0
+    cc.severe[[j]][cc.severe[[j]] > 1] <- 1
+    cc.severe[[j]] <- as.factor(cc.severe[[j]])
 }
 
 ## merge BNF chapters, one variable per subpara
 chnums = 1:13
 cc.severe <- merge.bnfsubparas(chnums=chnums, data=cc.severe)
 subparacols <- grep("^subpara\\.", names(cc.severe))
-x <- apply(cc.severe[, subparacols], 2, as.character)
+x <- apply(subset(cc.severe, select=subparacols), 2, as.character)
 x <- apply(x, 2, as.integer)
 cc.severe$numdrugs.subpara <- rowSums(x)
 cc.severe$numdrugsgr <- 3 * ceiling(cc.severe$numdrugs.subpara / 3)
@@ -640,7 +641,7 @@ cc.severe$numdrugs.notppi.gr <- factor(cc.severe$numdrugs.notppi.gr,
 table(cc.severe$numdrugs.notppi.gr)
 
 cardiovasc.subparacols <- grep("^subpara\\.2", names(cc.severe))
-x <- apply(cc.severe[, cardiovasc.subparacols], 2, as.character)
+x <- apply(subset(cc.severe, select=cardiovasc.subparacols), 2, as.character)
 x <- apply(x, 2, as.integer)
 cc.severe$numdrugs.cardiovasc <- rowSums(x)
 cc.severe$numdrugs.notcardiovasc <- cc.severe$numdrugs.subpara - cc.severe$numdrugs.cardiovasc
@@ -671,13 +672,14 @@ diagnoses.wide <- diagnoses.wide[, colSums(diagnoses.wide) > 20]
 cc.severe <- merge(cc.severe, diagnoses.wide, by="ANON_ID", all.x=TRUE)
 icdcols <- grep("^Ch.", colnames(cc.severe))
 for(j in icdcols) {
-    cc.severe[, j][is.na(cc.severe[, j])] <- 0
-    cc.severe[, j][cc.severe[, j] > 1] <- 1
-    cc.severe[, j] <- as.factor(cc.severe[, j])
+    cc.severe[[j]][is.na(cc.severe[[j]])] <- 0
+    cc.severe[[j]][cc.severe[[j]] > 1] <- 1
+    cc.severe[[j]] <- as.factor(cc.severe[[j]])
 }
 
-cc.severe$num.icdchapters <- rowSums(matrix(as.integer(as.matrix(cc.severe[, icdcols])),
-                                            nrow=nrow(cc.severe)))
+cc.severe$num.icdchapters <-
+    rowSums(matrix(as.integer(as.matrix(subset(cc.severe, select=icdcols))),
+                   nrow=nrow(cc.severe)))
 cc.severe$num.icdchapters.gr <-
     as.factor(car::recode(cc.severe$num.icdchapters,
                           "0='No discharge records'; 1:2='1-2 ICD-10 chapters'; 3:hi='3 or more chapters'")

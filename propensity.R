@@ -6,7 +6,7 @@ subpara.colnames <- grep("^subpara\\.", colnames(cc.hosp), value=TRUE)
 subpara.colnames <- grep("Proton pump", subpara.colnames, invert=TRUE, value=TRUE) 
 train.cols <- match(c("y.protonpump", "AGE", "sex", subpara.colnames), colnames(cc.hosp))
 
-train.data <- cc.hosp[, train.cols]
+train.data <- subset(cc.hosp, select=train.cols)
 
 colnames(train.data) <-
     gsub("(subpara\\.[0-9]+)(.+)", "\\1", colnames(train.data))                
@@ -14,7 +14,7 @@ colnames(train.data) <-
 ## select subparas with frequency > 0.1
 
 subparanames <- grep("^subpara\\.", colnames(train.data), value=TRUE)
-subparanames.freqs <- apply(train.data[, subparanames], 2,
+subparanames.freqs <- apply(subset(train.data, select=subparanames), 2,
                            function(x) sum(as.integer(x))) / nrow(train.data)
 
 keep <- subparanames.freqs > 0.05
@@ -41,7 +41,7 @@ names(coeffs.full) <- subpara.colnames[match(names(coeffs.full),
                                              gsub("(subpara\\.[0-9]+)(.+)", "\\1",
                                                   subpara.colnames))]
 
-newdata.x <- cc.severe[, match(names(coeffs.full), colnames(cc.severe))]
+newdata.x <- subset(cc.severe, select=match(names(coeffs.full), colnames(cc.severe)))
 newdata.x <- as.matrix(newdata.x)
 ## convert from character to numeric
 newdata.x <- matrix(as.numeric(newdata.x), nrow=nrow(newdata.x))

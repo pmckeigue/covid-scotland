@@ -2,7 +2,27 @@
 
 ####### derived variables  ##########################
 
+conversionMME <- 
+"
+Opioid 	Conversion Factor 
+Codeine 	0.15
+Fentanyl	2.4
+Hydrocodone 	1
+Hydromorphone 	4
 
+Morphine 	1
+Oxycodone 	1.5
+Oxymorphone 	3
+
+Methadone hydrochloride
+
+Morphine sulphate
+
+Pentazocine hydrochloride
+Pentazocine lactate
+Pethidine hydrochloride
+Nalbuphine hydrochloride
+"
 
 ########################################################
 ## tabulate rate ratios for each num drug group by listed.any
@@ -48,14 +68,17 @@ table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.severe, minrowsum=50)
 ## chapter 10 has to be disaggregated to drug names as grouping of DMARDs is too broad
 table.bnfchapter10 <- tabulate.bnfchemicals(chnum=10, data=cc.severe, minrowsum=50)
 
-nocare.drugfreqs <- sapply(cc.severe[cc.severe$care.home=="Independent" &
-                              cc.severe$CASE==0, subparacols],
-       function(x) table(x)[2] / sum(table(x))) %>% sort(decreasing=TRUE) %>% head(20)
+nocare.drugfreqs <-
+    sapply(subset(cc.severe,
+                  subset=care.home=="Independent" & cc.severe$CASE==0,
+                  select=subparacols),
+           function(x) table(x)[2] / sum(table(x))) %>% sort(decreasing=TRUE) %>% head(20)
 
-care.drugfreqs <- sapply(cc.severe[cc.severe$care.home=="Care/nursing home" &
-                              cc.severe$CASE==0, subparacols],
-       function(x) table(x)[2] / sum(table(x))) %>% sort(decreasing=TRUE) %>% head(20)
-
+care.drugfreqs <-
+    sapply(subset(cc.severe,
+                  subset=care.home=="Care/nursing home" & cc.severe$CASE==0,
+                  select=subparacols),
+           function(x) table(x)[2] / sum(table(x))) %>% sort(decreasing=TRUE) %>% head(20)
 
 #############################
 
@@ -90,7 +113,7 @@ theta <- model.numdrugs$linear.predictors
 unnorm.p <- 1 / (1 + exp(-theta))
 norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
                                         stratum=cc.severe.nonmissing$stratum,
-                                        y=cc.severe.nonmissing$CASE)
+                                       y=cc.severe.nonmissing$CASE)
 rm(cc.severe.nonmissing)
 
 norm.predicted <- norm.predicted[norm.predicted$prior.p < 1, ]
@@ -150,14 +173,14 @@ table.numdrugsgr.carehome <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugs
 
 subparacols <- grep("^subpara\\.", colnames(cc.severe))
 
-y <- cc.severe[nocare.notlisted, "CASE"]
+y <- cc.severe[nocare.notlisted, ][["CASE"]]
 stratum <- cc.severe[nocare.notlisted, "stratum"]
 subparacols.keep <- NULL
 subpara.coeffs <- NULL
 for(col in subparacols) {
-    x <- cc.severe[nocare.notlisted, col]
-            freqs.cc <-table(as.integer(x),
-                             cc.severe[nocare.notlisted, "CASE"])
+    x <- cc.severe[nocare.notlisted, ][[col]]
+            freqs.cc <- table(as.integer(x),
+                              cc.severe[nocare.notlisted, ][["CASE"]])
     
     if(nrow(freqs.cc) > 1 & ncol(freqs.cc) > 1) {
         if(sum(freqs.cc[2, ]) >= 20) { # if at least 10 in each cell
@@ -181,10 +204,6 @@ colnames(subpara.coeffs)[2:3] <- paste0(c("Controls (", "Cases ("),
 print(subpara.coeffs)
 
 #############################################################################
-
-
-
-#############################################################################
 restrict <- notlisted
 
 subparacols.forstepwisedrop <- subparacols[match(subparacols.keep, subparacols)] ## reduces to 61 subpara codes
@@ -192,13 +211,14 @@ notcardiovasc.subparacols <- !grepl("^subpara\\.2",
                                    colnames(cc.severe)[subparacols.forstepwisedrop])
 subparacols.forstepwisedrop <- subparacols.forstepwisedrop[notcardiovasc.subparacols]
 
-x <- cc.severe[restrict, ][, subparacols.forstepwisedrop]
+x <- subset(cc.severe, subset=restrict, select=subparacols.forstepwisedrop)
 x <- matrix(as.integer(as.matrix(x)), nrow=nrow(x))
 colnames(x) <- colnames(cc.severe)[subparacols.forstepwisedrop]
-y <- cc.severe[restrict, "CASE"]
+y <- cc.severe[restrict, ][["CASE"]]
 stratum <- cc.severe[restrict, "stratum"]
 covariates.subparas <- cc.severe[restrict, c("care.home")] 
-cat("Stepwise drop procedure over BNF subpara codes ...")
+cat("Stepwise drop procedure over BNF subpara codes adjusted for",
+    names(covariates.subparas), "...")
 stepwise.drop.subparas <- stepwise.union.dropcols(x=x, y=y, covariates=covariates.subparas, stratum=stratum)
 cat("done\n")
 
@@ -386,8 +406,8 @@ ppinames <- grep("PRAZOLE$", names(cc.severe), value=TRUE)
 ppinames.formula <- as.formula(paste("CASE ~", paste(ppinames, collapse="+"), "+ strata(stratum)"))
 
 ppi.means <- cbind(
-    round(apply(cc.severe[cc.severe$CASE==0, ppinames], 2, mean), 4),
-    round(apply(cc.severe[cc.severe$CASE==1, ppinames], 2, mean), 4)
+    round(apply(subset(cc.severe, subset=CASE==0, select=ppinames), 2, mean), 4),
+    round(apply(subset(cc.severe, subset=CASE==1, select=ppinames), 2, mean), 4)
 )
 
 table.ppinames <- NULL
@@ -514,7 +534,7 @@ table.timewindow.protonpump.nocare.notlisted <-
 table.fatal.protonpump <- NULL
 for(agegr in levels(cc.severe$agegr3)) {
     x <- tabulate.freqs.regressions(varnames="protonpump", outcome="fatalcase",
-                                    data=cc.severe[cc.severe$agegr3==agegr, ])[, 1:4]
+                                    data=subset(cc.severe, subset=agegr3==agegr))[, 1:4]
     rownames(x) <- agegr
     colnames(x)[1:2] <- c("Controls", "Cases")
     table.fatal.protonpump <- rbind(table.fatal.protonpump, x)

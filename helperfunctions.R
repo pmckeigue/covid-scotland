@@ -1,4 +1,3 @@
-
 ## helperfunctions for COVID analyses
 
 tolower.exceptfirstchar <- function(x) {
@@ -20,7 +19,6 @@ select.union <- function(x, y, covariates, stratum) {
                                    "+ strata(stratum)"))
     cl.data <- data.frame(y=y, x.u=x.u, covariates, stratum=stratum)
     
-    #browser("select")
     model.full <- summary(clogit(formula=cl.formula, data=cl.data))
     beta.full <- model.full$coefficients[1, 1]
     loglik.full <- model.full$loglik[2]
@@ -263,9 +261,9 @@ tabulate.bnfsection <- function(chnum, outcome="CASE", data=cc.severe, minrowsum
     ## now fix colnames and set missing to 0
     bnfcols <- grep("^section.", colnames(cc.bnf.ch))
     for(j in bnfcols) {
-        cc.bnf.ch[, j][is.na(cc.bnf.ch[, j])] <- 0
-        cc.bnf.ch[, j][cc.bnf.ch[, j] > 1] <- 1
-        cc.bnf.ch[, j] <- as.factor(cc.bnf.ch[, j])
+        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
+        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
+        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
     }
     
     bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
@@ -307,9 +305,9 @@ tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=2
     ## now fix colnames and set missing to 0
     bnfcols <- grep("^para.", colnames(cc.bnf.ch))
     for(j in bnfcols) {
-        cc.bnf.ch[, j][is.na(cc.bnf.ch[, j])] <- 0
-        cc.bnf.ch[, j][cc.bnf.ch[, j] > 1] <- 1
-        cc.bnf.ch[, j] <- as.factor(cc.bnf.ch[, j])
+        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
+        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
+        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
     }
     
     bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
@@ -353,16 +351,16 @@ merge.bnfsubparas <- function(chnums, data) {
                                           names.subparas, sep=".")
     
     ## drop rare subparagraphcodes
-    scrips.ch.wide <- scrips.ch.wide[, colSums(scrips.ch.wide) > 20]
+    scrips.ch.wide <- subset(scrips.ch.wide, select=colSums(scrips.ch.wide) > 20)
     
     cc.bnf.ch <- merge(data, scrips.ch.wide,
                        by="ANON_ID", all.x=TRUE)
     ## now fix colnames and set missing to 0
     bnfcols <- grep("^subpara.", colnames(cc.bnf.ch))
     for(j in bnfcols) {
-        cc.bnf.ch[, j][is.na(cc.bnf.ch[, j])] <- 0
-        cc.bnf.ch[, j][cc.bnf.ch[, j] > 1] <- 1
-        cc.bnf.ch[, j] <- as.factor(cc.bnf.ch[, j])
+        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
+        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
+        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
     }
     return(cc.bnf.ch)
 }
@@ -384,9 +382,9 @@ tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsu
     ## now fix colnames and set missing to 0
     bnfcols <- grep("^subpara.", colnames(cc.bnf.ch))
     for(j in bnfcols) {
-        cc.bnf.ch[, j][is.na(cc.bnf.ch[, j])] <- 0
-        cc.bnf.ch[, j][cc.bnf.ch[, j] > 1] <- 1
-        cc.bnf.ch[, j] <- as.factor(cc.bnf.ch[, j])
+        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
+        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
+        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
     }
     
     bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
@@ -436,9 +434,9 @@ tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe, minrows
     ## now fix colnames and set missing to 0
     bnfcols <- 4:ncol(cc.bnf.ch)
     for(j in bnfcols) {
-        cc.bnf.ch[, j][is.na(cc.bnf.ch[, j])] <- 0
-        cc.bnf.ch[, j][cc.bnf.ch[, j] > 1] <- 1
-        cc.bnf.ch[, j] <- as.factor(cc.bnf.ch[, j])
+        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
+        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
+        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
     }
 
     ## approved names contain spaces that have to be replaced with . for use in formula
@@ -476,7 +474,7 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
     colnames(diagnoses.ch.wide)[-1] <- paste0("subCh.",
                                               as.integer(colnames(diagnoses.ch.wide)[-1]))
     ## drop rare subchapters
-    diagnoses.ch.wide <- diagnoses.ch.wide[, colSums(diagnoses.ch.wide) > 10, drop=FALSE]
+    diagnoses.ch.wide <- subset(diagnoses.ch.wide, select=colSums(diagnoses.ch.wide) > 10) # drop=FALSE]
     
     if(ncol(diagnoses.ch.wide) > 1) {
         cc.icd.ch <- merge(data[, c("ANON_ID", "CASE", "stratum")],
@@ -485,9 +483,9 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
         ## now fix colnames and set missing to 0
         icdcols <- grep("^subCh.", colnames(cc.icd.ch))
         for(j in icdcols) {
-            cc.icd.ch[, j][is.na(cc.icd.ch[, j])] <- 0
-            cc.icd.ch[, j][cc.icd.ch[, j] > 1] <- 1
-            cc.icd.ch[, j] <- as.factor(cc.icd.ch[, j])
+            cc.icd.ch[[j]][is.na(cc.icd.ch[[j]])] <- 0
+            cc.icd.ch[[j]][cc.icd.ch[[j]] > 1] <- 1
+            cc.icd.ch[[j]] <- as.factor(cc.icd.ch[[j]])
         }
         
         icd.ch <- colnames(cc.icd.ch)[-(1:3)]
@@ -583,12 +581,12 @@ or.ci <- function(coeff, se, ndigits=2) {
 
 univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TRUE,
                                 drop.sparserows=FALSE, minrowsum=10) {
-    outcome <- data[, match(outcome, names(data))]
+    outcome <- data[[outcome]]
     table.varnames <- NULL
     for(i in 1:length(varnames)) {
         keep.x <- TRUE
         ## test whether variable is factor or numeric
-        z <- data[, match(varnames[i], names(data))] 
+        z <- data[[match(varnames[i], names(data))]] 
         if(is.numeric(z)) { # median (IQR) for numeric variables 
             x <- tapply(z, outcome,
                         function(x) return(paste0(median(x, na.rm=TRUE),
@@ -655,7 +653,7 @@ traintest.fold <- function(i, cv.data,
 nonmissing.obs <- function(x, varnames) { ## subset rows nonmissing for varnames
     keep <- rep(TRUE, nrow(x))
     for(j in 1:length(varnames)) {
-        keep[is.na(x[, match(varnames[j], colnames(x))])] <- FALSE
+        keep[is.na(subset(x, select=match(varnames[j], colnames(x))))] <- FALSE
     }
     return(keep)
 }

@@ -1,7 +1,5 @@
+                                        #  specification for this function
 
-#Martin  -- we'll try and get this function SelectMatchedControls written quickly.  Luke, could you have a go at this?
-#		Can I check with you the exact specification for this function:
-#		
 #		The function will be called once for each SpecimenDate value
 #		
 #		It will take three arguments:

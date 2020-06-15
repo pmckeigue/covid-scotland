@@ -146,11 +146,6 @@ To study the effect of a specific drug, we constructed a propensity score based 
 We began by constructing an index of polypharmacy as the number of drug classes (BNF subparagraph codes) for which at least one prescription had been dispensed during the period of observation (from 1 June 2019 to 15 days before the date of testing positive). 
 
 Table \ref{tab:numdrugs.listed.any} shows that the COVID-19 was associated with polypharmacy in those without a listed condition, but that in those with a listed condition the direction of this association was reversed: those with dispensed prescriptions of 1 to 12 drug classes were at lower risk than those with no dispensed prescriptions. 
-<!---
-The association of COVID-19 with polypharmacy was strongest in those who had no hospital diagnoses in the previous three years (because they had not been admitted to hospital).  In this group, with the no dispensed prescriptions category as baseline, the rate ratio ranged from `r table.numdrugsgr.num.icdch[2, 4]` in those with 1 to 3 drug classes dispensed to `r table.numdrugsgr.num.icdch[6, 4]` in those with more than 12 drug classes dispensed.
-
-Risk of COVID-19 was strongly related to polypharmacy in all age bands: with no dispensed prescriptions as baseline category, the rate ratios (95% CIs) associated with dispensing of 12 or more drug classes were `r table.numdrugsgr.agegr[6, 4]` in those aged less than 60 years, `r table.numdrugsgr.agegr[12, 4]` in those aged 60-74 years, and `r table.numdrugsgr.agegr[18, 4]` in those aged 75 years and over. 
---->
 
 To study further the relationship with polypharmacy, we restricted the analysis to those without a diagnosis of a listed condition.  As prescribing of multiple drugs for primary and secondary prevention of cardiovascular disease is in accordance with evidence-based guidelines, we partitioned the number of drug classes dispensed between cardiovascular and other drugs.  In a model with number of cardiovascular drug classes and number of other drug classes as covariates, the rate ratios were respectively `r table.jointcardiovasc[1, 4]` and `r table.jointcardiovasc[2, 4]`. 
 
@@ -362,6 +357,24 @@ knitr::kable(table.numdrugsgr.num.icdch,
     kableExtra::group_rows("1 to 2 ICD-10 chapters in hospital diagnoses", 7, 12) %>%
     kableExtra::group_rows("3 or more ICD-10 chapters in hospital diagnoses", 13, 18) %>%
     kable_styling(latex_options="hold_position")
+```
+
+```{r dosegr.opiate, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.dosegr.opiate,
+             escape=FALSE,
+             label="dosegr.opiate", 
+             booktabs=TRUE,
+             row.names=TRUE, 
+             col.names=c(clean.header(colnames(table.dosegr.opiate)[1:2]), 
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
+             caption="Associations of severe COVID-19 with dispensed average daily dose (MME) of opiate grouped into categoriesb") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariate"=2)) %>%
+    kableExtra::group_rows("Average dispensed daily dose (MME) of opiates", 1, 4) %>%
+        kable_styling(latex_options="hold_position") %>%
+        landscape()
+
 ```
 
 ```{r dosegr.protonpump, echo=FALSE, warning=FALSE, message=FALSE}

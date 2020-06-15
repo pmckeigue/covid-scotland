@@ -57,61 +57,17 @@ nrs <- FALSE # uncomment to exclude NRS-only deaths
 stepwise <- TRUE   
 stepwise <- FALSE ## uncomment to save time if old version still valid
 
-if(old) {
-    cc.all <- readRDS("./data/CC_linked_ANON_20200501 (2).rds")
-    diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200501.rds") 
-    procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200501.rds")
-    scrips <- readRDS("./data/CC_PIS_x15_ANON_20200501.rds")
-    controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-05.rds")
-} else {
-    cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_20200515.rds"))
-    diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200515.rds")
-    procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200515.rds")
-    scrips.filename <- "./data/CC_PIS_x15_ANON_20200515.rds" 
-    scrips <- readRDS(scrips.filename)[, c("ANON_ID", "bnf_paragraph_code",
-                                           "bnf_paragraph_description")] 
-    controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-15.rds")
-
-    ## scrips should be 2 tables to save space
-    ## one record per scrip
-    scripvars <- c("ANON_ID", "dispensed_date", "bnf_paragraph_code",
-                   "formulation_code",
-                   "item_strength", "item_strength_uom", "item_code",
-                   "num_items", "quantity")
-    ## lookup table for subpara code and item code
-    drugvars <- c("bnf_paragraph_code", "bnf_paragraph_description",
-                  "item_code", "approved_name")
-    ## other files for diagnoses, procedures and scrips within the time limit
-    ## data/CC_SMR01_ICD10_25_ANON_20200515.rds
-    ## data/CC_SMR01_OPCS4_MAIN.25_ANON_20200501.rds
-    ## data/CC_PIS_15_ANON_20200515.rds
-
-    scrips.protonpump <-
-        readRDS(scrips.filename) %>%
-        subset(bnf_paragraph_code=="0103050")
-}
-
-#################### add fields to scrips ########################################
-
-## for now, just keep id, paragraph code, paragraph_description
-
-scrips$bnf_paragraph_description <- as.factor(scrips$bnf_paragraph_description)
-cat("scrips object uses", object.size(scrips) * 1E-6, "MB\n")
-
-## we have 7 digits on scrips, giving resolution to subpara level only
-length(table(substr(scrips$bnf_paragraph_code, 1, 2))) # chapter
-length(table(substr(scrips$bnf_paragraph_code, 1, 4))) # chapter, section
-length(table(substr(scrips$bnf_paragraph_code, 1, 6)))  # chapter, section, paragraph
-length(table(scrips$bnf_paragraph_code)) # 537 groups
-
-## we need integer variables chapter, sectioncode, paracode for use with reshape2::dcast
-scrips$chapternum <- as.integer(substr(scrips$bnf_paragraph_code, 1, 2))
-scrips$sectioncode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 4))
-scrips$paracode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 6))
-
-## recode scrips$bnf.chapter values > 14 or NA to 14
-scrips$chapternum[is.na(scrips$chapternum)] <- 14
-scrips$chapternum[scrips$chapternum > 14] <- 14
+cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_20200515.rds"))
+diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200515.rds")
+procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200515.rds")
+scrips.filename <- "./data/CC_PIS_x15_ANON_20200515.rds" 
+scrips <- readRDS(scrips.filename)[, c("ANON_ID", "bnf_paragraph_code",
+                                       "bnf_paragraph_description")] 
+controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-15.rds")
+## other files for diagnoses, procedures and scrips within the time limit
+## data/CC_SMR01_ICD10_25_ANON_20200515.rds
+## data/CC_SMR01_OPCS4_MAIN.25_ANON_20200501.rds
+## data/CC_PIS_15_ANON_20200515.rds
 
 ################### short names for ICD chapters ########################
 
@@ -135,10 +91,6 @@ colnames(icdsubchapters) <- c("name", "start", "end")
 icdsubchapters$start <- as.character(icdsubchapters$start)
 icdsubchapters$end <- as.character(icdsubchapters$end)
 
-######################################################################
-
-source("bnfcodes.R")
-
 ###############################################
 
 names(cc.all) <- gsub("CASE_NO", "stratum", names(cc.all))
@@ -155,10 +107,11 @@ names(cc.all) <- gsub("^age$", "AGE", names(cc.all))
 cc.all$scrip.any <- as.factor(as.integer(cc.all$ANON_ID %in% scrips$ANON_ID))
 cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
 
-## exclude controls not observable
+## tabulate controls not observable
 
-controls.status <- controls.status[, c("ANON_ID", "CHI.EXTENDED.STATUS", "CHI.DATE.OF.DEATH",
-                                   "CHI.Explanation")]
+controls.status <- controls.status[, c("ANON_ID", "CHI.EXTENDED.STATUS",
+                                       "CHI.DATE.OF.DEATH",
+                                       "CHI.Explanation")]
 
 cc.all <- merge(cc.all, controls.status, by="ANON_ID", all.x=TRUE)
 
@@ -186,7 +139,6 @@ cc.all <- cc.all[keep, ]
 cat("done:", length(which(!keep)), "observations dropped\n")
 
 cc.all$SIMD.quintile <- car::recode(cc.all$SIMD.quintile, "'Unknown'=NA")
-
 
 cc.all$scripordiag <- as.integer(with(cc.all, as.integer(diag.any)==2 |
                                               as.integer(scrip.any)==2))
@@ -227,9 +179,7 @@ cc.all$unitcategory[cc.all$CASE==0] <- NA
 cc.all$unitcategory <- car::recode(cc.all$unitcategory,
                                    "0='Hospitalized, no HDU or ICU'; 1='HDU only'; 2='ICU only'; 3='HDU and ICU'")
 
-if(!old) {
-    print(with(cc.all[cc.all$CASE==1, ], paste.colpercent(table(deathwithin28, unitcategory))))
-}
+print(with(cc.all[cc.all$CASE==1, ], paste.colpercent(table(deathwithin28, unitcategory))))
 
 ## check this is correct: all those with icu==1 or icu.hdu.ccu==1 should be coded as severe
 
@@ -237,16 +187,10 @@ if(!old) {
 ## values of 0 must be for those not admitted, as there are no missing values
 with(cc.all[cc.all$CASE==1, ], table(adm28, exclude=NULL))
 with(cc.all[cc.all$CASE==1, ], table(icu, exclude=NULL))
-if(!old) {
-    with(cc.all[cc.all$CASE==1, ], table(hdu, exclude=NULL))
-    with(cc.all[cc.all$CASE==1, ], table(icu, hdu, exclude=NULL))
-}
+with(cc.all[cc.all$CASE==1, ], table(hdu, exclude=NULL))
+with(cc.all[cc.all$CASE==1, ], table(icu, hdu, exclude=NULL))
 
 ## coding of case groups -- check this is correct
-if(old) {
-    cc.all$nrs_covid_case <- 0
-    cc.all$hdu <- 0
-} # old dataset did not include test-neg cases ascertained through death registration
 
 cc.all$group <- NA
 ## Cases ascertained only through NRS coded as D
@@ -279,13 +223,8 @@ with(cc.all[cc.all$CASE==1, ], table(casegroup, deathwithin28, exclude=NULL))
 ## deaths ascertained through NRS that were not test-positive 
 cc.all$fatalcase <- as.integer(cc.all$CASE==1 & cc.all$deathwithin28==1)
 
-if(old) {
-    cc.all$casegroup <- car::recode(cc.all$casegroup,
-                                    "'A'='Critical care or fatal'; 'B'='Hospitalised, not severe'; 'C'='Test-positive, not hospitalised'")
-} else {
-    cc.all$casegroup <- car::recode(cc.all$casegroup,
-                                    "'A'='Critical care or fatal'; 'B'='Hospitalised, not severe'; 'C'='Test-positive, not hospitalised'; 'D'='COVID mention on death cert, no test'")
-}   
+cc.all$casegroup <- car::recode(cc.all$casegroup,
+                                "'A'='Critical care or fatal'; 'B'='Hospitalised, not severe'; 'C'='Test-positive, not hospitalised'; 'D'='COVID mention on death cert, no test'")
 
 cc.all$casegroup <- as.factor(cc.all$casegroup)
 cc.all <- within(cc.all, casegroup <- relevel(casegroup, ref="Critical care or fatal"))
@@ -356,8 +295,14 @@ cc.all <- within(cc.all, ethnic4.smr <- factor(ethnic4.smr,
     cc.all$ethnic3 <- factor(cc.all$ethnic3, levels=levels(cc.all$ethnic3)[c(1, 3, 2)])
 #}
 
+######################################################
 
-########################################################################################
+source("bnfcodes.R")
+
+source("drugs.R")
+
+###########################################################################
+
 ###  diabetes based on combining Sci-Diabetes records with ICD codes and drugs 
 ## add in BNF codes 6.1 for diabetes drugs and
 ## E10 to E14 for diabetes
@@ -365,12 +310,9 @@ cc.all <- within(cc.all, ethnic4.smr <- factor(ethnic4.smr,
 ## immune.any includes primary immunodeficiency and secondary immunosuppression
 
 ########## coding listed conditions ####################
+
 ids.icd.diabetes <- unique(diagnoses$ANON_ID[grep("^E1[0-4]", diagnoses$ICD10)])
-
-## 802 other immunomodulating drugs
-## Methotrexate and chloroquine appear in musculoskeletal chapter 
 ids.bnf.diabetes <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 601])
-
 ids.diabetes.extra <- unique(c(ids.icd.diabetes, ids.bnf.diabetes))
 
 # recode diabetes type
@@ -380,16 +322,14 @@ cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
 
 ## add in extra cases notified directly from SCI-Diabetes register, without assignment
 ## of diabetes type from SDRN database
-if(!old) {
-    cc.all$dm.type[cc.all$dm.type==0 & cc.all$diab.reg==1] <- 3
-}
+cc.all$dm.type[cc.all$dm.type==0 & cc.all$diab.reg==1] <- 3
 
 print(table(cc.all$dm.type, cc.all$ANON_ID %in% ids.diabetes.extra))
 
 ## code diagnoses detected from discharges or BNF codes as unknown type
 ## we could classify those not on insulin as definite Type 2 but Helen says no
 
-## REVISION: for consistency with the diabetes paper, we will not include the extra cases identified through diagnostic codes or drug codes
+## REVISION: for consistency with the diabetes paper, we will not include the extra cases identified through diagnostic codes or drug codes - they may be transient/resolved
 
 ## cc.all$dm.type[cc.all$dm.type==0 & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
 
@@ -423,164 +363,6 @@ cc.all$cats3 <- as.factor(car::recode(cc.all$cats3, "1='Care/nursing home';
                                2='Independent living, listed condition';
                                3='Independent living, no listed condition'"))     
 
-####### drug exposure specifically relevant to proton pump ##################
-
-ids.protonpump <- unique(scrips$ANON_ID[scrips$bnf_paragraph_code == "0103050"])
-cc.all$protonpump <- as.factor(as.integer(cc.all$ANON_ID %in% ids.protonpump))
-cc.all$y.protonpump <- as.integer(cc.all$protonpump =="1")
-
-TW <- 120 # time window in days
-
-if(!old) {
-    ## merge SPECDATE into scrips.protonpump
-    scrips.protonpump <- merge(scrips.protonpump, cc.all[, c("ANON_ID", "SPECDATE")],
-                               by="ANON_ID", all.x=TRUE) 
-    scrips.protonpump$daysbefore <- as.integer(scrips.protonpump$SPECDATE -
-                                               scrips.protonpump$dispensed_date)
-    ## minimum value is 16 days -- the 15-day cutoff has been applied to the scrips table
-
-    scrips.protonpump$dispensing.days <- as.integer(scrips.protonpump$SPECDATE - 15 - 
-                                                    as.Date("2019-06-01"))
-    scrips.protonpump$intervalTWday <- ceiling((scrips.protonpump$daysbefore - 15) / TW)
-    scrips.protonpump$intervalTWday[scrips.protonpump$intervalTWday > 3] <- 3
-
-## https://www.whocc.no/atc_ddd_index/?code=A02BC&showdescription=yes gives defined daily doses
-##
-##ATC code  	Name  	DDD 	 U 	Adm.R	 Note
-##A02BC05 	esomeprazole 	30 	mg 	O
-##A02BC03 	lansoprazole 	30 	mg 	O 
-##A02BC01 	omeprazole 	20 	mg 	O 
-##A02BC02 	pantoprazole 	40 	mg 	O 	
-##A02BC04 	rabeprazole 	20 	mg 	O 	
-    DDD5 <- c(30, 30, 20, 40, 20)
-
-    scrips.protonpump$dose <- scrips.protonpump$item_strength * scrips.protonpump$quantity 
-
-    ## calculate dose of each drug over entire period
-    dose.protonpump <-  reshape2::dcast(data=scrips.protonpump,
-                                        formula=ANON_ID + dispensing.days ~ approved_name,
-                                        value.var="dose",
-                                        fun.aggregate=sum)
-
-    for(j in 1:5) { # loop over approved names to divide by DDD x dispensing.days 
-
-        dose.protonpump[, j + 2] <- dose.protonpump[, j + 2] /
-            (DDD5[j] * dose.protonpump$dispensing.days) 
-    }
-    dose.protonpump$DDDs.all <- rowSums(dose.protonpump[, -(1:2)])
-
-    ###############  average dose in each TW-day interval ######################## 
-    doseTWday.protonpump <-  reshape2::dcast(data=scrips.protonpump,
-                                    formula=ANON_ID + intervalTWday ~ approved_name,
-                                    value.var="dose",
-                                    fun.aggregate=sum)
-    ## strictly, each interval should be divided by the number of days in that interval for that individual
-    ## for now, use TW days
-    for(j in 1:5) { # loop over approved names to divide by DDD x TW 
-        doseTWday.protonpump[, j + 2] <- doseTWday.protonpump[, j + 2] /
-            (DDD5[j] * TW)
-    }
-    doseTWday.protonpump$DDDsTWday.all <- rowSums(doseTWday.protonpump[, -(1:2)])
-    # print(summary(doseTWday.protonpump))
-
-    ## drop columns for individual drugs, and cast again to get one column for each interval
-    doseTWday.protonpump <- doseTWday.protonpump[, c("ANON_ID", "intervalTWday", "DDDsTWday.all")]
-    doseTWday.protonpump <- doseTWday.protonpump[!is.na(doseTWday.protonpump$intervalTWday), ]
-
-    doseTWday.protonpump.wide <-  reshape2::dcast(data=doseTWday.protonpump,
-                                    formula=ANON_ID ~ intervalTWday,
-                                    value.var="DDDsTWday.all",
-                                    fun.aggregate=sum)
-    colnames(doseTWday.protonpump.wide)[-1] <- c("DDD.interval1", "DDD.interval2", "DDD.interval3") 
-
-    cc.all <- merge(cc.all, dose.protonpump, by="ANON_ID", all.x=TRUE)
-    cc.all$DDDs.all[is.na(cc.all$DDDs.all)] <- 0
-    cc.all$ESOMEPRAZOLE[is.na(cc.all$ESOMEPRAZOLE)] <- 0
-    cc.all$LANSOPRAZOLE[is.na(cc.all$LANSOPRAZOLE)] <- 0
-    cc.all$OMEPRAZOLE[is.na(cc.all$OMEPRAZOLE)] <- 0
-    cc.all$PANTOPRAZOLE[is.na(cc.all$PANTOPRAZOLE)] <- 0
-    cc.all$RABEPRAZOLE[is.na(cc.all$RABEPRAZOLE)] <- 0
-    cc.all$dispensing.days <- as.integer(cc.all$SPECDATE - as.Date("2019-06-01"))
-                                        #cc.all$DDDs.average <- cc.all$DDDs.all / cc.all$dispensing.days
-    cc.all$DDDsgr <- 0.5 * ceiling(2 * cc.all$DDDs.all)
-    cc.all$DDDsgr <- as.factor(car::recode(cc.all$DDDsgr, "2:hi='2 or more'"))
-    
-    cc.all <- merge(cc.all, doseTWday.protonpump.wide, by="ANON_ID", all.x=TRUE)
-    cc.all$DDD.interval1[is.na(cc.all$DDD.interval1)] <- 0
-    cc.all$DDD.interval2[is.na(cc.all$DDD.interval2)] <- 0
-    cc.all$DDD.interval3[is.na(cc.all$DDD.interval3)] <- 0
-}
-
-ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40701])
-cc.all$nonopioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                   ids.nonopioid.analgesic))
-ids.antiplatelet <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 209])
-cc.all$antiplatelet <- as.factor(as.integer(cc.all$ANON_ID %in% ids.antiplatelet))
-
-ids.nsaid <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 100101])
-cc.all$nsaid <- as.factor(as.integer(cc.all$ANON_ID %in% ids.nsaid))
-
-ids.opioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40702])
-cc.all$opioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                      ids.opioid.analgesic))
-
-ids.antipsychotic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40201])
-cc.all$antipsychotic <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                      ids.antipsychotic))
-
-ids.osmotic.laxative <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 10604])
-cc.all$osmotic.laxative <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                ids.osmotic.laxative))
-
-ids.anticoagulant.any <-
-    unique(scrips$ANON_ID[scrips$bnf_paragraph_code == "0208010" |
-                          scrips$bnf_paragraph_code == "0208020"])
-cc.all$anticoagulant.any <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                ids.anticoagulant.any))
-if(!old) {
-ids.hydroxychloroquine <- readRDS(scrips.filename) %>%
-    subset(subset=approved_name=="HYDROXYCHLOROQUINE SULFATE", select=ANON_ID)
-ids.hydroxychloroquine <- unique(ids.hydroxychloroquine$ANON_ID)
-cc.all$hydroxychloroquine <- as.factor(as.integer(cc.all$ANON_ID %in% ids.hydroxychloroquine))
-}
-############# some tables for ethnicity report ##########################
-########################################################################
-
-testpositives.ethnic.smr <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
-                                                  table(ethnic5.smr, casegroup)), 1)
-
-table.testpositives.demog.ethnicsmr <-
-    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home", "SIMD.quintile"),
-                               data=cc.all[!is.na(cc.all$ethnic5.smr), ])
-
-
-table.hospitalized.demog.ethnicsmr <-
-    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home", "SIMD.quintile"),
-                               data=cc.all[(cc.all$casegroup=="Hospitalised, not severe" |
-                                            cc.all$casegroup=="Critical care or fatal") &
-                                           !is.na(cc.all$ethnic5.smr), ])
-
-if(FALSE) {
-## tabulate ethnicity by case group
-testpositives.ethnic <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
-                                              table(ethnic4, casegroup)), 1)
-
-testpositives.carehome <- paste.colpercent(with(cc.all[cc.all$CASE==1, ],
-                                                table(ethnic4, care.home)), 0)
-
-testpositives.healthboard <- t(paste.colpercent(with(cc.all[cc.all$CASE==1, ],
-                                                table(ethnic4, HBRES_NAME)), 0))
-
-table.testpositives.demog <-
-    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
-                               data=cc.all)
-
-table.hospitalized.demog <-
-    tabulate.freqs.regressions(varnames=c("ethnic4", "care.home", "SIMD.quintile"),
-                               data=cc.all[cc.all$casegroup=="Hospitalised, not severe" |
-                                           cc.all$casegroup=="Critical care or fatal", ])
-}
-
 ############ save hospitalized non-severe for later use as training dataset #############
 
 hosp <- cc.all$casegroup=="Hospitalised, not severe"
@@ -600,7 +382,9 @@ if(!nrs) {
                       cc.all$casegroup=="COVID mention on death cert, no test", ]
 }
 
-rm(cc.all)
+## rm(cc.all) no need to remove if we have enough memory
+
+############ FIXME: with enough memory, this can be done on cc.all ###
 
 ## merge drugs, one variable per chapter
 scrips.wide <- reshape2::dcast(scrips, ANON_ID ~ chapternum, fun.aggregate=length, 
@@ -693,9 +477,7 @@ source("comorbidity.R")
 ## 8 listed conditions designated by NHS
 listed.conditions <- c("dm.type", "IHD.any", "heart.other.any", "oad.any",
                        "ckd.any", "neuro.any", "liver.any", "immune.any")
-#if(!old) {
-#    listed.conditions <- c(listed.conditions, "circulatory.other")
-#}
+##    listed.conditions <- c(listed.conditions, "circulatory.other")
 
 ############ extract predefined disease categories #################
 ## as these are coded as factors, lowest level will be 1
@@ -733,22 +515,6 @@ drugs <- bnf.chapternames
 icd.chapternames <- colnames(cc.severe)[icdcols]
 conditions <- icd.chapternames
 
-
-###############################################################
-
-if(FALSE) { # coding antihypertensives
-antihypertensive.classes <- c("vasodilator_ah6.bnf", 
-                              "centrally_acting_ah6.bnf",  
-                              "adrenergic_neurone_block6.bnf",  
-                              "alpha_adrenoceptor6.bnf", 
-                              "ace6.bnf",  
-                              "angio6.bnf",  
-                              "renin_angiotensin6.bnf",  
-                              "thiazides6.bnf",  
-                              "calcium_channel6.bnf")
-antihypertensives <- c(antihypertensive.classes[4:9], "antihypertensive.other")
-}
-
 ########################################################
 
 table.severe.demog <-
@@ -781,7 +547,6 @@ for(agegr in levels(cc.severe$agegr20)) {
     table.scripordiag <- cbind(table.scripordiag, x)
 }
 
-
 table.scripordiag.fatal <- NULL
 for(agegr in levels(cc.severe$agegr3)) {
     x <- with(cc.severe[cc.severe$agegr3==agegr, ],
@@ -806,18 +571,19 @@ for(agegr in levels(cc.severe$agegr20)) {
     table.agegr <- cbind(table.agegr, x)
 }
                                         #
-
 freqs.all <- univariate.tabulate(varnames=c("deathwithin28", varnames.listed, "listed.any"),
                              outcome="CASE",
                              data=cc.severe,
                              drop.reflevel=FALSE)
 
+if(FALSE) { ## appears to be redundant
 keep.varnames <- logical(length(varnames.listed))
 for(i in 1:length(varnames.listed)) {
-    x <- cc.severe[, match(varnames.listed[i], colnames(cc.severe))]
+    x <- cc.severe[[match(varnames.listed[i], colnames(cc.severe))]]
     exposed <- as.integer(x) > 1
     a <- with(cc.severe[exposed, ], table(agegr3, CASE))
     keep.varnames[i] <- !any(as.integer(a)==0)
+}
 }
 
 tables.agegr <- vector("list", length(levels(cc.severe$agegr3)))
@@ -846,14 +612,6 @@ univariate.ethnicsmr <-
                       add.reflevel=TRUE)
 table.ethnicsmr.aug <- combine.tables2(table.ethnicsmr, univariate.ethnicsmr)
 rownames(table.ethnicsmr.aug) <- replace.names(rownames(table.ethnicsmr.aug))
-
-#### 5 ethnic groups for HPS report
-table.ethnic5smr <-
-    tabulate.freqs.regressions(varnames=c("ethnic5.smr", "care.home",
-                                          "SIMD.quintile"),
-                               outcome="CASE",
-                               data=cc.severe[!is.na(cc.severe$ethnic5.smr), ])
-rownames(table.ethnic5smr) <- replace.names(rownames(table.ethnic5smr))
 
 ## listed conditions
 table.listed.conditions.lt60 <-
@@ -926,33 +684,23 @@ table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs,
 nfold <- 4
 source("stepwise.R")
 
-#####################################################################
-
-if(!old) source("pharmaco.R")
+source("pharmaco.R")
 
 #####################################################
-if(old) {
-    rmarkdown::render("casecontrol.Rmd", output_file="casecontrol5May.pdf")
-} else  {
-    if(!nrs) {
-        rmarkdown::render("casecontrol.Rmd", output_file="casecontrol15May.pdf")
-        rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
-    } else {
-        rmarkdown::render("casecontrol.Rmd", output_file="casecontrol15May_withNRS.pdf")
-    } 
-}
+if(!nrs) {
+    rmarkdown::render("casecontrol.Rmd", output_file="casecontrol15May.pdf")
+    rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
+} else {
+    rmarkdown::render("casecontrol.Rmd", output_file="casecontrol15May_withNRS.pdf")
+} 
 
 ## remove large objects from memory
 
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
-if(old) {
-    save.image(file="casecontrol5May.RData")
+if(!nrs) {
+    save.image(file="casecontrol15May.RData")
 } else {
-    if(!nrs) {
-        save.image(file="casecontrol15May.RData")
-    } else {
-        saveRDS(table.agegr, file="table.agegr.withNRS.rds")
-    }
+    saveRDS(table.agegr, file="table.agegr.withNRS.rds")
 }

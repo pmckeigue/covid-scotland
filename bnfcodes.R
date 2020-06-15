@@ -40,3 +40,10 @@ bnfchapters$shortname <- substr(bnfchapters$chaptername, 1, truncate.at)
 bnfchapters$chapternum[bnfchapters$chapternum > 14] <- 14
 bnfchapters$shortname[bnfchapters$chapternum==14] <- "Other" 
 bnfchapters$shortname[bnfchapters$chapternum==4] <- "Nervous" 
+
+## chemical codes
+bnfchemicalcodes <- read_excel("./BNF_Code_Information.xlsx", sheet=1)[, 1:10]
+colnames(bnfchemicalcodes) <- c(colnames(bnfsubparacodes),
+                                "chemicalname", "chemicalcode")
+# bnfchemicalcodes <- subset(bnfchemicalcodes, subset=!duplicated(chemicalcode))
+

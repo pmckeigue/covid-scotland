@@ -1,28 +1,5 @@
 ## pharmacoepi paper
 
-####### derived variables  ##########################
-
-conversionMME <- 
-"
-Opioid 	Conversion Factor 
-Codeine 	0.15
-Fentanyl	2.4
-Hydrocodone 	1
-Hydromorphone 	4
-
-Morphine 	1
-Oxycodone 	1.5
-Oxymorphone 	3
-
-Methadone hydrochloride
-
-Morphine sulphate
-
-Pentazocine hydrochloride
-Pentazocine lactate
-Pethidine hydrochloride
-Nalbuphine hydrochloride
-"
 
 ########################################################
 ## tabulate rate ratios for each num drug group by listed.any
@@ -228,6 +205,35 @@ print(stepwise.drop.subparas)
 table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs, 
                                                            data=cc.severe[nocare.notlisted, ])
 
+#### opiates  #####################################
+####### tabulate dose-response effect by opiate dose group ###############################
+
+opiates.varnames <- c("dosegr.opiate", "care.home", "neoplasm.any")
+
+table.dosegr.opiate <- tabulate.freqs.regressions(varnames=opiates.varnames,
+                                                  data=cc.severe)
+
+#### opiate effect by time window #######################
+
+cc.severe$opiate.exposure.nonrecent <- as.integer(cc.severe$opiateMME.interval2 > 0 | cc.severe$opiateMME.interval3 > 0)
+cc.severe$opiate.exposure.recent <- as.integer(cc.severe$opiateMME.interval1 > 0)
+
+cc.severe$opiate.exposurecat <- integer(nrow(cc.severe))
+cc.severe$opiate.exposurecat[cc.severe$opiate.exposure.nonrecent==0 & cc.severe$opiate.exposure.recent==0] <- 0
+cc.severe$opiate.exposurecat[cc.severe$opiate.exposure.nonrecent==1 & cc.severe$opiate.exposure.recent==0] <- 1
+cc.severe$opiate.exposurecat[cc.severe$opiate.exposure.nonrecent==0 & cc.severe$opiate.exposure.recent==1] <- 2
+cc.severe$opiate.exposurecat[cc.severe$opiate.exposure.nonrecent==1 & cc.severe$opiate.exposure.recent==1] <- 3
+
+cc.severe$opiate.exposurecat <- as.factor(car::recode(cc.severe$opiate.exposurecat,
+                                "0='No prescriptions'; 1='Non-recent only'; 2='Recent only';
+                                 3='Prescriptions in both time windows'"))
+cc.severe$opiate.exposurecat <- factor(cc.severe$opiate.exposurecat,
+                                levels=levels(cc.severe$opiate.exposurecat)[c(1, 2, 4, 3)])
+
+summary(clogit(formula=CASE ~ opiate.exposurecat + strata(stratum), 
+               data=cc.severe[cc.severe$neoplasm.any==0, ]))$coefficients
+
+ 
 ############# proton pump #########################
 
 ## calculate propensity score trained on cc.hosp
@@ -317,8 +323,6 @@ colnames(table.dose.protonpump)[1:2] <- paste0(c("Controls (", "Cases ("),
                                                as.integer(table(cc.severe$CASE)), rep(")", 2))
 
 
-                                        # print(table.dose.protonpump)
-
 ####### tabulate dose-response effect  by DDDs group ###############################
 
 ## tabulate.freqs.regressions() can only be used with factor variables
@@ -380,22 +384,22 @@ table.everuse.protonpump.numdrugs <- rbind(table.everuse.protonpump.numdrugs, x)
 
 #### time window #######################
 
-cc.severe$exposure.nonrecent <- as.integer(cc.severe$DDD.interval2 > 0 | cc.severe$DDD.interval3 > 0)
-cc.severe$exposure.recent <- as.integer(cc.severe$DDD.interval1 > 0)
+cc.severe$ppi.exposure.nonrecent <- as.integer(cc.severe$DDD.interval2 > 0 | cc.severe$DDD.interval3 > 0)
+cc.severe$ppi.exposure.recent <- as.integer(cc.severe$DDD.interval1 > 0)
 
-cc.severe$exposurecat <- integer(nrow(cc.severe))
-cc.severe$exposurecat[cc.severe$exposure.nonrecent==0 & cc.severe$exposure.recent==0] <- 0
-cc.severe$exposurecat[cc.severe$exposure.nonrecent==1 & cc.severe$exposure.recent==0] <- 1
-cc.severe$exposurecat[cc.severe$exposure.nonrecent==0 & cc.severe$exposure.recent==1] <- 2
-cc.severe$exposurecat[cc.severe$exposure.nonrecent==1 & cc.severe$exposure.recent==1] <- 3
+cc.severe$ppi.exposurecat <- integer(nrow(cc.severe))
+cc.severe$ppi.exposurecat[cc.severe$ppi.exposure.nonrecent==0 & cc.severe$ppi.exposure.recent==0] <- 0
+cc.severe$ppi.exposurecat[cc.severe$ppi.exposure.nonrecent==1 & cc.severe$ppi.exposure.recent==0] <- 1
+cc.severe$ppi.exposurecat[cc.severe$ppi.exposure.nonrecent==0 & cc.severe$ppi.exposure.recent==1] <- 2
+cc.severe$ppi.exposurecat[cc.severe$ppi.exposure.nonrecent==1 & cc.severe$ppi.exposure.recent==1] <- 3
 
-cc.severe$exposurecat <- as.factor(car::recode(cc.severe$exposurecat,
+cc.severe$ppi.exposurecat <- as.factor(car::recode(cc.severe$ppi.exposurecat,
                                 "0='No prescriptions'; 1='Non-recent only'; 2='Recent only';
                                  3='Prescriptions in both time windows'"))
-cc.severe$exposurecat <- factor(cc.severe$exposurecat,
-                                levels=levels(cc.severe$exposurecat)[c(4, 2, 3, 1)])
+cc.severe$ppi.exposurecat <- factor(cc.severe$ppi.exposurecat,
+                                levels=levels(cc.severe$ppi.exposurecat)[c(4, 2, 3, 1)])
 
-summary(clogit(formula=CASE ~ exposurecat + strata(stratum), 
+summary(clogit(formula=CASE ~ ppi.exposurecat + strata(stratum), 
                data=cc.severe[cc.severe$AGE < 75, ]))$coefficients
 
  
@@ -508,7 +512,6 @@ summary(clogit(formula=CASE ~ protonpump + numdrugs.notppi + strata(stratum),
                data=cc.severe[nocare.notlisted & cc.severe$AGE < 60, ]))$coefficients
 
 #############################################################################
-
     
 table.dose.propensity <- NULL
 for(pr in levels(cc.severe$propensitygr)) {

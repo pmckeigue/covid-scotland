@@ -151,7 +151,6 @@ length(unique(NRS.wk$CHI))
 nrow(NRS.wk)
 # will be same unless people have >1 death record
 
-
 ## previous coded deaths
 
 # odbcPreviewObject(SMRAconnection, table="ANALYSIS.GRO_DEATHS_C", rowLimit=0)

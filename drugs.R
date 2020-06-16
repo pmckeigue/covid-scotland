@@ -1,3 +1,43 @@
+
+## move to main script
+cc.all$dispensing.days <- as.integer(cc.all$SPECDATE - as.Date("2019-06-01"))
+
+getdaysbeforetest <- function(scrips.in, specdates) {
+    ## merge SPECDATE into scrips table and add columns daysbefore, dispensingdays, intervalTWday
+    ## checked that minimum value is 16 days -- the 15-day cutoff has been applied to the scrips table
+    scrips <- merge(scrips.in, specdates, by="ANON_ID", all.x=TRUE) 
+    scrips$daysbefore <- as.integer(scrips$SPECDATE - scrips$dispensed_date)
+    scrips$dispensing.days <- as.integer(scrips$SPECDATE - 15 - 
+                                         as.Date("2019-06-01"))
+    scrips$intervalTWday <- ceiling((scrips$daysbefore - 15) / TW)
+    scrips$intervalTWday[scrips$intervalTWday > 3] <- 3
+    return(scrips)
+}
+
+getdoseTWday.wide <- function(scrips.in, varname.prefix="dose.") {
+    doseTWday <-  reshape2::dcast(data=scrips.in,
+                                  formula=ANON_ID + intervalTWday ~ approved_name,
+                                  value.var="dose",
+                                  fun.aggregate=sum)
+    ## strictly, each interval should be divided by the number of days in that interval for that individual
+    ## for now, use TW days
+    for(j in 1:5) { # loop over approved names to divide by DDD x TW 
+        doseTWday[, j + 2] <- doseTWday[, j + 2] / TW
+    }
+    doseTWday$doseTWday.all <- rowSums(doseTWday[, -(1:2)])
+    ## drop columns for individual drugs, and cast again to get one column for each interval
+    doseTWday <- doseTWday[, c("ANON_ID", "intervalTWday", "doseTWday.all")]
+    doseTWday <- doseTWday[!is.na(doseTWday$intervalTWday), ]
+    doseTWday.wide <-  reshape2::dcast(data=doseTWday,
+                                       formula=ANON_ID ~ intervalTWday,
+                                       value.var="doseTWday.all",
+                                       fun.aggregate=sum)
+    colnames(doseTWday.wide)[-1] <-
+        paste0(varname.prefix,
+               c("interval1", "interval2", "interval3"))
+    return(doseTWday.wide)
+}
+
 ## reading scrips
 
 scripvars <- c("ANON_ID", "dispensed_date", "bnf_paragraph_code",
@@ -9,6 +49,7 @@ drugvars <- c("bnf_paragraph_code", "bnf_paragraph_description",
               "item_code", "approved_name")
 
 ##############################################################
+
 if(FALSE) { # coding antihypertensives
 antihypertensive.classes <- c("vasodilator_ah6.bnf", 
                               "centrally_acting_ah6.bnf",  
@@ -171,7 +212,8 @@ print(subset(scrips.opiates.names,
              select=c("approved_name", "numscrips", "factor.oral", "factor.patch")))
 
 scrips.opioid <- merge(scrips.opioid,
-                       subset(scrips.opiates.names, select=c("approved_name", "factor.oral", "factor.patch")),
+                       subset(scrips.opiates.names,
+                              select=c("approved_name", "factor.oral", "factor.patch")),
                        by="approved_name", all.x=TRUE)
 
 ##### compound opiates  #######################################################
@@ -183,8 +225,6 @@ compound.opiates <-
                          subset=substr(chemicalcode, 8, 9) %in%
                              c("A0", "F0", "M0", "N0", "Q0")))
 
-## where is co-proxamol?
-
 scrips.compound.opiates <-
     readRDS(scrips.filename) %>%
     subset(bnf_paragraph_code=="0407010")
@@ -194,13 +234,15 @@ scrips.compound.opiates <- subset(scrips.compound.opiates,
                                       names(table(scrips.compound.opiates$approved_name))[2:4])
 print(table(scrips.compound.opiates$approved_name))
 
+## co-proxamol does not appear in scrips table
+
 ## Co-codamol tablets and capsules come in 3 different strengths. They contain 8mg, 15mg or 30mg of codeine. The higher strengths (15/500 and 30/500) are only available on prescription from a doctor.
-## for now  assign strength as 15
+## for now  assign strength as 30
 
 ## Co-codamol with buclizine hydrochloride is 8 mg strength
 
 ## Co-dydramol comes in 4 different strengths. The tablets contain either 7.46mg, 10mg, 20mg or 30mg of dihydrocodeine.
-## For now assign strength as 20
+## For now assign strength as 30
 
 scrips.compound.opiates$item_strength[scrips.compound.opiates$approved_name=="CO-CODAMOL"] <- 15
 scrips.compound.opiates$item_strength[scrips.compound.opiates$approved_name=="CO-CODAMOL WITH BUCLIZINE HYDROCHLORIDE"] <- 8
@@ -214,24 +256,9 @@ scrips.compound.opiates$factor.oral[scrips.compound.opiates$approved_name=="CO-D
 table(scrips.compound.opiates$approved_name, scrips.compound.opiates$item_strength, exclude=NULL)
   
 ######################################################################
-
-getdaysbeforetest <- function(scrips.in, specdates) {
-    ## merge SPECDATE into scrips table and add columns daysbefore, dispensingdays, intervalTWday
-    ## checked that minimum value is 16 days -- the 15-day cutoff has been applied to the scrips table
-    scrips <- merge(scrips.in, specdates, by="ANON_ID", all.x=TRUE) 
-    scrips$daysbefore <- as.integer(scrips$SPECDATE - scrips$dispensed_date)
-    scrips$dispensing.days <- as.integer(scrips$SPECDATE - 15 - 
-                                         as.Date("2019-06-01"))
-    scrips$intervalTWday <- ceiling((scrips$daysbefore - 15) / TW)
-    scrips$intervalTWday[scrips$intervalTWday > 3] <- 3
-    return(scrips)
-}
-
-################## all merges with case-control dataset are after this point ############# 
+########## all merges with case-control dataset are after this point ############# 
 
 TW <- 120 # time window in days
-
-cc.all$dispensing.days <- as.integer(cc.all$SPECDATE - as.Date("2019-06-01"))
 
 ####### proton pump exposure   ##################
 
@@ -266,30 +293,6 @@ cc.all$DDDsgr <- 0.5 * ceiling(2 * cc.all$DDDs.all)
 cc.all$DDDsgr <- as.factor(car::recode(cc.all$DDDsgr, "2:hi='2 or more'"))
 
 ###############  average dose in each TW-day interval ######################## 
-
-getdoseTWday.wide <- function(scrips.in, varname.prefix="dose.") {
-    doseTWday <-  reshape2::dcast(data=scrips.in,
-                                  formula=ANON_ID + intervalTWday ~ approved_name,
-                                  value.var="dose",
-                                  fun.aggregate=sum)
-    ## strictly, each interval should be divided by the number of days in that interval for that individual
-    ## for now, use TW days
-    for(j in 1:5) { # loop over approved names to divide by DDD x TW 
-        doseTWday[, j + 2] <- doseTWday[, j + 2] / TW
-    }
-    doseTWday$doseTWday.all <- rowSums(doseTWday[, -(1:2)])
-    ## drop columns for individual drugs, and cast again to get one column for each interval
-    doseTWday <- doseTWday[, c("ANON_ID", "intervalTWday", "doseTWday.all")]
-    doseTWday <- doseTWday[!is.na(doseTWday$intervalTWday), ]
-    doseTWday.wide <-  reshape2::dcast(data=doseTWday,
-                                       formula=ANON_ID ~ intervalTWday,
-                                       value.var="doseTWday.all",
-                                       fun.aggregate=sum)
-    colnames(doseTWday.wide)[-1] <-
-        paste0(varname.prefix,
-               c("interval1", "interval2", "interval3"))
-    return(doseTWday.wide)
-}
 
 doseTWday.protonpump.wide <- getdoseTWday.wide(scrips.protonpump, varname.prefix="DDD.")
 
@@ -330,8 +333,8 @@ quantile(dose.opiate$dose.opiate.daily, probs=seq(0, 1, by=0.1), na.rm=TRUE)
 ## quotes a study showing that dose >= 50 MME/day doubles risk of overdose
 ## this is about the 90th centile in ever-exposed Scots
 
-## group dose into categories
 cc.all <- merge(cc.all, dose.opiate[, c("ANON_ID", "dose.opiate.daily")], by="ANON_ID", all.x=TRUE)
+## group dose into categories
 cc.all$dose.opiate.daily[is.na(cc.all$dose.opiate.daily)] <- 0
 cc.all$dosegr.opiate <- 10 * ceiling(cc.all$dose.opiate.daily / 10)
 cc.all$dosegr.opiate <- as.factor(car::recode(cc.all$dosegr.opiate,
@@ -345,8 +348,41 @@ cc.all$opiateMME.interval1[is.na(cc.all$opiateMME.interval1)] <- 0
 cc.all$opiateMME.interval2[is.na(cc.all$opiateMME.interval2)] <- 0
 cc.all$opiateMME.interval3[is.na(cc.all$opiateMME.interval3)] <- 0
 
-############ other drugs of interest coded as binary ####################
+####################################################################
 
+## compound opiate exposure
+
+## merge SPECDATE to get days before test and time window
+scrips.compound.opiates <- getdaysbeforetest(scrips.in=scrips.compound.opiates,
+                                       specdates=cc.all[, c("ANON_ID", "SPECDATE")])
+
+## calculate oral dose as morphine equivalent
+scrips.compound.opiates$dose <- scrips.compound.opiates$item_strength *
+    scrips.compound.opiates$quantity *
+    scrips.compound.opiates$factor.oral
+
+## calculate dose of each drug over entire period
+dose.compound.opiates <-  reshape2::dcast(data=scrips.compound.opiates,
+                                    formula=ANON_ID + dispensing.days ~ approved_name,
+                                    value.var="dose",
+                                    fun.aggregate=sum)
+for(j in 3:ncol(dose.compound.opiates)) { # loop over approved names to divide by dispensing.days 
+    dose.compound.opiates[, j] <- dose.compound.opiates[, j] / dose.compound.opiates$dispensing.days
+}
+dose.compound.opiates$dose.compound.opiates.daily <- rowSums(dose.compound.opiates[, -(1:2)])
+
+quantile(dose.compound.opiates$dose.compound.opiates.daily, probs=seq(0, 1, by=0.1), na.rm=TRUE)
+
+cc.all <- merge(cc.all, dose.compound.opiates[, c("ANON_ID", "dose.compound.opiates.daily")], by="ANON_ID", all.x=TRUE)
+cc.all$dose.compound.opiates.daily[is.na(cc.all$dose.compound.opiates.daily)] <- 0
+cc.all$dosegr.compound.opiates <- 5 * ceiling(cc.all$dose.compound.opiates.daily / 5)
+cc.all$dosegr.compound.opiates <- as.factor(car::recode(cc.all$dosegr.compound.opiates,
+                                              "5:10='1-10'; 15:hi='>10'"))
+cc.all$dosegr.compound.opiates <- factor(cc.all$dosegr.compound.opiates,
+                               levels=levels(cc.all$dosegr.compound.opiates)[c(2:4, 1)])
+table(cc.all$dosegr.compound.opiates)
+                                        #
+########### other drugs of interest coded as binary ####################
 
 ids.antiplatelet <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 209])
 cc.all$antiplatelet <- as.factor(as.integer(cc.all$ANON_ID %in% ids.antiplatelet))

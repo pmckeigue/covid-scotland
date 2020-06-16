@@ -213,6 +213,12 @@ opiates.varnames <- c("dosegr.opiate", "care.home", "neoplasm.any")
 table.dosegr.opiate <- tabulate.freqs.regressions(varnames=opiates.varnames,
                                                   data=cc.severe)
 
+compound.opiates.varnames <- c("dosegr.compound.opiates", "care.home", "neoplasm.any")
+
+table.dosegr.compound.opiates <- tabulate.freqs.regressions(varnames=compound.opiates.varnames,
+                                                            data=cc.severe)
+
+
 #### opiate effect by time window #######################
 
 cc.severe$opiate.exposure.nonrecent <- as.integer(cc.severe$opiateMME.interval2 > 0 | cc.severe$opiateMME.interval3 > 0)
@@ -230,9 +236,9 @@ cc.severe$opiate.exposurecat <- as.factor(car::recode(cc.severe$opiate.exposurec
 cc.severe$opiate.exposurecat <- factor(cc.severe$opiate.exposurecat,
                                 levels=levels(cc.severe$opiate.exposurecat)[c(1, 2, 4, 3)])
 
-summary(clogit(formula=CASE ~ opiate.exposurecat + strata(stratum), 
-               data=cc.severe[cc.severe$neoplasm.any==0, ]))$coefficients
-
+table.timewindow.opiate <-
+    tabulate.freqs.regressions(varnames="opiate.exposurecat",
+                               data=cc.severe[cc.severe$neoplasm.any==0, ])[, 1:4]
  
 ############# proton pump #########################
 
@@ -399,10 +405,15 @@ cc.severe$ppi.exposurecat <- as.factor(car::recode(cc.severe$ppi.exposurecat,
 cc.severe$ppi.exposurecat <- factor(cc.severe$ppi.exposurecat,
                                 levels=levels(cc.severe$ppi.exposurecat)[c(4, 2, 3, 1)])
 
-summary(clogit(formula=CASE ~ ppi.exposurecat + strata(stratum), 
-               data=cc.severe[cc.severe$AGE < 75, ]))$coefficients
+############## time window analysis ######################
 
- 
+table.timewindow.protonpump <- tabulate.freqs.regressions(varnames="ppi.exposurecat",
+                                                          data=cc.severe)[, 1:4]
+
+table.timewindow.protonpump.nocare.notlisted <-
+    tabulate.freqs.regressions(varnames="ppi.exposurecat",
+                               data=cc.severe[nocare.notlisted, ])[, 1:4]
+
 ###########################################
 
 ## tabulate effect of each drug
@@ -521,17 +532,8 @@ for(pr in levels(cc.severe$propensitygr)) {
     table.dose.propensity <- rbind(table.dose.propensity, x)
 }
 
-cc.severe$exposurecat <- factor(cc.severe$exposurecat,
-                                levels=levels(cc.severe$exposurecat)[c(4, 1, 2, 3)])
 
-table.timewindow.protonpump <- tabulate.freqs.regressions(varnames="exposurecat",
-                                                          data=cc.severe)[, 1:4]
-
-table.timewindow.protonpump.nocare.notlisted <-
-    tabulate.freqs.regressions(varnames="exposurecat",
-                               data=cc.severe[nocare.notlisted, ])[, 1:4]
-
-#####################################
+###################################################
     
 ## tabulate fatal cases  by age group
 table.fatal.protonpump <- NULL

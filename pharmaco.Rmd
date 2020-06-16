@@ -377,6 +377,24 @@ knitr::kable(table.dosegr.opiate,
 
 ```
 
+
+```{r timewin.opiate, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.timewindow.opiate,
+             escape=FALSE,
+             label="timewindow.opiate", 
+             booktabs=TRUE,
+             col.names=c(clean.header(colnames(table.timewindow.opiate)[1:2]), 
+                         "Rate ratio (95\\% CI)", "$p$-value"),
+             caption=paste0("Associations of severe disease with dispensed prescriptions for opiate analgesics by ", TW, "-day time window")) %>%
+	column_spec(column=1, width="3cm") %>%
+	column_spec(column=2:3, width="2cm") %>%
+	column_spec(column=4, width="2.5cm") %>%
+	column_spec(column=5, width="1.5cm") %>%
+    kable_styling(latex_options="hold_position") 
+
+```
+
 ```{r dosegr.protonpump, echo=FALSE, warning=FALSE, message=FALSE}
 
 knitr::kable(table.dosegr.protonpump,

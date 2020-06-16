@@ -50,8 +50,6 @@ SelectMatchedControls <- function(cases, popextract, first.stratum.number) {
   ret.pop.lt.10$is.case <- FALSE
   ret.table <- rbind(ret.table, ret.pop.lt.10)
   
-  
-  
   # For >=10*n[k] in each mkey in popextract then randomly sample 10 * n[k] without replacement
   pop.m.gt.10 <- pop.m[(num.cases > 0) & (num.pop.mkey >= 10 * num.cases)]
   

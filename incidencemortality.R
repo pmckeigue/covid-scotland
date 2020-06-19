@@ -1,3 +1,8 @@
+logit <- function(x) log(x) - log(1 - x) 
+
+## https://www.nrscotland.gov.uk/statistics-and-data/statistics/statistics-by-theme/population/population-estimates/mid-year-population-estimates/mid-2019
+
+## https://www.nrscotland.gov.uk/files//statistics/population-estimates/mid-19/mid-year-pop-est-2019-figures.xlsx
 
 scotpop <- read_excel("./Scotland_midyearpop_est2019.xlsx")
 
@@ -52,21 +57,21 @@ gam.model.MaleCases<- gam::gam(formula=y.cases[male, ] ~ s(Age), family=binomial
 gam.model.FemaleCases <- gam::gam(formula=y.cases[female, ] ~ s(Age), family=binomial("logit"),
                                   data=discrim[female, ])
 
-gam.male <- data.frame(Cases=car::logit(gam.model.MaleCases$fitted.values),
-                       Deaths=car::logit(gam.model.MaleDeaths$fitted.values),
+gam.male <- data.frame(Cases=logit(gam.model.MaleCases$fitted.values),
+                       Deaths=logit(gam.model.MaleDeaths$fitted.values),
                        Age=discrim$Age[male])
 gam.male.long <- reshape2::melt(data=gam.male, id="Age")
 colnames(gam.male.long)[2] <- "Status"
 gam.male.long$Sex <- "Males"
 
-gam.female <- data.frame(Cases=car::logit(gam.model.FemaleCases$fitted.values),
-                       Deaths=car::logit(gam.model.FemaleDeaths$fitted.values),
+gam.female <- data.frame(Cases=logit(gam.model.FemaleCases$fitted.values),
+                       Deaths=logit(gam.model.FemaleDeaths$fitted.values),
                        Age=discrim$Age[female])
 gam.female.long <- reshape2::melt(data=gam.female, id="Age")
 colnames(gam.female.long)[2] <- "Status"
 gam.female.long$Sex <- "Females"
 gam <- rbind(gam.male.long, gam.female.long)
-     
+
 ###############################################################
 
 logodds.posterior <- predict(object=cases.model, newdata=discrim, type="link")

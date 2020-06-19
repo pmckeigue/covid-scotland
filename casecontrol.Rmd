@@ -165,7 +165,7 @@ Severe or fatal COVID-19 was defined by a record of entering critical care in th
 For each test-positive case, we ascertained ten matched controls of the same sex, one-year age band and registered with the same primary care practice who were alive on the date of the first test in the case using the Community Health Index (CHI) database. After removing embarkations there were seven controls per case. As this is an incidence density sampling design, it is possible and correct for an individual to appear in the dataset more than once, initially as a control and subsequently as a case.  
 
 ## Demographic data
-Residence in a care home was ascertained from the CHI database. Socioeconomic status was assigned as the Scottish Index of Multiple Deprivation (SIMD), an indicator based on postal code.  Ethnicity was assigned based on applying a name classification algorithm (ONOMAP) [@lakha_name_2011] to the names in the CHI database.  For `r gsub("(.*\\()(.*)\\)", "\\2", table.ethnicsmr.missing[1, 1])` of controls and `r gsub("(.*\\()(.*)\\)", "\\2", table.ethnicsmr.missing[1, 2])` of cases self-assigned ethnicity, based on the categories used in the Census, had been recorded in Scottish Morbidity Records (SMR).  Cross-tabulation of `r sum.xtabulate` records for which both name classification and SMR records of ethnicity were available showed that the ONOMAP algorithm had sensitivity of `r round(SouthAsian.sensitivity)`% and specificity of `r round(SouthAsian.specificity, 2)`% for classifying South Asian ethnicity, but misclassified most of those who identified as African, Caribbean or Black.  
+Residence in a care home was ascertained from the CHI database. Socioeconomic status was assigned as the Scottish Index of Multiple Deprivation (SIMD), an indicator based on postal code.  Ethnicity was assigned based on applying a name classification algorithm (ONOMAP) [@lakha_name_2011] to the names in the CHI database.  For `r gsub("(.*\\()(.*)\\)", "\\2", table.ethnicsmr.missing[1, 1])` of controls and `r gsub("(.*\\()(.*)\\)", "\\2", table.ethnicsmr.missing[1, 2])` of cases self-assigned ethnicity, based on the categories used in the Census, had been recorded in Scottish Morbidity Records (SMR).  Cross-tabulation of `r sum.xtabulate` records for which both name classification and SMR records of ethnicity were available showed that the ONOMAP algorithm had sensitivity of `r round(SouthAsian.sensitivity)`% and specificity of `r round(SouthAsian.specificity, 2)`% for classifying South Asian ethnicity, but misclassified most of those who identified as African, Caribbean or Black. 
 
 ## Morbidity and drug prescribing
 For all cases and controls, ICD-10 diagnostic codes were extracted from the last five years of hospital discharge records in the Scottish Morbidity Record (SMR01), excluding records of discharges less than 25 days before testing positive for SARS-CoV-2 and using all codes on the discharge. Diagnostic coding under ICD chapters 5 (Mental, Behavioural and Neurodevelopmental) and 15 (Pregnancy) is incomplete as most psychiatric and maternity unit returns are not captured in SMR01. British National Formulary (BNF) drug codes were extracted from the last year of encashed prescriptions, excluding those encashed less than 25 days before testing positive for SARS-CoV-2.  The BNF groups drugs by 2-digit chapter codes.  For this analysis prescription codes from chapters 14 and above, mostly for dressings and appliances but also including vaccines were grouped as "Other". 
@@ -327,7 +327,7 @@ The crude receiver operator characteristic (ROC) curve is computed by calculatin
 # Tables
 ```{r demog, echo=FALSE, warning=FALSE, message=FALSE}
 options(knitr.kable.NA = '')
-
+if(FALSE) {
 knitr::kable(table.demog.append[, 1:5],
              escape=FALSE, 
              booktabs=TRUE,
@@ -346,6 +346,7 @@ knitr::kable(table.demog.append[, 1:5],
     kableExtra::group_rows("Ethnicity based on Scottish Morbidity Record", 10, 13, bold=FALSE,
                hline_before=TRUE, latex_gap_space="10pt") %>% 
     kable_styling(latex_options="hold_position") 
+}
 
 ```
 

@@ -278,9 +278,6 @@ cc.all <- merge(cc.all, casegroups, by=c("stratum"), all.x=T)
 table(cc.all$CASE, cc.all$casegroup)
 with(cc.all[cc.all$CASE==1, ], table(casegroup, deathwithin28, exclude=NULL))
 
-#cc.all$fatalcase <- as.integer(cc.all$CASE==1 &
-#                               (cc.all$deathwithin28==1 | cc.all$covid_ucod==1))
-
 #cc.all$casegroup <- car::recode(cc.all$casegroup,
 #                                "'A'='Critical care or fatal'; 'B'='Hospitalised, not severe'; 'C'='Test-positive, not hospitalised'; 'D'='Contributing cause on death cert, no test'")
 

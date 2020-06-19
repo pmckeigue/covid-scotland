@@ -541,7 +541,6 @@ knitr::kable(tables.agegr[[3]][-4, ],
 
  
 ```{r agegr.withNRS, echo=FALSE, warning=FALSE, message=FALSE}
-
 table.agegr.withNRS <- readRDS(table.agegr, file="table.agegr.withNRS.rds")
 
 rownames(table.agegr.withNRS) <- replace.names(rownames(table.agegr.withNRS))

@@ -44,7 +44,9 @@ library(icd.data)
 library(gam)
 library(data.table)
 
-registerDoParallel(cores=4)
+## FORK cluster points to a shared memory space
+cl <- makeCluster(10, type="FORK")  
+registerDoParallel(cores=10)
 
 source("helperfunctions.R")
 
@@ -442,7 +444,7 @@ rm(cc.hosp)
 ########## restrict to severe cases and matched controls ###################### 
 
 cat("Restricting to severe cases and matched controls\n")
-cc.severe <- cc.all[cc.all$casegroup=="A", ]
+cc.severe <- subset(cc.all, subset=casegroup=="A")
 
 ############ FIXME: with enough memory, this can be done on cc.all ###
 

@@ -631,19 +631,42 @@ replace.names <- function(varnames) {
     return(names)
 }
 
-traintest.fold <- function(i, cv.data,
+## cannot find train.data 
+cv.predict <- function(nfold, cv.data, lower.formula, upper.formula) {
+    cv.predicted <- NULL
+    ## maybe more memory-efficient not to pass cv.data as arg
+    cv.predicted <-
+        foreach(foldnum=1:nfold,
+                .combine=rbind,
+                .inorder=FALSE) %dopar% traintest.fold(foldnum=foldnum,
+                                                       cv.data=cv.data,
+                                                       lower.formula=lower.formula,
+                                                       upper.formula=upper.formula)
+    return(cv.predicted)
+}
+
+traintest.fold <- function(foldnum, cv.data,
                            lower.formula, upper.formula) { # stepwise clogit on training fold, predict on test fold
-    test.data  <- cv.data[cv.data$test.fold == i, ]
-    train.data <- cv.data[cv.data$test.fold != i, ]
-    start.model <- clogit(formula=upper.formula, data=train.data)
-    cat("train.data dimensions", dim(train.data), "\n")
+    test <- cv.data$test.fold == foldnum
+    train.data <- subset(cv.data, subset=!test)
+    ## use do.call to refer to the dataset in the calling environment
+    ## otherwise step cannot find train.data
+    start.model <- do.call(clogit, args=list(formula=upper.formula, data=train.data))
     stepwise.model <- step(start.model,
                            scope=list(lower=lower.formula, upper=upper.formula),
                            direction="both", trace=-1, method="approximate")
-    ## normalize within each stratum
+    
+    test.data  <- subset(cv.data, subset=test)
+    x <- t(with(test.data, table(CASE, stratum)))
+    numcontrols.stratum <- x[, 1]
+    numcases.stratum <- x[, 2]
+    a <- table(numcases.stratum, exclude=NULL)
+    b <- table(numcontrols.stratum, exclude=NULL)
+    if(length(a) > 1) stop("not all strata contain single case")
     unnorm.p <- predict(object=stepwise.model, newdata=test.data,
                         na.action="na.pass", 
                         type="risk", reference="sample")
+    ## normalize within each stratum
     norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
                                             stratum=test.data$stratum,
                                             y=test.data$CASE)

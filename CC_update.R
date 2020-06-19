@@ -21,7 +21,7 @@ library(phsmethods)
 library(stringr)
 library(Hmisc)
 library(dplyr)
- #install.packages("Hmisc")
+#install.packages("Hmisc")
 # remotes::install_github("Health-SocialCare-Scotland/phsmethods")
 
 
@@ -63,7 +63,7 @@ SelectMatchedControls <- function(cases, popextract, first.stratum.number) {
   
   # Select first 10*num.cases from each subgroup (.SD)
   ret.pop.gt.10 <- ret.pop.gt.10[, .SD[1:(10*unique(.SD$num.cases))], by=mkey][,.(upi, mkey)]
-
+  
   
   ret.pop.gt.10$is.case <- FALSE
   ret.table <- rbind(ret.table, ret.pop.gt.10)
@@ -84,10 +84,8 @@ SelectMatchedControls <- function(cases, popextract, first.stratum.number) {
 #****************************************
 con <- dbConnect(odbc(), dsn = "SMRA",
                  uid = rstudioapi::askForPassword("Database user"),
-                 pwd = rstudioapi::askForPassword("Database password"),
-                 port = "1527",
-                 host = "nssstats01.csa.scot.nhs.uk",
-                 SVC = "SMRA.nss.scot.nhs.uk")
+                 pwd = rstudioapi::askForPassword("Database password"))
+
 
 #****************************************
 #read/process incoming cases
@@ -112,7 +110,7 @@ ECOSS_deduped1 <-ECOSS_deduped %>%
 ECOSS_deduped2 <-ECOSS_deduped1 %>% 
   mutate(DateOB=as.character(DateOB)) %>%
   mutate(DateOB=str_replace_all(DateOB, "-", "")) %>% 
-    mutate(PATID=as.character(PATID)) %>% 
+  mutate(PATID=as.character(PATID)) %>% 
   arrange(PATID) %>% 
   select(PATID,CHI,Forename,Surname,Sex,DateOB,PostCode)
 
@@ -128,7 +126,7 @@ new_indexer_result <- new_indexer_result %>%
   mutate(UPI=as.character(UPI)) %>% 
   mutate(UPI=phsmethods::chi_pad(UPI)) %>% 
   filter(!is.na(UPI)) %>% 
- rename(PATID=SERIAL_NO) %>% 
+  rename(PATID=SERIAL_NO) %>% 
   mutate(PATID=as.character(PATID))
 
 #seeded file with original payload
@@ -138,7 +136,7 @@ SEEDED<-SEEDED %>%
   select(UPI,LabSpecimenNo, SpecimenDate) %>% 
   rename(UPI_NUMBER=UPI) %>% 
   mutate(LabSpecimenNo=gsub(",","",LabSpecimenNo))  # commas in serial numbers!
-  
+
 #join the 2 incoming files
 cases<-rbind(SEEDED,Additional_20200608)
 # 12-06-20 teams conversation btween SK and MR
@@ -149,13 +147,13 @@ casesdups<-cases %>%
   mutate(ecoss=if_else(lab_len<5,"NRS","ECOSS"))%>% #split file into origin of records
   group_by(UPI_NUMBER) %>% 
   mutate(n=n()) %>% 
-ungroup() %>% 
-filter(n=="2")#get dups
+  ungroup() %>% 
+  filter(n=="2")#get dups
 
 casesdups1<-casesdups %>% #duplicats internal to eccoss only
   group_by(UPI_NUMBER) %>% 
-filter(ecoss=="ECOSS") %>% 
-    mutate(min_date=min(SpecimenDate)) %>% 
+  filter(ecoss=="ECOSS") %>% 
+  mutate(min_date=min(SpecimenDate)) %>% 
   filter(min_date==SpecimenDate) %>% 
   ungroup() %>% 
   select(UPI_NUMBER,LabSpecimenNo,SpecimenDate)
@@ -179,7 +177,7 @@ dedupedcases<-rbind(cases_reduce,dups_sorted)#add corrected records from dups.
 dedupedcases<-dedupedcases %>% 
   distinct()
 cases<-dedupedcases 
-  
+
 #fwrite(cases,"/conf/linkage/output/HPS/Covid19/casecontrolupi_seeded.csv")
 
 cases <- cases %>% rename(SPECIMENDATE = SpecimenDate)  
@@ -225,7 +223,7 @@ cases_ex<-cases_ex2
 #remove records with no GP practices
 
 cases_ex <- cases_ex %>% 
-    filter(!is.na(GP_PRAC_NO))#21 cases lost here due to no gp registration and therefore complete mkey isn't possible.
+  filter(!is.na(GP_PRAC_NO))#21 cases lost here due to no gp registration and therefore complete mkey isn't possible.
 
 #Year age bandings - increased from last time not necessary was experimenting with need for age bandingin upper group sonly but not required this could be removed(12-06-20)
 age_breaks <- c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,
@@ -301,7 +299,7 @@ upip_ex <- (dbGetQuery(con, statement ="SELECT DISTINCT L_UPI_DATA.UPI_NUMBER,
                        L_UPI_DATA.TRANSFER_IN_CODE,
                        L_UPI_DATA.CURRENT_POSTCODE,
                        L_UPI_DATA.GP_PRAC_NO,
-                        L_UPI_DATA.INSTITUTION_CODE,
+                       L_UPI_DATA.INSTITUTION_CODE,
                        L_UPI_DATA.EXTENDED_STATUS
                        FROM MARTIR03.GP GP LEFT OUTER JOIN UPIP.L_UPI_DATA L_UPI_DATA
                        ON (GP.GP_PRAC_NO = L_UPI_DATA.GP_PRAC_NO)
@@ -312,14 +310,14 @@ EFFDATE=as_date(17956)
 #05-06-20 only scottish residents added date transfer in / out and codes to allow filter in of those moving out of scotland or unknown.
 upip_ex1<-upip_ex %>% 
   filter(EXTENDED_STATUS=="C"|is.na(EXTENDED_STATUS)|EXTENDED_STATUS=="d"|EXTENDED_STATUS=="D")
-  #9827166records
-  
-  
-  #remove people who are known to be outside scotland but don't remove deaths.
-  #filter ((DATE_TRANSFER_IN <= EFFDATE|is.na(DATE_TRANSFER_IN)) & (EFFDATE <=DATE_TRANSFER_OUT|is.na(DATE_TRANSFER_OUT)))
-  
-  
-  #work out age in years for matching
+#9827166records
+
+
+#remove people who are known to be outside scotland but don't remove deaths.
+#filter ((DATE_TRANSFER_IN <= EFFDATE|is.na(DATE_TRANSFER_IN)) & (EFFDATE <=DATE_TRANSFER_OUT|is.na(DATE_TRANSFER_OUT)))
+
+
+#work out age in years for matching
 #maybe want to fix today to a specific date?
 upip_ex1 <- upip_ex1 %>% 
   mutate(age = interval(start = DATE_OF_BIRTH, end = "2020-04-01"),
@@ -344,13 +342,13 @@ upip_ex1 <- upip_ex1 %>%
 NRS_Deaths <- readRDS("/conf/linkage/output/HPS/Covid19/deaths/NRS_Deaths.rds")
 NRS_Deaths <-NRS_Deaths %>% 
   select(CHI,Date.Death)
-upip_ex_b<-left_join(upip_ex1,NRS_Deaths,by=c("UPI_NUMBER.x"="CHI"))
+upip_ex_b<-left_join(upip_ex1,NRS_Deaths,by=c("UPI_NUMBER"="CHI"))
 upip_ex_b<-upip_ex_b %>% 
   mutate(DATE_OF_DEATH=as.Date(DATE_OF_DEATH)) %>% 
   mutate(DATE_OF_DEATH=fifelse(is.na(DATE_OF_DEATH),Date.Death,DATE_OF_DEATH)) %>% 
- filter((DATE_OF_DEATH>EFFDATE)|is.na(DATE_OF_DEATH)) 
-   
-  #filter(((DATE_TRANSFER_IN<=EFFDATE) |is.na(DATE_TRANSFER_IN)) & ((EFFDATE <=DATE_TRANSFER_OUT& TRANSFER_OUT_CODE=="") |is.na(DATE_TRANSFER_OUT)))
+  filter((DATE_OF_DEATH>EFFDATE)|is.na(DATE_OF_DEATH)) 
+
+#filter(((DATE_TRANSFER_IN<=EFFDATE) |is.na(DATE_TRANSFER_IN)) & ((EFFDATE <=DATE_TRANSFER_OUT& TRANSFER_OUT_CODE=="") |is.na(DATE_TRANSFER_OUT)))
 
 #filter extract to include only those that match the key: removed 4,825,082 ROWS
 #no point searching the entire thing for controls
@@ -363,13 +361,15 @@ upip_ex_b <- upip_ex_b %>% filter(mkey %in% cases_ex1$mkey)
 upip_ex_b <- upip_ex_b %>% distinct()
 
 upip_ex_d <- upip_ex_b %>% 
-  dplyr::rename(upi=UPI_NUMBER.x) %>% 
-select(upi,mkey,DATE_OF_DEATH) 
+  dplyr::rename(upi=UPI_NUMBER) %>% 
+  select(upi,mkey,DATE_OF_DEATH)
+
 
 cases_ex1<-cases_ex %>% 
-    dplyr::rename(upi=UPI_NUMBER) %>%
+  dplyr::rename(upi=UPI_NUMBER) %>%
   select(mkey,upi,SPECIMENDATE) %>% 
-  filter(!is.na(SPECIMENDATE))  
+  filter(!is.na(SPECIMENDATE))   
+
 #check duplicates
 # cases_ex1_check<-cases_ex1 %>% 
 #   group_by(upi) %>% 
@@ -377,34 +377,45 @@ cases_ex1<-cases_ex %>%
 #   filter(n>"1")
 
 
-
-#loop over all specimen dates checking mkey matches 
+## vector of IDs of all those already cases
 cc.table<-NULL#assign a nul object to work with
 
+startnum=1
 
-startnum=10
-
-for( i in unique(cases_ex1$SPECIMENDATE)) {#take unique incoming specimen dates
+for( i in as.list(unique(cases_ex1$SPECIMENDATE))) {
   
-  exclude<-upip_ex_d %>% filter((is.na(DATE_OF_DEATH)|DATE_OF_DEATH>=i)& (upi %in% cases_ex1$upi)) 
-  exclude<-exclude %>% select(upi)  
-   print(nrow(exclude)) 
   s.cases <- cases_ex1%>% filter(SPECIMENDATE == i) %>% select(mkey,upi)
-  print(nrow(s.cases))
-  s.popextract <- upip_ex_d %>% filter((mkey == s.cases$mkey) &(upi != exclude$upi))#filter extract to include key for current case
+  #ids.cases.already <- cases_ex1$upi[cases_ex1$SPECIMEN_DATE <= i]
+  ids.cases.already <- subset(cases_ex1, subset = cases_ex1$SPECIMENDATE <= i)[["upi"]]
+  ## logical vector of alive/dead status, length N
+  is.alive <- with(upip_ex_d, is.na(DATE_OF_DEATH)|DATE_OF_DEATH>=i)
+  ## logical vector of not yet case status, length N
+  is.notyetcase <- with(upip_ex_d, !(upi %in% ids.cases.already))
+  ## logical vector of whether mkey is matched in s.cases, length N
+  is.mkeyincases <- with(upip_ex_d, mkey %in% unique(s.cases$mkey))
   
-  #cat("Selecting matched controls starting at stratum number", startnum, "\n")#debug line not needed
+  ## subset the individuals to be retained for selection of controls
+  
+  s.popextract <- subset(upip_ex_d, subset=is.alive & is.notyetcase & is.mkeyincases)
+  print(table(s.popextract$upi %in% ids.cases.already))
+  print(table(s.popextract$upi %in% s.cases$upi))
+  #print(table(s.cases$upi %in% ids.cases.already))
   s.cc <- SelectMatchedControls(cases=s.cases, popextract=s.popextract, first.stratum.number=startnum)#call function wich selects 10 controls and assigns stratum by specimen date
   
   cc.table<-rbind(cc.table, s.cc)#write result to table
   
-  
   startnum=1 + max(cc.table$stratum)#go round loop until max specimen date reached
+  
+  print(i)  
+  #print(table(is.alive))
+  # print(table(is.notyetcase))
+  #print(table(is.mkeyincases))
   #startnum=1 + cc.table[, .N]
 }
 
-#debug reporting
-#x<-table(cc.table$stratum,cc.table$is.case)
+
+
+
 
 cc.table_j<-cc.table %>%
   select(-mkey) %>%
@@ -422,7 +433,7 @@ cc.table_e<-left_join(cc.table_j,cases_ex1,by="upi")#add original incomg variabl
 #input - remove columns and rename
 output <- cc.table_e %>% 
   dplyr::select(upi, is.case, stratum,SPECIMENDATE, SEX,AgeYear, CURRENT_POSTCODE,GP_PRAC_NO, INSTITUTION_CODE,DATE_OF_DEATH) 
- 
+
 
 #######get prisoner records identified and extracted from CHI database
 PRISONS<-fread("/chi/(1) Project Folders/Case Control/Prisons.csv")
@@ -560,4 +571,4 @@ final_check2<-final %>%
   filter(is.case=="FALSE")
 
 CHECK_FINAL<-left_join(final_check2,final_check,by="upi")
-fwrite(final,"/conf/linkage/output/y2k_cat_check/conf/case_and_controls_June_2.csv")
+fwrite(final,"/conf/linkage/output/y2k_cat_check/conf/case_and_controls_June_4.csv")

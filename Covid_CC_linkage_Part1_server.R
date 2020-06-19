@@ -16,7 +16,7 @@ chili_path <- "/conf/linkage/output/y2k_cat_check/conf"
 stats_path <- "//conf/linkage/output/HPS/Covid19/case_control"
 lookups_path <- "//conf/linkage/output/lookups/Unicode"
 
-filedate <- "2020-06-08" # date input files used for matching
+filedate <- "2020-06-08" # date input files used for matching 
 
 # ### returns from case control matching -----------------------------------
 
@@ -32,11 +32,11 @@ length(unique(cc$upi))
 with(subset(cc, is.case==TRUE), length(unique(upi)))
 with(subset(cc, is.case==FALSE), length(unique(upi)))
 
-## remove duplicate controls within same stratum and controls that are also a case and have matched to the same stratum
+# remove duplicate controls within same stratum and controls that are also a case and have matched to the same stratum
 
-cc <- cc %>%
+cc <- cc %>% 
   arrange(stratum, -is.case, upi) %>%
-  group_by(stratum, upi) %>%
+  group_by(stratum, upi) %>% 
   summarise(is.case=first(is.case),
             SPECIMENDATE=first(SPECIMENDATE),
             SEX=first(SEX),
@@ -46,7 +46,7 @@ cc <- cc %>%
             INSTITUTION_CODE=first(INSTITUTION_CODE),
             Prisoner_Flag=first(Prisoner_Flag)) %>%
   ungroup %>%
-  arrange(stratum, -is.case, upi)
+  arrange(stratum, -is.case, upi) 
 
 nrow(cc)
 table(cc$is.case)
@@ -65,11 +65,11 @@ cc <- subset(cc, num_upi >1)
 # assign control specimen date based on stratum case specimen date
 
 cc$SPECIMENDATE[cc$is.case==FALSE] <- NA
-cc <- cc %>%
-  arrange(stratum, -is.case, upi) %>%
-  group_by(stratum) %>%
+cc <- cc %>% 
+  arrange(stratum, -is.case, upi) %>% 
+  group_by(stratum) %>% 
   tidyr::fill(SPECIMENDATE, .direction = "down") %>%
-  ungroup %>%
+  ungroup %>% 
   arrange(stratum, -is.case, upi)
 
 # baseline case control file
@@ -85,14 +85,18 @@ table(is.na(cc$upi) | cc$upi=="")
 table(is.na(cc$SPECIMENDATE))
 
 # add IDs
+
 cc$ANON_ID <- seq(from = 1, to = nrow(cc), by=1)
 cc <- cc %>% mutate(PATID = match(upi, unique(upi)))
 
+
 # save base file
+
 cc <- cc[c("ANON_ID", "PATID", "stratum", "upi", "is.case", "SPECIMENDATE", "SEX", "AgeYear", "CURRENT_POSTCODE",
            "GP_PRAC_NO", "INSTITUTION_CODE", "Prisoner_Flag")]
 
 saveRDS(cc, paste0(stats_path, "/CC_base_file_", filedate, ".rds"))
+
 
 # ### connect to SMRA -----------------------------------------------------
 
@@ -100,6 +104,7 @@ SMRAconnection <- suppressWarnings(dbConnect(odbc(),
                                              dsn="SMRA",
                                              uid=.rs.askForPassword("Enter Username:"),
                                              pwd=.rs.askForPassword("Enter Password:") ))
+
 
 # ### NRS deaths ----------------------------------------------------------
 # weekly deaths added to monthly deaths before matching
@@ -109,7 +114,7 @@ SMRAconnection <- suppressWarnings(dbConnect(odbc(),
 
 NRS.wk <- tbl_df(dbGetQuery(SMRAconnection, statement=
                               'SELECT
-                            T1.CHI AS NRS_CHI, T1.DERIVED_CHI, T1.DATE_OF_DEATH, T1.DATE_OF_REGISTRATION,
+                            T1.CHI AS NRS_CHI, T1.DERIVED_CHI, T1.DATE_OF_DEATH, T1.DATE_OF_REGISTRATION, 
                             T1.UNDERLYING_CAUSE_OF_DEATH, T1.CAUSE_OF_DEATH_CODE_0, T1.CAUSE_OF_DEATH_CODE_1,
                             T1.CAUSE_OF_DEATH_CODE_2, T1.CAUSE_OF_DEATH_CODE_3, T1.CAUSE_OF_DEATH_CODE_4, T1.CAUSE_OF_DEATH_CODE_5,
                             T1.CAUSE_OF_DEATH_CODE_6, T1.CAUSE_OF_DEATH_CODE_7, T1.CAUSE_OF_DEATH_CODE_8, T1.CAUSE_OF_DEATH_CODE_9
@@ -139,17 +144,18 @@ NRS.wk <- melt(NRS.wk,
                na.rm = FALSE )
 
 NRS.wk <- subset(NRS.wk, !is.na(CHI) & CHI !="")
-NRS.wk <- NRS.wk %>% filter(!is.na(CHI) & CHI !="") %>% group_by(CHI, DATE_OF_REGISTRATION, DATE_OF_DEATH,
-                                                                 UNDERLYING_CAUSE_OF_DEATH, CAUSE_OF_DEATH_CODE_0,
-                                                                 CAUSE_OF_DEATH_CODE_1, CAUSE_OF_DEATH_CODE_2,
+NRS.wk <- NRS.wk %>% filter(!is.na(CHI) & CHI !="") %>% group_by(CHI, DATE_OF_REGISTRATION, DATE_OF_DEATH, 
+                                                                 UNDERLYING_CAUSE_OF_DEATH, CAUSE_OF_DEATH_CODE_0, 
+                                                                 CAUSE_OF_DEATH_CODE_1, CAUSE_OF_DEATH_CODE_2, 
                                                                  CAUSE_OF_DEATH_CODE_3, CAUSE_OF_DEATH_CODE_4,
-                                                                 CAUSE_OF_DEATH_CODE_5, CAUSE_OF_DEATH_CODE_6,
-                                                                 CAUSE_OF_DEATH_CODE_7, CAUSE_OF_DEATH_CODE_8,
+                                                                 CAUSE_OF_DEATH_CODE_5, CAUSE_OF_DEATH_CODE_6, 
+                                                                 CAUSE_OF_DEATH_CODE_7, CAUSE_OF_DEATH_CODE_8, 
                                                                  CAUSE_OF_DEATH_CODE_9) %>% summarise() %>% ungroup
 
-length(unique(NRS.wk$CHI))
+length(unique(NRS.wk$CHI)) 
 nrow(NRS.wk)
 # will be same unless people have >1 death record
+
 
 ## previous coded deaths
 
@@ -179,16 +185,16 @@ summary(NRS$DATE_OF_REGISTRATION)
 names(NRS)
 NRS <- rename(NRS, CHI=UPI_NUMBER)
 
-length(unique(NRS$CHI))
+length(unique(NRS$CHI)) 
 nrow(NRS)
 # will be same unless people have >1 death record
 
-## combine and merge to cc
+## combine and merge to cc 
 # NRS.all <- NRS
 NRS.all <- rbind(NRS.wk, NRS)
-NRS.all <- NRS.all %>%
+NRS.all <- NRS.all %>% 
   arrange(CHI, DATE_OF_DEATH) %>%
-  group_by(CHI) %>%
+  group_by(CHI) %>% 
   summarise(
     DATE_OF_DEATH = first(DATE_OF_DEATH),
     DATE_OF_REGISTRATION = first(DATE_OF_REGISTRATION),
@@ -202,7 +208,7 @@ NRS.all <- NRS.all %>%
     CAUSE_OF_DEATH_CODE_6 = first(CAUSE_OF_DEATH_CODE_6),
     CAUSE_OF_DEATH_CODE_7 = first(CAUSE_OF_DEATH_CODE_7),
     CAUSE_OF_DEATH_CODE_8 = first(CAUSE_OF_DEATH_CODE_8),
-    CAUSE_OF_DEATH_CODE_9 = first(CAUSE_OF_DEATH_CODE_9)) %>%
+    CAUSE_OF_DEATH_CODE_9 = first(CAUSE_OF_DEATH_CODE_9)) %>% 
   ungroup
 
 cc <- merge(cc, NRS.all, by.x="upi", by.y="CHI", all.x=T)
@@ -222,8 +228,10 @@ for (i in vars) {
   cc$covid_cod <- ifelse(!is.na(i) & (substr(i, 1, 3) %in% c("U07")), 1, cc$covid_cod)
 }
 
+
 # dead in 28 days
 cc$dead28 <- ifelse(!is.na(cc$DATE_OF_DEATH) & cc$DATE_OF_DEATH >= cc$SPECIMENDATE & as.numeric(cc$DATE_OF_DEATH - cc$SPECIMENDATE) <=28, 1, 0)
+
 
 # check for and remove stratum where case death is before specimen date - likely recording error or bad link
 cc$death.b4.test <- ifelse(cc$DATE_OF_DEATH < cc$SPECIMENDATE, 1, 0)
@@ -234,11 +242,13 @@ cc <- subset(cc, !(stratum %in% c(ck$stratum)))
 
 # check for and remove remaining controls with death before matched case specimen date
 with(subset(cc, death.b4.test==1 & is.case==FALSE), length(upi)) # (n=1002)
-with(subset(cc, death.b4.test==1 & is.case==FALSE), summary(DATE_OF_DEATH))
+with(subset(cc, death.b4.test==1 & is.case==FALSE), summary(DATE_OF_DEATH)) 
 
 cc <- subset(cc, death.b4.test ==0 | is.na(death.b4.test))
 
+
 # updated baseline case control file
+
 nrow(cc)
 table(cc$is.case)
 with(subset(cc, is.case==TRUE), length(unique(upi)))
@@ -252,8 +262,11 @@ table(ck$num_controls)
 
 rm(NRS.wk, NRS, NRS.all, ck, vars)
 
+
 # ### SMR ethnicity -------------------------------------------------------
+
 ### list of CHIs and period for uploading to SMRA
+
 tp <- cc
 
 # lookback period start date - must be numeric format
@@ -280,8 +293,8 @@ SMR01 <- tbl_df(dbGetQuery(SMRAconnection, statement=
                            T1.UPI_NUMBER, T1.ETHNIC_GROUP, T1.DISCHARGE_DATE
                            FROM SHAROK01."TEMP" T0, ANALYSIS.SMR01_PI T1
                            WHERE T0.CHI = T1.UPI_NUMBER (+)
-                           AND to_number(to_char(T1.ADMISSION_DATE,\'YYYYMMDD\')) >= T0.RFSTART
-                           AND to_number(to_char(T1.ADMISSION_DATE,\'YYYYMMDD\')) <= T0.SPECDATE
+                           AND to_number(to_char(T1.ADMISSION_DATE,\'YYYYMMDD\')) >= T0.RFSTART 
+                           AND to_number(to_char(T1.ADMISSION_DATE,\'YYYYMMDD\')) <= T0.SPECDATE  
                            ORDER BY T1.UPI_NUMBER, T1.CIS_MARKER, T1.ADMISSION_DATE, T1.DISCHARGE_DATE, T1.ADMISSION, T1.DISCHARGE, T1.URI'
                            ))
 
@@ -293,12 +306,14 @@ SMR00 <- tbl_df(dbGetQuery(SMRAconnection, statement=
                            WHERE T0.CHI = T1.UPI_NUMBER (+)
                            AND to_number(to_char(T1.CLINIC_DATE,\'YYYYMMDD\')) >= T0.RFSTART
                            AND to_number(to_char(T1.CLINIC_DATE,\'YYYYMMDD\')) <= T0.SPECDATE
-                           ORDER BY T0.CHI, T0.SPECDATE, T1.CLINIC_DATE'
+                           ORDER BY T0.CHI, T0.SPECDATE, T1.CLINIC_DATE'  
                            ))
 
 dbRemoveTable(SMRAconnection, "TEMP")
 
+
 ### format dates
+
 # POSIXct to date
 SMR01$DISCHARGE_DATE <- as.Date(SMR01$DISCHARGE_DATE, "%Y-%m-%d", tz="GMT")
 SMR00$CLINIC_DATE <- as.Date(SMR00$CLINIC_DATE, "%Y-%m-%d", tz="GMT")
@@ -308,14 +323,14 @@ SMR00 <- rename(SMR00, DATE=CLINIC_DATE)
 
 SMR <- rbind(SMR01, SMR00)
 
-# ethnic group - last available
+# ethnic group - last available 
 SMR$ETHNIC_GROUP[SMR$ETHNIC_GROUP %in% c("00", "97", "98", "99")] <- NA
 SMR <- subset(SMR, !is.na(ETHNIC_GROUP))
 SMR <- SMR[order(SMR$CHI, SMR$DATE),]
 
-SMR <- SMR %>%
-  group_by(CHI) %>%
-  summarise(ETHNIC_SMR_LAST=last(ETHNIC_GROUP)) %>%
+SMR <- SMR %>% 
+  group_by(CHI) %>% 
+  summarise(ETHNIC_SMR_LAST=last(ETHNIC_GROUP)) %>% 
   ungroup
 
 # merge to linked file
@@ -346,21 +361,21 @@ dbWriteTable(SMRAconnection, "TEMP", tp, overwrite=T)
 SMR01 <- tbl_df(dbGetQuery(SMRAconnection, statement=
   'SELECT
   T0.CHI, T0.ANON_ID, T0.SPECDATE, T0.RFSTART,
-  T1.UPI_NUMBER, T1.ADMISSION_DATE, T1.DISCHARGE_DATE,
-  T1.MAIN_CONDITION, T1.OTHER_CONDITION_1, T1.OTHER_CONDITION_2, T1.OTHER_CONDITION_3, T1.OTHER_CONDITION_4,
+  T1.UPI_NUMBER, T1.ADMISSION_DATE, T1.DISCHARGE_DATE, 
+  T1.MAIN_CONDITION, T1.OTHER_CONDITION_1, T1.OTHER_CONDITION_2, T1.OTHER_CONDITION_3, T1.OTHER_CONDITION_4, 
   T1.OTHER_CONDITION_5, T1.MAIN_OPERATION
   FROM SHAROK01."TEMP" T0, ANALYSIS.SMR01_PI T1
   WHERE T0.CHI = T1.UPI_NUMBER (+)
   AND to_number(to_char(T1.DISCHARGE_DATE,\'YYYYMMDD\')) >= T0.RFSTART
   AND to_number(to_char(T1.DISCHARGE_DATE,\'YYYYMMDD\')) < T0.SPECDATE
-  ORDER BY T1.UPI_NUMBER, T1.CIS_MARKER, T1.ADMISSION_DATE, T1.DISCHARGE_DATE, T1.ADMISSION, T1.DISCHARGE, T1.URI'
+  ORDER BY T1.UPI_NUMBER, T1.CIS_MARKER, T1.ADMISSION_DATE, T1.DISCHARGE_DATE, T1.ADMISSION, T1.DISCHARGE, T1.URI' 
   ))
 
 # format dates
 SMR01$SPECDATE <- as.Date(as.character(SMR01$SPECDATE), "%Y%m%d")
 SMR01$DISCHARGE_DATE <- as.Date(SMR01$DISCHARGE_DATE, "%Y-%m-%d", tz="GMT")
 
-# lookback period
+# lookback period 
 SMR01$pre25 <- ifelse(SMR01$DISCHARGE_DATE < SMR01$SPECDATE - days(25), 1, 0)
 
 ### diagnoses
@@ -390,7 +405,7 @@ saveRDS(tp, paste0(stats_path, "/CC_SMR01_ICD10_25_", filedate, ".rds"))
 rm(tp)
 
 
-### surgeries
+### surgeries 
 
 # main op only - keep pairing
 tp <- subset(SMR01, pre25==1)
@@ -428,13 +443,19 @@ dbRemoveTable(SMRAconnection, "TEMP")
 SMR06$SPECDATE <- as.Date(as.character(SMR06$SPECDATE), "%Y%m%d")
 SMR06$INCIDENCE_DATE <- as.Date(SMR06$INCIDENCE_DATE, "%Y-%m-%d", tz="GMT")
 
+# long format file
+
+tp <- SMR06[c("ANON_ID", "INCIDENCE_DATE", "ICD10S_CANCER_SITE")]
+saveRDS(tp, paste0(stats_path, "/CC_SMR06_ICD10_", filedate, ".rds"))
+
+
 # any diag
 SMR06 <- SMR06 %>% group_by(ANON_ID) %>% summarise(can.reg=1) %>% ungroup
 
 cc <- merge(cc, SMR06, by="ANON_ID", all.x=T)
 cc$can.reg[is.na(cc$can.reg)] <- 0
 
-rm(SMR06)
+rm(SMR06, tp)
 
 # ### care home/nursing home  ---------------------------------------------------
 
@@ -469,8 +490,9 @@ table (is.na(cc$hb2019name))
 rm(pc)
 
 
-# ### save working file ---------------------------------------------------
+# ### save temp working file ---------------------------------------------------
 
 saveRDS(cc, paste0(stats_path, "/CC_working_", filedate, ".rds"))
 # cc <- readRDS(paste0(stats_path, "/CC_working_", filedate, ".rds"))
+
 

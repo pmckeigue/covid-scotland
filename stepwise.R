@@ -19,14 +19,28 @@ full.formula <- as.formula(paste0("CASE ~ ",
                             " + strata(stratum)"))
 
 ## fit models
+
+## FIXME - for now, drop strata containing 2 or more cases
+## should fix calculation of test log-likelihood to handle these strata
+## also fix calculation of C-statistic conditional on marginal freqs
+severe.numcases.strata <- tapply(cc.severe$CASE, cc.severe$stratum, sum)
+strata.onecase <-
+    as.integer(names(severe.numcases.strata)[as.integer(severe.numcases.strata) == 1])
+keep <- cc.severe$stratum %in% strata.onecase
 nonmissing <- nonmissing.obs(cc.severe, full.varnames)
-cc.nonmissing <- subset(cc.severe, subset=nonmissing)
+cc.nonmissing <- subset(cc.severe, subset=nonmissing & keep)
 
 demog.model <- clogit(formula=demog.formula, data=cc.nonmissing)
 listed.model <- clogit(formula=listed.formula, data=cc.nonmissing)
 full.model <- clogit(formula=full.formula, data=cc.nonmissing)
 
-if(stepwise) { # stepwise for full variable set
+if(stepwise) {
+
+    ## FORK cluster points to a shared memory space
+    cl <- makeCluster(8, type="FORK")  
+    registerDoParallel(cl, cores=8)
+
+    ## stepwise for full variable set
     stepwise.full <- step(full.model,
                           scope=list(lower=lower.formula, upper=full.formula),
                           direction="both", method="approximate", trace=-1)
@@ -84,6 +98,11 @@ if(stepwise) { # stepwise for full variable set
 
     }
 
+    
+    parallel::stopCluster(cl)
+    showConnections(all = TRUE)
+    closeAllConnections()
+
 } else {
     if(old) {
         load("./data/stepwise_15May.RData")
@@ -91,4 +110,3 @@ if(stepwise) { # stepwise for full variable set
          load("./data/stepwise.RData")
     }
 }
-

@@ -103,7 +103,10 @@ cc.severe$immune.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.immune.a
 ids.icd.neoplasm <- unique(diagnoses$ANON_ID[grep("^C[0-9]|^D[0-4]", diagnoses$ICD10)])
 ids.bnf.neoplasm <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 801])
 ids.neoplasm.any <- unique(c(ids.icd.neoplasm, ids.bnf.neoplasm))
-cc.severe$neoplasm.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.neoplasm.any))
+
+cc.severe <- mutate(cc.severe,
+                    neoplasm.any = as.factor(as.integer(ANON_ID %in% ids.neoplasm.any |
+                                             can.reg==1)))
 
 ###### disorders of esophagus, stomach and duodenum ############################
 

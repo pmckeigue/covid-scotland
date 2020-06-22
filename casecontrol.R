@@ -1,5 +1,11 @@
 ## analysis script for case-control study
+if(exists("cl")) {
+    parallel::stopCluster(cl)
+    showConnections(all = TRUE)
+    closeAllConnections()
+}
 rm(list=ls())
+gc()
 
 ## required system packages: libcurl4-openssl-dev, pandoc, pandoc-citeproc
 ##   libssl-dev libxml2-dev
@@ -17,7 +23,7 @@ list.of.packages = c("car",
                      "pander", 
                      "ggplot2", 
                      "doParallel", 
-                     "reshape2", 
+                     "reshape2",  # deprecated
                      "readxl", 
                      "DescTools", 
                      "icd.data", 
@@ -44,17 +50,14 @@ library(icd.data)
 library(gam)
 library(data.table)
 
-## FORK cluster points to a shared memory space
-cl <- makeCluster(10, type="FORK")  
-registerDoParallel(cores=10)
 
 source("helperfunctions.R")
 
 old <- TRUE
-#old <- FALSE # uncomment to use 8 June linkage
+old <- FALSE # uncomment to use 8 June linkage
 
 include.nrs.only <- TRUE
-include.nrs.only <- FALSE # uncomment to exclude NRS-only deaths
+#include.nrs.only <- FALSE # uncomment to exclude NRS-only deaths
 
 stepwise <- TRUE   
 stepwise <- FALSE ## uncomment to save time if old version still valid
@@ -66,15 +69,17 @@ if(old) {
     scrips.filename <- "./data/CC_PIS_x15_ANON_20200515.rds" 
     controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-15.rds")
 } else {
-    cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_2020-06-08.rds"))
-    diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_2020-06-08.rds")
-    procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_2020-06-08.rds")
-    scrips.filename <- "./data/CC_PIS_x15_ANON_2020-06-08.rds" 
+    cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_2020-06-18.rds"), key="ANON_ID")
+    diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_2020-06-18.rds")
+    procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_2020-06-18.rds")
+    scrips.filename <- "./data/CC_PIS_x15_ANON_2020-06-18.rds"
+    onomap <- as.data.table(readRDS("./data/ONOMAP_ANON_2020-06-18.rds"), key="ANON_ID")
+    rapid <- readRDS("./data/CC_RAPID_ANON_2020-06-18.rds")
 }
 
 scrips <- as.data.table(readRDS(scrips.filename)[, c("ANON_ID", "bnf_paragraph_code",
-                                       "bnf_paragraph_description")]) 
-   
+                                                     "bnf_paragraph_description")])
+
 ################### short names for ICD chapters ########################
 
 icdchapters <- data.frame(names(icd10_chapters),
@@ -102,7 +107,7 @@ icdsubchapters$end <- as.character(icdsubchapters$end)
 names(cc.all) <- gsub("CASE_NO", "stratum", names(cc.all))
 names(cc.all) <- gsub("^SEX$", "sex", names(cc.all))
 names(cc.all) <- gsub("imumune", "immune", names(cc.all))
-names(cc.all) <- gsub("^ethnic$", "ethnic.old", names(cc.all))
+#names(cc.all) <- gsub("^ethnic$", "ethnic.old", names(cc.all))
 names(cc.all) <- gsub("^CAREHOME$", "care.home", names(cc.all))
 names(cc.all) <- gsub("^simd$", "SIMD.quintile", names(cc.all))
 names(cc.all) <- gsub("DATE_OF_DEATH", "Date.Death", names(cc.all))
@@ -112,12 +117,14 @@ names(cc.all) <- gsub("^AgeYear$", "AGE", names(cc.all))
 if(!old) {
     cc.all$CASE <- as.integer(cc.all$is.case)
 }
+cc.all$stratum <- as.integer(cc.all$stratum)
+
+cc.all <- mutate(cc.all, dispensing.days = as.integer(SPECDATE - as.Date("2019-06-01")))
 
 ## HAI is based on the ECDC definition of nosocomial infection
 
 paste.colpercent(with(cc.all, table(ANON_ID %in% scrips$ANON_ID, CASE)))
 paste.colpercent(with(cc.all, table(ANON_ID %in% diagnoses$ANON_ID, CASE)))
-
 
 cc.all$scrip.any <- as.factor(as.integer(cc.all$ANON_ID %in% scrips$ANON_ID))
 cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
@@ -127,13 +134,11 @@ ids.nodiag.agegt75 <- subset(cc.all, CASE==0 & diag.any==0 & AGE > 75)[["ANON_ID
 
 save(ids.noscrip.agegt75, ids.nodiag.agegt75, file="anon_ids_notmatched.RData")
 
-
 if(old) {
     ## tabulate controls not observable
     controls.status <- controls.status[, c("ANON_ID", "CHI.EXTENDED.STATUS",
                                            "CHI.DATE.OF.DEATH",
                                            "CHI.Explanation")]
-    
     cc.all <- merge(cc.all, controls.status, by="ANON_ID", all.x=TRUE)
     table.exclusions.scrip <- with(cc.all, table(CHI.Explanation, scrip.any))
     table.exclusions.diag <- with(cc.all, table(CHI.Explanation, diag.any))
@@ -143,21 +148,20 @@ if(old) {
                                  CHI.Explanation=="Current with history")
 }
 
-
 ## exclude controls already dead on date of test of case they were matched to
 controls.deceased <- with(cc.all, CASE==0 &
                                   !is.na(Date.Death) &
                                   Date.Death <= SPECDATE)
-cc.all <- cc.all[!controls.deceased, ]                         
+cc.all <- subset(cc.all, !controls.deceased)                         
 
-cc.all$stratum <- as.integer(cc.all$stratum)
-## check that each stratum contains a single case
-cat("checking that each stratum contains a single case ...")
-table.strata <- tapply(cc.all$CASE, cc.all$stratum, sum) == 1
-strata.onecase <- as.integer(names(table.strata)[as.integer(table.strata)==1])
-keep <- cc.all$stratum %in% strata.onecase
-#cc.all <- cc.all[keep, ]
-#cat("done:", length(which(!keep)), "observations dropped\n")
+## rows have been replicated within strata containing N cases so that each case and control appears N^2 times
+## remove these replicated rows
+cc.all <- distinct(.data=cc.all, ANON_ID, stratum, .keep_all = TRUE)
+setkey(cc.all, ANON_ID)
+
+numcases.strata <- tapply(cc.all$CASE, cc.all$stratum, sum) 
+numctrls.strata <- tapply(1 - cc.all$CASE, cc.all$stratum, sum)
+print(table(numctrls.strata, numcases.strata))
 
 cc.all$SIMD.quintile <- car::recode(cc.all$SIMD.quintile, "'Unknown'=NA")
 
@@ -165,151 +169,146 @@ cc.all$scripordiag <- as.integer(with(cc.all, as.integer(diag.any)==2 |
                                               as.integer(scrip.any)==2))
 
 cc.all$sex <- car::recode(as.factor(cc.all$sex), "1='Male'; 2='Female'")
-cc.all <- within(cc.all, sex <- relevel(sex, ref="Female"))
+cc.all[, sex := relevel(sex, ref="Female")]
 
 cc.all$agegr20 <- as.factor(car::recode(as.integer(cc.all$AGE),
                               "0:39='0-39'; 40:59='40-59';
                                   60:74='60-74'; 75:hi='75 or more'"))
-
 cc.all$agegr3 <-
     as.factor(car::recode(cc.all$AGE,
                           "0:59='0-60 years'; 60:74='60-74 years'; 75:hi='75+ years'"))
 
 cc.all$care.home[cc.all$NURSINGHOME==1] <- 1
 cc.all$care.home <- as.factor(car::recode(cc.all$care.home, "0='Independent'; 1='Care/nursing home'"))
-cc.all <- within(cc.all, care.home <- relevel(care.home, ref="Independent"))
+cc.all[, care.home := relevel(care.home, ref="Independent")]
+
+if(old) {
+    cc.all <- mutate(cc.all, testpositive.case = CASE==1 & nrs_covid_case==0)
+} else {
+    cc.all$ECOSS_POSITIVE[is.na(cc.all$ECOSS_POSITIVE)] <- "No test"
+    cc.all$ECOSS_POSITIVE[cc.all$ECOSS_POSITIVE==""] <- "No result"
+    ## 91 individuals are included as cases but they do not have covid on death cert and their test result is negative or empty string (labelled "No result")
+    ## probably have a later test result that was positive
+    ## assigned for now as test-positive cases
+    cc.all$testpositive.case <- cc.all$CASE==1 &
+        (cc.all$ECOSS_POSITIVE=="Positive" |
+         cc.all$ECOSS_POSITIVE=="Negative" | 
+         cc.all$ECOSS_POSITIVE=="No result")  
+}
+
+with(subset(cc.all, CASE==1), table(ECOSS_POSITIVE, covid_cod))
 
 ## all cases have nonmissing SPECDATE
-## controls are recoded to have same SPECDATE as the case they were matched to
-cc.all$deathwithin28 <- 0
-cc.all$deathwithin28[with(cc.all,
-                          CASE==1 &
-                          !is.na(Date.Death) & 
-                          Date.Death - SPECDATE >= 0 &
-                          Date.Death - SPECDATE <= 28)] <- 1
+## controls should be assigned same SPECDATE as the case they were matched to
+## but deathwithin28 should be 0 for those who did not test positive
+cc.all <- mutate(cc.all, deathwithin28 = testpositive.case &
+                             !is.na(Date.Death) & 
+                             Date.Death - SPECDATE >= 0 & Date.Death - SPECDATE <= 28)
 
-with(subset(cc.all, CASE==1), table(dead28, deathwithin28)) ## agrees with Sharon's variable
+## Sharon's variable dead28 is assigned by this line
+## Covid_CC_linkage_Part2_desktop.R:
+## cc$dead28 <- ifelse(!is.na(cc$DATE_OF_DEATH) & cc$DATE_OF_DEATH >= cc$SPECIMENDATE & as.numeric(cc$DATE_OF_DEATH - cc$SPECIMENDATE) <=28, 1, 0)
+## evaluates to 1 for cases without positive test result 
 
-## fatality rates by type of unit
-## 34% in icu, 38% in icu.hdu.ccu,
-## 24% in those in hdu but never in icu or icu.hdu.ccu (a small group)
-cc.all$unitcategory <- numeric(nrow(cc.all))
-cc.all$unitcategory[cc.all$icu==0 & cc.all$hdu==0 & (cc.all$inhosp | cc.all$adm28==1)] <- 0
-cc.all$unitcategory[cc.all$icu==0 & cc.all$hdu==1] <- 1
-cc.all$unitcategory[cc.all$icu==1 & cc.all$hdu==0] <- 2
-cc.all$unitcategory[cc.all$icu==1 & cc.all$hdu==1] <- 3
-cc.all$unitcategory[cc.all$CASE==0] <- NA
-cc.all$unitcategory <- car::recode(cc.all$unitcategory,
-                                   "0='Hospitalized, no HDU or ICU'; 1='HDU only'; 2='ICU only'; 3='HDU and ICU'")
+with(subset(cc.all, CASE==1), table(dead28, deathwithin28, exclude=NULL)) 
 
-print(with(cc.all[cc.all$CASE==1, ], paste.colpercent(table(deathwithin28, unitcategory))))
-
-## check this is correct: all those with icu==1 or icu.hdu.ccu==1 should be coded as severe
-
-## integer values > 1 for icu and inhosp may represent days from test to entry
-## values of 0 must be for those not admitted, as there are no missing values
-with(cc.all[cc.all$CASE==1, ], table(adm28, exclude=NULL))
-with(cc.all[cc.all$CASE==1, ], table(icu, exclude=NULL))
-with(cc.all[cc.all$CASE==1, ], table(hdu, exclude=NULL))
-with(cc.all[cc.all$CASE==1, ], table(icu, hdu, exclude=NULL))
-
+with(subset(cc.all, CASE==1), table(icu, hdu, exclude=NULL)) 
+## only 854 in critical care -- must be wrong
 cc.all$criticalcare <- cc.all$icu==1 | cc.all$hdu==1
 
-## coding of case groups
-cc.all$group <- ""
+## what does a value of 2 represent? 
+## Covid_CC_linkage_Part2_desktop.R:
+## icu$icu <- ifelse(icu$covidICUorHDU ==1, 1, 0)
+## icu$hdu <- ifelse(icu$covidICUorHDU ==3, 1, 0)
+
+## adm28 should be 0 for cases who did not test positive
+cc.all <- mutate(cc.all, adm28 = adm28 & testpositive.case)
+
+with(cc.all[cc.all$CASE==1, ], table(inhosp, adm28, exclude=NULL))
+with(cc.all[cc.all$CASE==1, ], table(ECOSS_POSITIVE, adm28, exclude=NULL))
+## Covid_CC_linkage_Part2_desktop.R:rapid$days <- as.numeric(rapid$Admission.Date - rapid$SPECIMENDATE)
+## Covid_CC_linkage_Part2_desktop.R:rapid$adm28 <- ifelse(rapid$days %in% c(0:28), 1, 0)
+
 
 ## new linkage does not have the variable nrs_covid_case
 with(subset(cc.all, CASE==1 & covid_ucod==1), table(deathwithin28, exclude=NULL))
 ## 3701 cases with covid_cod have deathwithin28==1
 ## all those with covid_ucod==1 have covid_cod==1 
 
-if(!old) {## for now, just assign nrs_covid_case using covid_ucod
-    cc.all$nrs_covid_case <- as.integer(cc.all$CASE==1 & cc.all$covid_ucod==1)
+with(subset(cc.all, CASE==1 & testpositive.case), table(criticalcare, deathwithin28, exclude=NULL))
+with(subset(cc.all, CASE==1), table(criticalcare, testpositive.case, exclude=NULL))
+with(subset(cc.all, CASE==1), table(testpositive.case, deathwithin28, exclude=NULL))
+
+## coding of case groups
+cc.all <- mutate(cc.all, group = "Unclassified")
+
+## define group A (severe cases) 
+if(include.nrs.only) { # group A includes anyone certified with COVID as underlying cause
+    cc.all[CASE==1 & (criticalcare | deathwithin28 | covid_ucod==1),
+           group := "A"]
+} else { # group A includes test-negative cases ascertained through NRS only if they were in critical care
+    cc.all[CASE==1 & (testpositive.case & (criticalcare | deathwithin28==1)) |
+                     (criticalcare & covid_ucod==1), group := "A"]
 }
 
-with(subset(cc.all, CASE==1 & nrs_covid_case==0), table(criticalcare, deathwithin28, exclude=NULL))
-with(subset(cc.all, CASE==1), table(criticalcare, nrs_covid_case, exclude=NULL))
-with(subset(cc.all, CASE==1), table(nrs_covid_case, deathwithin28, exclude=NULL))
-
-## first define severe cases -- includes anyone certified with COVID as underlying cause
-if(include.nrs.only) {
-    cc.all$group[cc.all$CASE==1 & 
-                 (cc.all$criticalcare |
-                  cc.all$deathwithin28==1 |
-                  cc.all$nrs_covid_case==1)] <- "A"
-} else { #
-    if(!old) { #cases ascertained through NRS are included only if in critical care
-        ## this will not work until nrs_covid_case is correctly defined
-        ## to exclude those with positive tests
-        cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==0 & 
-                     (cc.all$criticalcare |
-                      cc.all$deathwithin28==1)] <- "A"
-    } else {
-        ## nrs_covid_case has been set to 1 for matched controls as well as cases
-        ## because NRS-ascertained deaths are assigned CASE==1, they will be included
-        ## if deathwithin28==1
-        ## 2755 is number of severe cases in submitted manuscript
-        cc.all$group[cc.all$CASE==1 & cc.all$nrs_covid_case==0 & 
-                     (cc.all$criticalcare |
-                      cc.all$deathwithin28==1)] <- "A"
-    }
-}
-
-## assign remaining cases that were hospitalized within 28 days of positive test as group B
-cc.all$group[cc.all$CASE==1 &
-             cc.all$group=="" &
-             (cc.all$adm28 > 0 | cc.all$inhosp > 0)] <- "B"
-
-## assign all remaining cases without mention of COVID on death cert to group C
-## these cases must be test positive to have been included as cases
-cc.all$group[cc.all$CASE==1 &
-             cc.all$group=="" &
-             cc.all$nrs_covid_case==0] <- "C"
-
+## assign remaining test-positive cases hospitalized within 28 days of positive test as group B
+cc.all[testpositive.case & group=="Unclassified" & (adm28 > 0 | inhosp > 0), group := "B"]
+## assign all remaining test-positive cases to group C
+cc.all[testpositive.case & group=="Unclassified", group := "C"]
 ## assign remaining cases with mention on death cert to group D
-cc.all$group[cc.all$CASE==1 &
-             cc.all$group=="" &
-             cc.all$covid_cod==1] <- "D"
+cc.all[CASE==1 & group=="Unclassified" & covid_cod==1, group := "D"]
 
 print(table(cc.all$CASE, cc.all$group, exclude=NULL))
 
-## assign controls to same group as matched case i.e. A, B, C and create a new variable named casegroup
-casegroups <- cc.all[cc.all$CASE==1, ][, c("stratum", "group")]
+#print(subset(cc.all, CASE==1 & group=="Unclassified", 
+#             select=c(covid_cod, deathwithin28, ECOSS_POSITIVE, criticalcare)))
+
+#print(with(subset(cc.all, CASE==1 & group=="Unclassified"), table(ECOSS_POSITIVE, covid_cod)))
+
+## remove unclassified cases 
+#cc.all <- subset(cc.all, !(CASE==1 & group == "Unclassified"))
+
+## create a new variable named casegroup, assign controls in each stratum to same group as case
+## for strata with 2 or more cases, assign all controls to highest group of case
+casegroups <- subset(cc.all, subset=CASE==1, select=c("stratum", "group"))
 colnames(casegroups)[2] <- "casegroup"
-cc.all <- merge(cc.all, casegroups, by=c("stratum"), all.x=T)
-table(cc.all$CASE, cc.all$casegroup)
+setkey(casegroups, casegroup) # orders by casegroup
+casegroups <- casegroups[!duplicated(casegroups$stratum), ]
+setkey(casegroups, stratum)
+setkey(cc.all, stratum)
+cc.all <- casegroups[cc.all]
+
+## for cases, overwrite the casegroup field with the group assigned above
+cc.all[CASE==1, casegroup := group]
+
+table(cc.all$CASE, cc.all$casegroup, exclude=NULL)
+
+## drop records with missing casegroup (controls in strata with no remaining classified case)
+cc.all <- subset(cc.all, !is.na(casegroup))
+
 with(cc.all[cc.all$CASE==1, ], table(casegroup, deathwithin28, exclude=NULL))
 
 #cc.all$casegroup <- car::recode(cc.all$casegroup,
 #                                "'A'='Critical care or fatal'; 'B'='Hospitalised, not severe'; 'C'='Test-positive, not hospitalised'; 'D'='Contributing cause on death cert, no test'")
 
-#cc.all$casegroup <- as.factor(cc.all$casegroup)
-#cc.all <- within(cc.all, casegroup <- relevel(casegroup, ref="Critical care or fatal"))
-
 print(paste.colpercent(with(cc.all[cc.all$CASE==1, ], table(care.home, casegroup))))
 
 ### incidence and mortality using national population estimates #####
-
-severe.case <- cc.all$CASE==1 & cc.all$casegroup=="A"
+narrow.case <- cc.all$CASE==1 & cc.all$casegroup=="A"
+narrow.fatalcase <- narrow.case & (cc.all$deathwithin28 | cc.all$covid_ucod==1)
+table(narrow.case, narrow.fatalcase)
+cc.all$fatalcase <- narrow.fatalcase # for later use
 
 ## broad.case adds in all those with mention of covid on death cert
-broad.case <- cc.all$CASE==1 & (cc.all$casegroup=="A" | 
-                                cc.all$casegroup=="D")
-cc.all$fatalcase <- as.integer(cc.all$CASE==1 & cc.all$casegroup=="A" &
-                               (cc.all$deathwithin28==1 | cc.all$casegroup=="D"))
-narrow.fatalcase <- cc.all$fatalcase==1
-broad.fatalcase <- cc.all$CASE==1 &
-    ((cc.all$casegroup=="A" & cc.all$deathwithin28==1) |
-     cc.all$casegroup=="D")
-
-with(cc.all, table(broad.case, broad.fatalcase))
+broad.case <- cc.all$CASE==1 & (cc.all$casegroup=="A" | cc.all$casegroup=="D")
+broad.fatalcase <- broad.case & (cc.all$deathwithin28 | cc.all$covid_cod==1)
+table(broad.case, broad.fatalcase)
 
 ## for graphing, we want three categories
 ## severe cases as defined
 ## broad cases as used for diabetes report: severe, hospitalized or NRS
 ## fatal cases including NRS deaths
-
-narrow.case.freqs <- with(cc.all[severe.case, ], table(AGE, sex, exclude=NULL))
+narrow.case.freqs <- with(cc.all[narrow.case, ], table(AGE, sex, exclude=NULL))
 broad.case.freqs <- with(cc.all[broad.case, ], table(AGE, sex, exclude=NULL))
 narrow.death.freqs <- with(cc.all[narrow.fatalcase, ], table(AGE, sex, exclude=NULL))
 broad.death.freqs <- with(cc.all[broad.fatalcase, ], table(AGE, sex, exclude=NULL))
@@ -321,50 +320,54 @@ source("incidencemortality.R")
 
 ######## coding ethnicity ##############################
 
-ethnic.smr <- as.character(cc.all$ETHNIC_SMR_LAST)
-
-OnolyticsType <- cc.all$OnolyticsType # does not generate error
-
-if(old) {
-GeographicalArea <- cc.all$GeographicalArea
-}
-
 source("ethnic_assign.R")
 
-cc.all$ethnic5.smr <- ethnic5.smr
-## recode SMR ethnicity to 4 categories: White, Black, South Asian, Other
-cc.all$ethnic4.smr <- as.factor(car::recode(cc.all$ethnic5.smr, "'Chinese'='Other'"))
-cc.all <- within(cc.all, ethnic4.smr <- factor(ethnic4.smr,
-                                               levels=levels(ethnic4.smr)[c(4, 3, 1, 2)]))   
+cc.all <- mutate(cc.all, ethnic5.smr = collapseto5.ethnicsmr(ETHNIC_SMR_LAST))
 
-if(old) {
-    cc.all$ethnic5 <- ethnic5
-} else {
-    cc.all$ethnic5 <- ethnic5.smr
+## ANON_ID may be duplicated in cc.all but not in onomap
+
+if(!old) {
+    ## some IDs in onomap are not in cc.all
+    onomap <- subset(onomap, ANON_ID %in% cc.all$ANON_ID)
+    setkey(onomap, ANON_ID)
+    setkey(cc.all, ANON_ID)
+    cc.all <- onomap[cc.all]
 }
 
-## tabulate ONOMAP ethnicity against SMR ethnicity
-table.ethnic <- table(cc.all$ethnic5, cc.all$ethnic5.smr, exclude=NULL)
+cc.all <- mutate(cc.all,
+                 group.onomap = group.onomap(OnolyticsType, GeographicalArea))
+cc.all <- mutate(cc.all,
+                 ethnic5.onomap = collapseto5.onomap.group(group.onomap))
 
-tn <- table(cc.all$ethnic5, cc.all$ethnic5.smr)
-SouthAsian.sensitivity <- 100 * tn[5, 2] / sum(tn[, 2])
-SouthAsian.specificity <- 100 * (sum(tn[, -2]) - sum(tn[5, ]) + tn[5, 2]) / sum(tn[, -2])
+## tabulate ONOMAP ethnicity against SMR ethnicity
+table.ethnic <- table(cc.all$ethnic5.onomap, cc.all$ethnic5.smr, exclude=NULL)
+tn <- as.data.frame.matrix(table(cc.all$ethnic5.onomap, cc.all$ethnic5.smr))
+SouthAsian.sensitivity <- 100 * tn["South Asian", "South Asian"] / sum(tn[, "South Asian"])
+SA.trueneg <- sum(tn) - sum(tn[, "South Asian"])
+SA.trueneg.correct <- SA.trueneg - (sum(tn[, "South Asian"]) - tn["South Asian", "South Asian"]) 
+SouthAsian.specificity <- 100 * SA.trueneg.correct / SA.trueneg
 sum.xtabulate <- sum(tn)
 
-table.ethnic <- paste.colpercent(table.ethnic)
+## recode SMR ethnicity to 4 categories: White, Black, South Asian, Other
+cc.all <- mutate(cc.all, ethnic4.smr = as.factor(car::recode(ethnic5.smr,
+                                                             "'Chinese'='Other'")))
+cc.all[, ethnic4.smr := factor(ethnic4.smr,
+                               levels=levels(ethnic4.smr)[c(4, 3, 1, 2)])]   
 
 ## recode ONOMAP ethnicity to 4 categories: White, South Asian, Chinese, Other
-cc.all$ethnic4 <- car::recode(cc.all$ethnic5, "'Black'='Other'")
-cc.all <- within(cc.all, ethnic4 <- relevel(as.factor(ethnic4), ref="White"))
-cc.all$ethnic4 <- factor(cc.all$ethnic4, levels=levels(cc.all$ethnic4)[c(1, 4, 2, 3)])
+cc.all <- mutate(cc.all, ethnic4.onomap = car::recode(ethnic5.onomap, "'Black'='Other'"))
 
-## recode ONOMAP ethnicity to 3 categories: White, South Asian, Other
-cc.all$ethnic3 <- car::recode(cc.all$ethnic4, "'Chinese'='Other'")
-cc.all <- within(cc.all, ethnic3 <- relevel(as.factor(ethnic3), ref="White"))
-cc.all$ethnic3 <- factor(cc.all$ethnic3, levels=levels(cc.all$ethnic3)[c(1, 3, 2)])
+cc.all[, ethnic4.onomap := factor(ethnic4.onomap,
+                                  levels=levels(ethnic4.onomap)[c(4, 3, 1, 2)])]
 
+
+## recode to 3 categories: White, South Asian, Other
+cc.all <- mutate(cc.all, ethnic3.onomap = car::recode(ethnic4.onomap, "'Chinese'='Other'"))
+cc.all[, ethnic3.onomap := factor(ethnic3.onomap,
+                                  levels=levels(ethnic3.onomap)[c(3, 2, 1)])]
+setkey(cc.all, ANON_ID)
 ######################################################
-
+                 
 source("bnfcodes.R")
 
 source("drugs.R")
@@ -392,6 +395,7 @@ cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
 ## of diabetes type from SDRN database
 cc.all$dm.type[cc.all$dm.type==0 & cc.all$diab.reg==1] <- 3
 
+cat("Extra diabetes cases by diabetes type\n")
 print(table(cc.all$dm.type, cc.all$ANON_ID %in% ids.diabetes.extra))
 
 ## code diagnoses detected from discharges or BNF codes as unknown type
@@ -440,6 +444,9 @@ cc.hosp <- merge.bnfsubparas(chnums=chnums, data=cc.all[hosp, ])
 
 saveRDS(cc.hosp, file="cchosp.rds")
 rm(cc.hosp)
+
+objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
+print(tail(objmem))
 
 ########## restrict to severe cases and matched controls ###################### 
 
@@ -563,11 +570,7 @@ cc.severe$cats3 <- as.factor(car::recode(cc.severe$cats3, "1='Care/nursing home'
 
 ########### variable lists for tabulating
 
-demog <- c("ethnic3", "SIMD.quintile", "care.home")
-
-if(length(OnolyticsType)==0) {
-      demog <- c("SIMD.quintile", "care.home")
-}
+demog <- c("ethnic3.onomap", "SIMD.quintile", "care.home")
 
 demog.smr <- c("ethnic4.smr", "SIMD.quintile", "care.home")
 
@@ -577,7 +580,8 @@ drugs <- bnf.chapternames
 icd.chapternames <- colnames(cc.severe)[icdcols]
 conditions <- icd.chapternames
 
-########################################################
+
+##### tables for first paper  ######################
 
 table.severe.demog <-
     tabulate.freqs.regressions(varnames=demog,
@@ -637,16 +641,6 @@ freqs.all <- univariate.tabulate(varnames=c("deathwithin28", varnames.listed, "l
                              outcome="CASE",
                              data=cc.severe,
                              drop.reflevel=FALSE)
-
-if(FALSE) { ## appears to be redundant
-keep.varnames <- logical(length(varnames.listed))
-for(i in 1:length(varnames.listed)) {
-    x <- cc.severe[[match(varnames.listed[i], colnames(cc.severe))]]
-    exposed <- as.integer(x) > 1
-    a <- with(cc.severe[exposed, ], table(agegr3, CASE))
-    keep.varnames[i] <- !any(as.integer(a)==0)
-}
-}
 
 tables.agegr <- vector("list", length(levels(cc.severe$agegr3)))
 for(i in 1:length(levels(cc.severe$agegr3))) {

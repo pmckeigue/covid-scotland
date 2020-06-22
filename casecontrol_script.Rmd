@@ -46,18 +46,18 @@ source("helperfunctions.R")
 options(knitr.kable.NA = '')
 
 knitr::kable(with(cc.all[cc.all$CASE==1, ],
-                  paste.colpercent(table(deathwithin28, unitcategory))), 
+                  paste.colpercent(table(deathwithin28, casegroup))), 
              escape=FALSE, 
              booktabs=TRUE,
              row.names=FALSE,
-             caption="Death within 28 days by hospitalization group") %>%
+             caption="Death within 28 days by case group") %>%
     kable_styling(latex_options="hold_position") 
 
 ```
 
 ```{r casegroup, echo=FALSE, warning=FALSE, message=FALSE}
 
-knitr::kable(table(cc.all$CASE, cc.all$group, exclude=NULL),
+knitr::kable(table(cc.all$CASE, cc.all$casegroup, exclude=NULL),
              escape=FALSE, 
              booktabs=TRUE,
              row.names=FALSE,
@@ -66,15 +66,10 @@ knitr::kable(table(cc.all$CASE, cc.all$group, exclude=NULL),
 
 ```
 
-```{r NRS.cases, echo=FALSE, warning=FALSE, message=FALSE}
+```{r criticalcare, echo=FALSE, warning=FALSE, message=FALSE}
 
-knitr::kable(with(subset(cc.all, CASE==1 & nrs_covid_case==0), table(criticalcare, deathwithin28, exclude=NULL)),
-             caption="CASE x NRS COVID case")
+knitr::kable(with(subset(cc.all, CASE==1), table(criticalcare, deathwithin28, exclude=NULL)),
+             caption="critical care x deathwithin28")
 
-knitr::kable(with(subset(cc.all, CASE==1), table(criticalcare, nrs_covid_case, exclude=NULL)),
-             caption="Critical care x NRS COVID case")
-
-knitr::kable(with(subset(cc.all, CASE==1), table(nrs_covid_case, deathwithin28, exclude=NULL)),
-             caption="NRS covid case x death within 28 days")               
 
 ```

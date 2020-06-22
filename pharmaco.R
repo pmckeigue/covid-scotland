@@ -1,6 +1,5 @@
 ## pharmacoepi paper
 
-
 ########################################################
 ## tabulate rate ratios for each num drug group by listed.any
 ## this shows that the polypharmacy association is only in those without listed conditions
@@ -220,21 +219,7 @@ table.dosegr.compound.opiates <- tabulate.freqs.regressions(varnames=compound.op
 
 
 #### opiate effect by time window #######################
-
-cc.severe$opiate.exposure.nonrecent <- as.integer(cc.severe$opiateMME.interval2 > 0 | cc.severe$opiateMME.interval3 > 0)
-cc.severe$opiate.exposure.recent <- as.integer(cc.severe$opiateMME.interval1 > 0)
-
-cc.severe$opiate.exposurecat <- integer(nrow(cc.severe))
-cc.severe$opiate.exposurecat[cc.severe$opiate.exposure.nonrecent==0 & cc.severe$opiate.exposure.recent==0] <- 0
-cc.severe$opiate.exposurecat[cc.severe$opiate.exposure.nonrecent==1 & cc.severe$opiate.exposure.recent==0] <- 1
-cc.severe$opiate.exposurecat[cc.severe$opiate.exposure.nonrecent==0 & cc.severe$opiate.exposure.recent==1] <- 2
-cc.severe$opiate.exposurecat[cc.severe$opiate.exposure.nonrecent==1 & cc.severe$opiate.exposure.recent==1] <- 3
-
-cc.severe$opiate.exposurecat <- as.factor(car::recode(cc.severe$opiate.exposurecat,
-                                "0='No prescriptions'; 1='Non-recent only'; 2='Recent only';
-                                 3='Prescriptions in both time windows'"))
-cc.severe$opiate.exposurecat <- factor(cc.severe$opiate.exposurecat,
-                                levels=levels(cc.severe$opiate.exposurecat)[c(1, 2, 4, 3)])
+## excluding neoplasms
 
 table.timewindow.opiate <-
     tabulate.freqs.regressions(varnames="opiate.exposurecat",
@@ -388,31 +373,10 @@ rownames(x) <- "All"
 colnames(table.everuse.protonpump.numdrugs)[1:2] <- colnames(x)[1:2]
 table.everuse.protonpump.numdrugs <- rbind(table.everuse.protonpump.numdrugs, x)
 
-#### time window #######################
-
-cc.severe$ppi.exposure.nonrecent <- as.integer(cc.severe$DDD.interval2 > 0 | cc.severe$DDD.interval3 > 0)
-cc.severe$ppi.exposure.recent <- as.integer(cc.severe$DDD.interval1 > 0)
-
-cc.severe$ppi.exposurecat <- integer(nrow(cc.severe))
-cc.severe$ppi.exposurecat[cc.severe$ppi.exposure.nonrecent==0 & cc.severe$ppi.exposure.recent==0] <- 0
-cc.severe$ppi.exposurecat[cc.severe$ppi.exposure.nonrecent==1 & cc.severe$ppi.exposure.recent==0] <- 1
-cc.severe$ppi.exposurecat[cc.severe$ppi.exposure.nonrecent==0 & cc.severe$ppi.exposure.recent==1] <- 2
-cc.severe$ppi.exposurecat[cc.severe$ppi.exposure.nonrecent==1 & cc.severe$ppi.exposure.recent==1] <- 3
-
-cc.severe$ppi.exposurecat <- as.factor(car::recode(cc.severe$ppi.exposurecat,
-                                "0='No prescriptions'; 1='Non-recent only'; 2='Recent only';
-                                 3='Prescriptions in both time windows'"))
-cc.severe$ppi.exposurecat <- factor(cc.severe$ppi.exposurecat,
-                                levels=levels(cc.severe$ppi.exposurecat)[c(4, 2, 3, 1)])
-
 ############## time window analysis ######################
 
-table.timewindow.protonpump <- tabulate.freqs.regressions(varnames="ppi.exposurecat",
+table.timewindow.protonpump <- tabulate.freqs.regressions(varnames="protonpump.exposurecat",
                                                           data=cc.severe)[, 1:4]
-
-table.timewindow.protonpump.nocare.notlisted <-
-    tabulate.freqs.regressions(varnames="ppi.exposurecat",
-                               data=cc.severe[nocare.notlisted, ])[, 1:4]
 
 ###########################################
 
@@ -488,53 +452,52 @@ colnames.casecontrol <- colnames(table.propensitygr)[1:2]
 
 ############ effect of protonpump by numdrugs ####################
 
-    table.numdrugs.protonpump <- paste.colpercent(with(cc.severe[cc.severe$CASE==0, ], 
-                                                       table(numdrugs.notppi.gr, protonpump)))
+table.numdrugs.protonpump <- paste.colpercent(with(cc.severe[cc.severe$CASE==0, ], 
+                                                   table(numdrugs.notppi.gr, protonpump)))
 
-    colnames(table.numdrugs.protonpump) <- paste0("(",
-                                                  table(cc.severe$CASE, cc.severe$protonpump)[1, ],
-                                                  ")")
-    
-    colnames(table.numdrugs.protonpump) <- paste(c("Non-users", "Ever-users"),
-                                                 colnames(table.numdrugs.protonpump)
-                                                 )
+colnames(table.numdrugs.protonpump) <- paste0("(",
+                                              table(cc.severe$CASE, cc.severe$protonpump)[1, ],
+                                              ")")
 
-    
-    freqs <- NULL
-    for(numdrugs in levels(cc.severe$numdrugs.notppi.gr)) {
-        x <-  with(cc.severe[cc.severe$numdrugs.notppi.gr==numdrugs, ],
-                   table(protonpump, CASE))
-        freqs <- rbind(freqs, x)
-    }
-    
-    
-    table.protonpump.bynumdrugs <- NULL
-    for(numdrugs in levels(cc.severe$numdrugs.notppi.gr)) {
+colnames(table.numdrugs.protonpump) <- paste(c("Non-users", "Ever-users"),
+                                             colnames(table.numdrugs.protonpump)
+                                             )
+
+freqs <- NULL
+for(numdrugs in levels(cc.severe$numdrugs.notppi.gr)) {
+    x <-  with(cc.severe[cc.severe$numdrugs.notppi.gr==numdrugs, ],
+               table(protonpump, CASE))
+    freqs <- rbind(freqs, x)
+}
+
+
+table.protonpump.bynumdrugs <- NULL
+for(numdrugs in levels(cc.severe$numdrugs.notppi.gr)) {
     x <- tabulate.freqs.regressions(varnames="protonpump",
                                     data=cc.severe[cc.severe$numdrugs.notppi.gr==numdrugs, ])
     rownames(x) <- numdrugs
-        colnames(x)[1:2] <- c("Controls", "Cases")
+    colnames(x)[1:2] <- c("Controls", "Cases")
     x <- as.data.frame(x)
     table.protonpump.bynumdrugs <- rbind(table.protonpump.bynumdrugs, x)
-    }
-    table.protonpump.bynumdrugs <- table.protonpump.bynumdrugs[, 1:4]
+}
+table.protonpump.bynumdrugs <- table.protonpump.bynumdrugs[, 1:4]
 
 summary(clogit(formula=CASE ~ protonpump + numdrugs.notppi + strata(stratum),
                data=cc.severe[nocare.notlisted & cc.severe$AGE < 60, ]))$coefficients
 
 #############################################################################
-    
+
 table.dose.propensity <- NULL
 for(pr in levels(cc.severe$propensitygr)) {
     x <- summary(clogit(formula=CASE ~ DDDs.all + strata(stratum),
-                data=cc.severe[cc.severe$propensitygr==pr, ]))$coefficients
+                        data=cc.severe[cc.severe$propensitygr==pr, ]))$coefficients
     rownames(x) <- pr
     table.dose.propensity <- rbind(table.dose.propensity, x)
 }
 
 
 ###################################################
-    
+
 ## tabulate fatal cases  by age group
 table.fatal.protonpump <- NULL
 for(agegr in levels(cc.severe$agegr3)) {

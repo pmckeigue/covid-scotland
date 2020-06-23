@@ -3,7 +3,7 @@
 lower.varnames <- "care.home"
 demog.varnames <- c("care.home", "SIMD.quintile")
 listed.varnames <- c(demog.varnames, "dm.type", listed.conditions)
-full.varnames <- c(listed.varnames, "diag.any", "scrip.any", drugs)
+full.varnames <- c(listed.varnames, "diag.any", "scrip.any", bnf.chapternames)
 
 lower.formula <- as.formula(paste0("CASE ~ ",
                             paste(lower.varnames, collapse="+"), 
@@ -97,8 +97,7 @@ if(stepwise) {
          file="./data/stepwise.RData")
 
     }
-
-    
+  
     parallel::stopCluster(cl)
     showConnections(all = TRUE)
     closeAllConnections()

@@ -31,6 +31,7 @@ list.of.packages = c("car",
                      "dplyr",
                      "data.table")
 
+
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages) > 0) {install.packages(new.packages)}
 lapply(list.of.packages, require, character.only=T)
@@ -50,6 +51,7 @@ library(icd.data)
 library(gam)
 library(data.table)
 
+Rprof(tmp <- tempfile())
 
 source("helperfunctions.R")
 
@@ -178,6 +180,10 @@ cc.all$agegr3 <-
     as.factor(car::recode(cc.all$AGE,
                           "0:59='0-60 years'; 60:74='60-74 years'; 75:hi='75+ years'"))
 
+cc.all$agegr2 <-
+    as.factor(car::recode(cc.all$AGE,
+                          "0:74='0-74 years'; 75:hi='75+ years'"))
+
 cc.all$care.home[cc.all$NURSINGHOME==1] <- 1
 cc.all$care.home <- as.factor(car::recode(cc.all$care.home, "0='Independent'; 1='Care/nursing home'"))
 cc.all[, care.home := relevel(care.home, ref="Independent")]
@@ -193,10 +199,11 @@ if(old) {
     cc.all$testpositive.case <- cc.all$CASE==1 &
         (cc.all$ECOSS_POSITIVE=="Positive" |
          cc.all$ECOSS_POSITIVE=="Negative" | 
-         cc.all$ECOSS_POSITIVE=="No result")  
+         cc.all$ECOSS_POSITIVE=="No result")
+    with(subset(cc.all, CASE==1), table(ECOSS_POSITIVE, covid_cod))
+    with(cc.all[cc.all$CASE==1, ], table(ECOSS_POSITIVE, adm28, exclude=NULL))
 }
 
-with(subset(cc.all, CASE==1), table(ECOSS_POSITIVE, covid_cod))
 
 ## all cases have nonmissing SPECDATE
 ## controls should be assigned same SPECDATE as the case they were matched to
@@ -225,7 +232,6 @@ cc.all$criticalcare <- cc.all$icu==1 | cc.all$hdu==1
 cc.all <- mutate(cc.all, adm28 = adm28 & testpositive.case)
 
 with(cc.all[cc.all$CASE==1, ], table(inhosp, adm28, exclude=NULL))
-with(cc.all[cc.all$CASE==1, ], table(ECOSS_POSITIVE, adm28, exclude=NULL))
 ## Covid_CC_linkage_Part2_desktop.R:rapid$days <- as.numeric(rapid$Admission.Date - rapid$SPECIMENDATE)
 ## Covid_CC_linkage_Part2_desktop.R:rapid$adm28 <- ifelse(rapid$days %in% c(0:28), 1, 0)
 
@@ -395,7 +401,7 @@ cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
 ## of diabetes type from SDRN database
 cc.all$dm.type[cc.all$dm.type==0 & cc.all$diab.reg==1] <- 3
 
-cat("Extra diabetes cases by diabetes type\n")
+cat("Extra diabetes cases from SCI-Diabetes by diabetes type\n")
 print(table(cc.all$dm.type, cc.all$ANON_ID %in% ids.diabetes.extra))
 
 ## code diagnoses detected from discharges or BNF codes as unknown type
@@ -462,7 +468,8 @@ shortnames.cols <-  bnfchapters$shortname[match(as.integer(colnames(scrips.wide)
                                                 as.integer(bnfchapters$chapternum))]
 colnames(scrips.wide)[-1] <- paste("BNF", colnames(scrips.wide)[-1], shortnames.cols,
                                    sep="_")
-cc.severe <- merge(cc.severe, scrips.wide, by="ANON_ID", all.x=TRUE)
+scrips.wide <- as.data.table(scrips.wide, key="ANON_ID")
+cc.severe <- scrips.wide[cc.severe]
 
 bnfcols <- grep("^BNF", colnames(cc.severe))
 for(j in bnfcols) {
@@ -472,8 +479,11 @@ for(j in bnfcols) {
 }
 
 ## merge BNF chapters, one variable per subpara
+cat("Merging BNF subparagraph codes ...")
 chnums = 1:13
 cc.severe <- merge.bnfsubparas(chnums=chnums, data=cc.severe)
+cat("done\n")
+
 subparacols <- grep("^subpara\\.", names(cc.severe))
 x <- apply(subset(cc.severe, select=subparacols), 2, as.character)
 x <- apply(x, 2, as.integer)
@@ -482,15 +492,15 @@ cc.severe$numdrugsgr <- 3 * ceiling(cc.severe$numdrugs.subpara / 3)
 cc.severe$numdrugsgr <- as.factor(car::recode(cc.severe$numdrugsgr,
                                               "3='1 to 3'; 6='4 to 6'; 9='7 to 9';
                                               12='10 to 12'; 15:hi='>12'"))
-cc.severe$numdrugsgr <- factor(cc.severe$numdrugsgr,
-                               levels=levels(cc.severe$numdrugsgr)[c(2, 3, 5, 6, 4, 1)])
+cc.severe[, numdrugsgr := factor(numdrugsgr,
+                                 levels=levels(numdrugsgr)[c(2, 3, 5, 6, 4, 1)])]
 table(cc.severe$numdrugsgr)
 
 cc.severe$numdrugs.notppi <- cc.severe$numdrugs.subpara - cc.severe$y.protonpump
 cc.severe$numdrugs.notppi.gr <- 3 * ceiling(cc.severe$numdrugs.notppi / 3)
 cc.severe$numdrugs.notppi.gr <- as.factor(car::recode(cc.severe$numdrugs.notppi.gr, "15:hi='>12'"))
-cc.severe$numdrugs.notppi.gr <- factor(cc.severe$numdrugs.notppi.gr,
-                               levels=levels(cc.severe$numdrugs.notppi.gr)[c(2, 4:6, 3, 1)])
+cc.severe[, numdrugs.notppi.gr := factor(numdrugs.notppi.gr,
+                                        levels=levels(numdrugs.notppi.gr)[c(2, 4:6, 3, 1)])]
 table(cc.severe$numdrugs.notppi.gr)
 
 cardiovasc.subparacols <- grep("^subpara\\.2", names(cc.severe))
@@ -500,7 +510,6 @@ cc.severe$numdrugs.cardiovasc <- rowSums(x)
 cc.severe$numdrugs.notcardiovasc <- cc.severe$numdrugs.subpara - cc.severe$numdrugs.cardiovasc
 
 ## merge ICD diagnoses
-
 ## chapter is assigned as the position of the first element in icdchapters$start that x is greater than or equal to
 unique.diagnoses <- as.character(unique(diagnoses$ICD10))
 chapter <- integer(length(unique.diagnoses))
@@ -522,7 +531,9 @@ colnames(diagnoses.wide)[-1] <-
 ## drop rare chapters
 diagnoses.wide <- diagnoses.wide[, colSums(diagnoses.wide) > 20]
 
-cc.severe <- merge(cc.severe, diagnoses.wide, by="ANON_ID", all.x=TRUE)
+diagnoses.wide <- as.data.table(diagnoses.wide, key="ANON_ID")
+cc.severe <- diagnoses.wide[cc.severe]
+
 icdcols <- grep("^Ch.", colnames(cc.severe))
 for(j in icdcols) {
     cc.severe[[j]][is.na(cc.severe[[j]])] <- 0
@@ -535,9 +546,9 @@ cc.severe$num.icdchapters <-
                    nrow=nrow(cc.severe)))
 cc.severe$num.icdchapters.gr <-
     as.factor(car::recode(cc.severe$num.icdchapters,
-                          "0='No discharge records'; 1:2='1-2 ICD-10 chapters'; 3:hi='3 or more chapters'")
-                         )
-cc.severe <- within(cc.severe, num.icdchapters.gr <- relevel(num.icdchapters.gr, ref="No discharge records"))
+                          "0='No discharge records'; 1:2='1-2 ICD-10 chapters';
+                           3:hi='3 or more chapters'"))
+cc.severe[, num.icdchapters.gr := relevel(num.icdchapters.gr, ref="No discharge records")]
 
 ###########################################
 
@@ -546,7 +557,6 @@ source("comorbidity.R")
 ## 8 listed conditions designated by NHS
 listed.conditions <- c("dm.type", "IHD.any", "heart.other.any", "oad.any",
                        "ckd.any", "neuro.any", "liver.any", "immune.any")
-##    listed.conditions <- c(listed.conditions, "circulatory.other")
 
 ############ extract predefined disease categories #################
 ## as these are coded as factors, lowest level will be 1
@@ -557,6 +567,12 @@ cc.severe$listed.any <-
                               heart.other.any==1 |
                               ckd.any==1 | oad.any==1 |
                               neuro.any==1 | liver.any==1 | immune.any==1)))
+
+cc.severe$diag.other <- as.integer(cc.severe$listed.any==0 & cc.severe$diag.any==1)
+cc.severe$diag.other <- as.factor(car::recode(cc.severe$diag.other,
+                                  "0='Listed condition or no admission';
+                                   1='No listed condition, but other admission diagnosis'"))
+
 
 ####################################################################
 
@@ -574,23 +590,29 @@ demog <- c("ethnic3.onomap", "SIMD.quintile", "care.home")
 
 demog.smr <- c("ethnic4.smr", "SIMD.quintile", "care.home")
 
+varnames.extended <- c("care.home", "scrip.any", "diag.any", "listed.any", "diag.other",
+                     "scripordiag", listed.conditions)
+
+varnames.listedpluscovs <- c("care.home", "scrip.any", "diag.any", listed.conditions)
+
+bnfcols <- grep("^BNF", colnames(cc.severe))
 bnf.chapternames <- colnames(cc.severe)[bnfcols]
-drugs <- bnf.chapternames
 
+icdcols <- grep("^Ch.", colnames(cc.severe))
 icd.chapternames <- colnames(cc.severe)[icdcols]
-conditions <- icd.chapternames
 
+full.varnames <- c(demog, listed.conditions,
+                   "diag.any", icd.chapternames, "scrip.any", bnf.chapternames)
+
+## logical vectors for subsetting
+nocare <- cc.severe$care.home=="Independent"
+notlisted <- cc.severe$listed.any == 0
+nocare.notlisted <- nocare & notlisted
 
 ##### tables for first paper  ######################
 
-table.severe.demog <-
-    tabulate.freqs.regressions(varnames=demog,
-                               data=cc.severe)
-
-cc.severe$diag.other <- as.integer(cc.severe$listed.any==0 & cc.severe$diag.any==1)
-cc.severe$diag.other <- as.factor(car::recode(cc.severe$diag.other,
-                                  "0='Listed condition or no admission';
-                                   1='No listed condition, but other admission diagnosis'"))
+table.severe.demog <- tabulate.freqs.regressions(varnames=demog,
+                                                 data=cc.severe)
 
 table.scripordiag <- NULL
 for(agegr in levels(cc.severe$agegr20)) {
@@ -625,35 +647,37 @@ for(agegr in levels(cc.severe$agegr3)) {
 }
 
 cc.severe$scripordiag <- as.factor(cc.severe$scripordiag)
-varnames.listed <- c("care.home", "scrip.any", "diag.any", "listed.any", "diag.other",
-                     "scripordiag", listed.conditions)
 
+## table.agegr shown in paper 1: frequencies by age group but no rate ratios
+## varnames.listed
 table.agegr <- NULL
 for(agegr in levels(cc.severe$agegr20)) {
-    x <- univariate.tabulate(varnames=varnames.listed, 
+    x <- univariate.tabulate(varnames=varnames.extended, 
                              outcome="CASE",
                              data=cc.severe[cc.severe$agegr20==agegr, ],
                              drop.reflevel=FALSE)
     table.agegr <- cbind(table.agegr, x)
 }
-                                        #
-freqs.all <- univariate.tabulate(varnames=c("deathwithin28", varnames.listed, "listed.any"),
+## all ages including 28-day fatality
+freqs.all <- univariate.tabulate(varnames=c("deathwithin28", varnames.extended),
                              outcome="CASE",
                              data=cc.severe,
                              drop.reflevel=FALSE)
 
+## list of tables by age group shown in paper 1
+## varnames.listedpluscovs
 tables.agegr <- vector("list", length(levels(cc.severe$agegr3)))
 for(i in 1:length(levels(cc.severe$agegr3))) {
     agegr <- levels(cc.severe$agegr3)[i]
     tables.agegr[[i]] <-
-        tabulate.freqs.regressions(varnames=c("care.home", "scrip.any",
-                                              "diag.any", listed.conditions),
+        tabulate.freqs.regressions(varnames=varnames.listedpluscovs,
                                    data=cc.severe[cc.severe$agegr3==agegr, ])
 }
 
-table.agegr.all <- tabulate.freqs.regressions(varnames=c("care.home", "scrip.any",
-                                              "diag.any", listed.conditions),
-                                               data=cc.severe)
+## table.agegr.all shown in paper 1: rate ratios for all age groups combined
+## varnames.listedpluscovs
+table.agegr.all <- tabulate.freqs.regressions(varnames=varnames.listedpluscovs,
+                                              data=cc.severe)
 
 ## demographic vars
 table.demog.aug <- tabulate.freqs.regressions(varnames=demog, data=cc.severe)
@@ -675,36 +699,33 @@ table.listed.conditions.lt60 <-
                                data=cc.severe[cc.severe$AGE < 60, ])
 table.listed.conditions.ge60 <-
     tabulate.freqs.regressions(varnames=listed.conditions,
-                               data=cc.severe[cc.severe$AGE >= 60, ])
+                               data=cc.severe[cc.severe$AGE >= 60 ])
 
 ## full multivariate model variables -- for this use dm.type rather than diabetes.any 
 multivariate.all <-
-    multivariate.clogit(varnames=c(demog, "dm.type", listed.conditions[-1],
-                                   "diag.any", conditions, "scrip.any", drugs,
-                                   "protonpump"),
+    multivariate.clogit(varnames=full.varnames,
                         data=cc.severe, add.reflevel=TRUE)
 
 ################# restrict to those without listed conditions #############
 
-nocare <- cc.severe$care.home=="Independent"
-notlisted <- cc.severe$listed.any == 0
-nocare.notlisted <- nocare & notlisted
-
 ## conditions
-table.conditions.aug <- tabulate.freqs.regressions(varnames=conditions, 
+table.conditions.aug <- tabulate.freqs.regressions(varnames=icd.chapternames, 
                                                    data=cc.severe[notlisted, ])
+
 cat("Tabulating ICD subchapter diagnoses ...")
 ## tabulate subchapters in ICD chapters of interest
 table.icdchapter2 <- tabulate.icdchapter(chnum=2, data=cc.severe[notlisted, ])
 table.icdchapter7 <-  tabulate.icdchapter(chnum=7, data=cc.severe[notlisted, ])
 table.icdchapter11 <- tabulate.icdchapter(chnum=11, data=cc.severe[notlisted, ])
 
+## table icdsubchapters shown in paper 1
 table.icdsubchapters <- NULL
 for(i in 1:20) {
     table.icdsubchapters <-
         rbind(table.icdsubchapters,
               tabulate.icdchapter(chnum=i, data=cc.severe[notlisted, ], minrowsum=50))
 }
+
 #table.icdsubchapters <- table.icdsubchapters[grep("ensuremath",
 #                                                  table.icdsubchapters$u.pvalue), ]
 cat("done\n")
@@ -712,7 +733,7 @@ cat("done\n")
 #########################################################################
 
 ## drugs 
-table.drugs.aug <- tabulate.freqs.regressions(varnames=drugs, 
+table.drugs.aug <- tabulate.freqs.regressions(varnames=bnf.chapternames, 
                                               data=cc.severe[notlisted, ])
 
 #############################################################################
@@ -729,10 +750,8 @@ cc.severe$cats3 <- as.factor(car::recode(cc.severe$cats3, "1='Care/nursing home'
 
 ################################################################
 
-## backwards selection of smallest subset of BNF chapters that explains most of the scrip.any effect
-    
 ## tabulate associations with drug chapters in those not in care homes and without listed conditions 
-table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs, 
+table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=bnf.chapternames, 
                                                            data=cc.severe[nocare.notlisted, ])
 
 ######## stepwise regressions use saved version #####################
@@ -740,13 +759,12 @@ table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=drugs,
 nfold <- 4
 source("stepwise.R")
 
-source("pharmaco.R")
-
 #####################################################
 if(old) {
     rmarkdown::render("casecontrol.Rmd", output_file="casecontrol15May.pdf")
 } else {
     rmarkdown::render("casecontrol.Rmd", output_file="casecontrol8June.pdf")
+    source("pharmaco.R")
     rmarkdown::render("pharmaco.Rmd", output_file="pharmaco.pdf")
 } 
 
@@ -760,3 +778,6 @@ if(old & include.nrs.only) {
 }
 
 rmarkdown::render("casecontrol_script.Rmd", output_file="casecontrol_script.pdf")
+
+Rprof()
+print(summaryRprof(tmp)$by.total[1:20, ])

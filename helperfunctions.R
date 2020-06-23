@@ -208,35 +208,33 @@ multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FAL
         ## is length(levels) -1 for factor variables
         numrows.i <- 1
         ## set number of rows in multivariate.coeffs for factor variable as num levels -1 
-        if(with(data[nonmissing, ], is.factor(eval(str2expression(varnames[i]))))) {
-            numrows.i <-
-                with(data[nonmissing, ], length(levels(eval(str2expression(varnames[i]))))) - 1
+        if(is.factor(data[nonmissing, ][[varnames[i]]])) {
+            numrows.i <- length(levels(data[nonmissing, ][[varnames[i]]])) - 1
         }
-        ## if variable is factor, > 2 levels and add.reflevel
-        if(with(data[nonmissing, ], is.factor(eval(str2expression(varnames[i])))) &
-           with(data[nonmissing, ], length(levels(eval(str2expression(varnames[i]))))) > 2 &
+        ## if variable is factor with > 2 levels and add.reflevel,
+        ## add line for reference level
+        if(is.factor(data[nonmissing, ][[varnames[i]]]) &
+           length(levels(data[nonmissing, ][[varnames[i]]])) > 2 &
            add.reflevel) {
             ## add empty line to multivariate.table
             multivariate.table <- rbind(multivariate.table,
                                         rep(NA, ncol(multivariate.coeffs)))
             ## label this empty line as reference level of factor
             rownames(multivariate.table)[nrow(multivariate.table)] <-
-                 with(data[nonmissing, ], levels(eval(str2expression(varnames[i])))[1])
+                levels(data[nonmissing, ][[varnames[i]]])[1]
         }
         ## label rows of multivariate.coeffs that will be added
         ## this step is run irrespective of add.reflevel
         ## if variable is factor with >2 levels
-        if(with(data[nonmissing, ], is.factor(eval(str2expression(varnames[i])))) &
-           with(data[nonmissing, ], length(levels(eval(str2expression(varnames[i]))))) > 2) {
+        if(is.factor(data[nonmissing, ][[varnames[i]]]) &
+           length(levels(data[nonmissing, ][[varnames[i]]])) > 2) {
             ## label rows with levels
             rownames(multivariate.coeffs)[1:numrows.i] <-
-                with(data[nonmissing, ], levels(eval(str2expression(varnames[i])))[-1])
+                levels(data[nonmissing, ][[varnames[i]]])[-1]
         } else { # if numeric, or factor with 2 levels
             ## label single row with variable name
-            rownames(multivariate.coeffs)[1] <-
-                with(data[nonmissing, ], varnames[i])
+            rownames(multivariate.coeffs)[1] <- varnames[i]
         }
-
         ## add rows from multivariate.coeffs    
         multivariate.table <- rbind(multivariate.table,
                                     multivariate.coeffs[1:numrows.i, , drop=FALSE])
@@ -352,7 +350,8 @@ merge.bnfsubparas <- function(chnums, data) {
     
     ## drop rare subparagraphcodes
     scrips.ch.wide <- subset(scrips.ch.wide, select=colSums(scrips.ch.wide) > 20)
-    
+
+    scrips.ch.wide <- as.data.table(scrips.ch.wide, key="ANON_ID")
     cc.bnf.ch <- merge(data, scrips.ch.wide,
                        by="ANON_ID", all.x=TRUE)
     ## now fix colnames and set missing to 0

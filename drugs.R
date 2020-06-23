@@ -82,6 +82,7 @@ scrips$paracode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 6))
 scrips$chapternum[is.na(scrips$chapternum)] <- 14
 scrips$chapternum[scrips$chapternum > 14] <- 14
 
+if(!old) {
 ## separate tables for prescriptions of proton pump, opioids, nonopioids
 
 scrips.protonpump <-
@@ -450,6 +451,7 @@ opiate.exposure.cat <- factor(opiate.exposure.cat,
 ## data.table behaves strangely when type of an existing column is changed
 cc.all <- mutate(cc.all, opiate.exposurecat = opiate.exposure.cat)
 
+}
 
 ########### other drugs of interest coded as binary ####################
 

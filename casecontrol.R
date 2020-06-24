@@ -77,6 +77,8 @@ if(old) {
     scrips.filename <- "./data/CC_PIS_x15_ANON_2020-06-18.rds"
     onomap <- as.data.table(readRDS("./data/ONOMAP_ANON_2020-06-18.rds"), key="ANON_ID")
     rapid <- readRDS("./data/CC_RAPID_ANON_2020-06-18.rds")
+    cases.status <-
+        as.data.table(readRDS("./data/CC_EXTENDED_STATUS_ANON_2020-06-18.rds"), key="ANON_ID")
 }
 
 scrips <- as.data.table(readRDS(scrips.filename)[, c("ANON_ID", "bnf_paragraph_code",
@@ -136,6 +138,12 @@ ids.nodiag.agegt75 <- subset(cc.all, CASE==0 & diag.any==0 & AGE > 75)[["ANON_ID
 
 save(ids.noscrip.agegt75, ids.nodiag.agegt75, file="anon_ids_notmatched.RData")
 
+## exclude controls already dead on date of test of case they were matched to
+controls.deceased <- with(cc.all, CASE==0 &
+                                  !is.na(Date.Death) &
+                                  Date.Death <= SPECDATE)
+cc.all <- subset(cc.all, !controls.deceased)                         
+
 if(old) {
     ## tabulate controls not observable
     controls.status <- controls.status[, c("ANON_ID", "CHI.EXTENDED.STATUS",
@@ -148,13 +156,17 @@ if(old) {
     cc.all <- subset(cc.all, subset=is.na(CHI.Explanation) |
                                  CHI.Explanation=="Current and no history" |
                                  CHI.Explanation=="Current with history")
+} else { # exclude cases classified as unobservable, for consistency with controls 
+    cc.all <- cases.status[cc.all]
+    with(subset(cc.all, CASE==1),
+         table(Explanation, is.na(Date.Death)))
+    with(subset(cc.all, CASE==1),
+         table(EXTENDED_STATUS, is.na(Date.Death)))
+    cc.all <- subset(cc.all,
+                     is.na(EXTENDED_STATUS) |
+                     EXTENDED_STATUS == "C" |
+                     (EXTENDED_STATUS == "D" & !is.na(Date.Death)))
 }
-
-## exclude controls already dead on date of test of case they were matched to
-controls.deceased <- with(cc.all, CASE==0 &
-                                  !is.na(Date.Death) &
-                                  Date.Death <= SPECDATE)
-cc.all <- subset(cc.all, !controls.deceased)                         
 
 ## rows have been replicated within strata containing N cases so that each case and control appears N^2 times
 ## remove these replicated rows

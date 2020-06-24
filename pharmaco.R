@@ -15,12 +15,27 @@ table.numdrugsgr.listed.any <- data.frame(numdrugsgr=rep(levels(cc.severe$numdru
                                      table.numdrugsgr.listed.any)
 colnames(table.numdrugsgr.listed.any)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE)), rep(")", 2))
 
+
+########################################################################
+## in those without listed conditions, by age group
+
+table.numdrugsgr.agegr2 <- NULL
+for(cat in levels(cc.severe$agegr2)) {
+    x <- tabulate.freqs.regressions(varnames="numdrugsgr",
+                                    data=subset(cc.severe, notlisted & agegr2==cat))[, 1:4]
+    colnames(x)[1:2] <- c("controls", "cases")
+    table.numdrugsgr.agegr2 <- rbind(table.numdrugsgr.agegr2, x)
+}
+table.numdrugsgr.agegr2 <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 2),
+                                     table.numdrugsgr.agegr2)
+colnames(table.numdrugsgr.agegr2)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE[notlisted])), rep(")", 2))
+
 ########################################################################
 
 ## in those without listed conditions, fit joint model for num cardiovascular and num non-cardiovascular drugs
 
 tj <- summary(clogit(formula=CASE ~ numdrugs.cardiovasc + numdrugs.notcardiovasc + strata(stratum),
-                        data=cc.severe[notlisted, ]))$coefficients
+                     data=cc.severe[notlisted, ]))$coefficients
 
 tj <- as.data.frame(tj)
 tj$u.ci <- or.ci(tj[, 1], tj[, 3])
@@ -38,20 +53,21 @@ colnames(table.jointcardiovasc)[2:3] <- paste0(c("Controls (", "Cases ("),
 
 ################################################################
 ## generate subpara.coeffs and subparacols.keep
+## consider restricting to age < 75
+## FIXME - rewrite code below to use subset
+restrict <- with(cc.severe, listed.any==0)
 
 subparacols <- grep("^subpara\\.", colnames(cc.severe))
 
-y <- cc.severe[nocare.notlisted, ][["CASE"]]
-stratum <- cc.severe[nocare.notlisted, "stratum"]
+y <- subset(cc.severe, restrict)[["CASE"]]
+stratum <- subset(cc.severe, restrict)[["stratum"]]
 subparacols.keep <- NULL
 subpara.coeffs <- NULL
 for(col in subparacols) {
-    x <- cc.severe[nocare.notlisted, ][[col]]
-            freqs.cc <- table(as.integer(x),
-                              cc.severe[nocare.notlisted, ][["CASE"]])
-    
+    x <- subset(cc.severe, restrict)[[col]]
+    freqs.cc <- table(as.integer(x), y)
     if(nrow(freqs.cc) > 1 & ncol(freqs.cc) > 1) {
-        if(sum(freqs.cc[2, ]) >= 20) { # if at least 10 in each cell
+        if(sum(freqs.cc[2, ]) >= 20) { # if at least 20 in row
             coeffs <- summary(clogit(formula=y ~ x + strata(stratum)))$coefficients
             if(coeffs[1, 5] < 0.001) {
                 subpara.coeffs <- rbind(subpara.coeffs,
@@ -66,17 +82,28 @@ for(col in subparacols) {
     }
 }
 subpara.coeffs$subpara <- gsub("^subpara\\.", "", subpara.coeffs$subpara)
-freqs <- as.integer(with(cc.severe[nocare.notlisted, ], table(CASE)))
+freqs <- as.integer(with(subset(cc.severe, restrict), table(CASE)))
 colnames(subpara.coeffs)[2:3] <- paste0(c("Controls (", "Cases ("),
                                         freqs, rep(")", 2))
 print(subpara.coeffs)
 
 #############################################################################
+
+colnames.drugclasses.forstepwise <- colnames(cc.severe)[subparacols.keep]
+
+table.subpara.coeffs <- tabulate.freqs.regressions(colnames.drugclasses.forstepwise,
+                                                   data=subset(cc.severe, restrict))
+
 ## stepwise drop procedure over subparacols.keep
 
-restrict <- notlisted
+## replace original subparas with nonopiate and anyopiate (scrips for compound preparations assigned to opiate)
 
-subparacols.forstepwisedrop <- subparacols[match(subparacols.keep, subparacols)] ## reduces to 61 subpara codes
+#colnames.drugclasses.forstepwise <-
+#    grep("\\.407020\\.", colnames.drugclasses.forstepwise, invert=TRUE, value=TRUE)
+
+subparacols.forstepwisedrop <- match(colnames.drugclasses.forstepwise,
+                                     colnames(cc.severe)) ## reduces to 61 columns
+
 notcardiovasc.subparacols <- !grepl("^subpara\\.2",
                                    colnames(cc.severe)[subparacols.forstepwisedrop])
 subparacols.forstepwisedrop <- subparacols.forstepwisedrop[notcardiovasc.subparacols]
@@ -84,9 +111,9 @@ subparacols.forstepwisedrop <- subparacols.forstepwisedrop[notcardiovasc.subpara
 x <- subset(cc.severe, subset=restrict, select=subparacols.forstepwisedrop)
 x <- matrix(as.integer(as.matrix(x)), nrow=nrow(x))
 colnames(x) <- colnames(cc.severe)[subparacols.forstepwisedrop]
-y <- cc.severe[restrict, ][["CASE"]]
-stratum <- cc.severe[restrict, "stratum"]
-covariates.subparas <- cc.severe[restrict, c("care.home")] 
+y <- subset(cc.severe, restrict)[["CASE"]]
+stratum <- subset(cc.severe, restrict)[["stratum"]]
+covariates.subparas <- subset(cc.severe, restrict)[["care.home"]] 
 cat("Stepwise drop procedure over BNF subpara codes adjusted for",
     names(covariates.subparas), "...")
 stepwise.drop.subparas <- stepwise.union.dropcols(x=x, y=y, covariates=covariates.subparas, stratum=stratum)

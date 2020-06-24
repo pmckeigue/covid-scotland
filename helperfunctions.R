@@ -172,21 +172,27 @@ tabulate.freqs.regressions <- function(varnames, outcome="CASE", data) {
 univariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE) {
     univariate.table <- NULL
     for(i in 1:length(varnames)) {
-        if(length(table(as.numeric(with(data, eval(str2expression(varnames[i])))))) > 1) {
+        xvar <- data[[varnames[i]]]
+        if(length(table(xvar)) > 1) {
             univariate.formula <-
-                as.formula(paste(outcome, "~", varnames[i], "+ strata(stratum)"))
+                as.formula(paste(outcome, "~ xvar + strata(stratum)"))
+ 
+   #     if(length(table(as.numeric(with(data, eval(str2expression(varnames[i])))))) > 1) {
+   #         univariate.formula <-
+   #             as.formula(paste(outcome, "~", varnames[i], "+ strata(stratum)"))
             x <- summary(clogit(formula=univariate.formula, data=data))$coefficients
             x.colnames <- colnames(x)
         } else {
             x <- rep(NA, 5) ##FIXME: will not work for > 2 levels
-            
         }
-        if(with(data, is.factor(eval(str2expression(varnames[i])))) &
-           with(data, length(levels(eval(str2expression(varnames[i]))))) > 2 &
-           add.reflevel) {
-           x <- rbind(rep(NA, ncol(x)), x)
-           rownames(x)[1] <- with(data, levels(eval(str2expression(varnames[i])))[1])
-           colnames(x) <- x.colnames
+        if(!is.factor(xvar)) {
+            rownames(x) <- varnames[i]
+        } else {
+            if(length(levels(xvar[i])) > 2 & add.reflevel) {
+            x <- rbind(rep(NA, ncol(x)), x) # extra line for reference level
+            rownames(x)[1] <- with(data, levels(xvar)[1])
+            colnames(x) <- x.colnames
+            }
         }
         univariate.table <- rbind(univariate.table, x)
     }
@@ -194,11 +200,13 @@ univariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE
 }
 
 multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE) {
-    multivariate.formula <- as.formula(paste(outcome, "~",
-                                  paste(varnames, collapse=" + "),
-                                  "+ strata(stratum)"))
+
     nonmissing <- nonmissing.obs(data, varnames)
-    multivariate.model <- clogit(formula=multivariate.formula, data=data[nonmissing, ])
+    data.selected <- subset(data, subset=nonmissing) %>%
+        select(outcome, stratum, varnames)
+    multivariate.formula <- as.formula(paste(outcome, "~ . + strata(stratum)"))
+    
+    multivariate.model <- clogit(formula=multivariate.formula, data=data.selected)
     multivariate.coeffs <- summary(multivariate.model)$coefficients
     multivariate.table <- NULL
    

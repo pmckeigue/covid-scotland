@@ -57,7 +57,9 @@ colnames(table.jointcardiovasc)[2:3] <- paste0(c("Controls (", "Cases ("),
 ## FIXME - rewrite code below to use subset
 restrict <- with(cc.severe, listed.any==0)
 
-subparacols <- grep("^subpara\\.", colnames(cc.severe))
+## select subpara codes excluding cardiovascular (chapter 2)
+subparacols <- grep("^subpara\\.[^2]", colnames(cc.severe))
+#notcardiovasc.subparacols <- !grepl("^subpara\\.2",  colnames(cc.severe)[subparacols.forstepwisedrop]
 
 y <- subset(cc.severe, restrict)[["CASE"]]
 stratum <- subset(cc.severe, restrict)[["stratum"]]
@@ -97,16 +99,11 @@ table.subpara.coeffs <- tabulate.freqs.regressions(colnames.drugclasses.forstepw
 ## stepwise drop procedure over subparacols.keep
 
 ## replace original subparas with nonopiate and anyopiate (scrips for compound preparations assigned to opiate)
-
 #colnames.drugclasses.forstepwise <-
 #    grep("\\.407020\\.", colnames.drugclasses.forstepwise, invert=TRUE, value=TRUE)
 
 subparacols.forstepwisedrop <- match(colnames.drugclasses.forstepwise,
                                      colnames(cc.severe)) ## reduces to 61 columns
-
-notcardiovasc.subparacols <- !grepl("^subpara\\.2",
-                                   colnames(cc.severe)[subparacols.forstepwisedrop])
-subparacols.forstepwisedrop <- subparacols.forstepwisedrop[notcardiovasc.subparacols]
 
 x <- subset(cc.severe, subset=restrict, select=subparacols.forstepwisedrop)
 x <- matrix(as.integer(as.matrix(x)), nrow=nrow(x))
@@ -423,7 +420,6 @@ x <- tabulate.freqs.regressions(varnames="protonpump", data=cc.severe)[, 1:4]
 rownames(x) <- "All"
 colnames(x)[1:2] <- c("Controls", "Cases")
 table.fatal.protonpump <- rbind(table.fatal.protonpump, x)
-
 
 #################################################################
 ## tabulate para or subpara codes in BNF chapters of interest

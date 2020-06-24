@@ -206,44 +206,51 @@ scrips.opiates.names$factor.patch <- NA
 scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="BUPRENORPHINE"] <- 24 * 7
 scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="FENTANYL"] <- 180 * 3
 
-#print(subset(scrips.opiates.names,
-#             select=c("approved_name", "numscrips", "factor.oral", "factor.patch")))
-
-scrips.opioid <- merge(scrips.opioid,
+    scrips.opioid <- merge(scrips.opioid,
                        subset(scrips.opiates.names,
                               select=c("approved_name", "factor.oral", "factor.patch")),
                        by="approved_name", all.x=TRUE)
 
 ##### compound opiates  #######################################################
 
-nonopiates <-  subset(bnfchemicalcodes, subset=subparacode==407010)
-nonopiates <- nonopiates[!duplicated(nonopiates$chemicalname), ]
-compound.opiates <-
-    as.data.frame(subset(nonopiates,
+    nonopiates.orcompound <-  subset(bnfchemicalcodes, subset=subparacode==407010)
+    nonopiates.orcompound <-
+        nonopiates.orcompound[!duplicated(nonopiates.orcompound$chemicalname), ]
+    compound.opiates <-
+        as.data.frame(subset(nonopiates.orcompound,
                          subset=substr(chemicalcode, 8, 9) %in%
                              c("A0", "F0", "M0", "N0", "Q0")))
-scrips.compound.opiates <-
-    readRDS(scrips.filename) %>%
-    subset(bnf_paragraph_code=="0407010")
-scrips.compound.opiates <- as.data.table(scrips.compound.opiates)
-scrips.compound.opiates <- subset(scrips.compound.opiates,
-                                  subset=scrips.compound.opiates$approved_name %in%
-                                      names(table(scrips.compound.opiates$approved_name))[2:4])
+    nonopiates <-
+        as.data.frame(subset(nonopiates.orcompound,
+                             subset=!(substr(chemicalcode, 8, 9) %in%
+                                      c("A0", "F0", "M0", "N0", "Q0"))))
+    
+    scrips.compound.opiates <-
+        readRDS(scrips.filename) %>%
+        subset(bnf_paragraph_code=="0407010") %>% 
+        subset(substring(bnf_item_code, 1, 9) %in% compound.opiates$chemicalcode)
 
+
+    scrips.nonopiates <-
+        readRDS(scrips.filename) %>%
+        subset(bnf_paragraph_code=="0407010") %>% 
+        subset(!(substring(bnf_item_code, 1, 9) %in% compound.opiates$chemicalcode))
+    
+    scrips.compound.opiates <- as.data.table(scrips.compound.opiates)
+    scrips.compound.opiates <- subset(scrips.compound.opiates,
+                                      subset=scrips.compound.opiates$approved_name %in%
+                                          names(table(scrips.compound.opiates$approved_name))[2:4])
+    
 item.desc <- subset(scrips.compound.opiates, approved_name=="CO-DYDRAMOL",
                     select="bnf_item_description") %>% table() %>% names()
      
 #print(table(scrips.compound.opiates$approved_name))
 
 ## co-proxamol does not appear in scrips table
-
 ## Co-codamol tablets and capsules come in 3 different strengths. They contain 8mg, 15mg or 30mg of codeine. The higher strengths (15/500 and 30/500) are only available on prescription from a doctor.
-
 ## Co-codamol with buclizine hydrochloride is 8 mg strength
-
 ## Co-dydramol comes in 4 different strengths. The tablets contain either 7.46mg, 10mg, 20mg or 30mg of dihydrocodeine.
-## REMEDEINE FTE_TAB is 30 mg         
-## REMEDEINE_TAB is 20 mg            
+## REMEDEINE FTE_TAB is 30 mg, REMEDEINE_TAB is 20 mg            
 
 scrips.compound.opiates[approved_name=="CO-CODAMOL",
                         item_strength := as.numeric(gsub("(.+ )([0-9.]+)(MG\\/.+)",
@@ -307,7 +314,6 @@ cc.all[, `:=`(DDDs.all = coalesce(DDDs.all, 0),
               RABEPRAZOLE = coalesce(RABEPRAZOLE, 0))]
 
 cc.all$DDDsgr <- 0.5 * ceiling(2 * cc.all$DDDs.all)
-
 cc.all$DDDsgr <- as.factor(car::recode(cc.all$DDDsgr, "2:hi='2 or more'"))
 
 ###############  average dose in each TW-day interval ######################## 
@@ -414,7 +420,6 @@ cc.all <- dose.opiate[cc.all]
 cc.all[, dose.opiate.daily := coalesce(dose.opiate.daily, 0)]
 
 ##### add opiate dose from compound analgesics
-
 cc.all[, dose.opiate.daily := dose.opiate.daily + dose.compound.opiates.daily]
 
 #####################################################
@@ -468,6 +473,10 @@ cc.all$opioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
 ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40701])
 cc.all$nonopioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
                                                    ids.nonopioid.analgesic))
+
+## this variable must be class integer to be included in numdrugs
+cc.all <- mutate(cc.all, anyopiate = as.integer(ANON_ID %in% unique(scrips.compound.opiates$ANON_ID) |
+                                                ANON_ID %in% ids.opioid.analgesic))                 
 
 ids.antipsychotic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40201])
 cc.all$antipsychotic <- as.factor(as.integer(cc.all$ANON_ID %in%

@@ -111,7 +111,6 @@ icdsubchapters$end <- as.character(icdsubchapters$end)
 names(cc.all) <- gsub("CASE_NO", "stratum", names(cc.all))
 names(cc.all) <- gsub("^SEX$", "sex", names(cc.all))
 names(cc.all) <- gsub("imumune", "immune", names(cc.all))
-#names(cc.all) <- gsub("^ethnic$", "ethnic.old", names(cc.all))
 names(cc.all) <- gsub("^CAREHOME$", "care.home", names(cc.all))
 names(cc.all) <- gsub("^simd$", "SIMD.quintile", names(cc.all))
 names(cc.all) <- gsub("DATE_OF_DEATH", "Date.Death", names(cc.all))
@@ -203,19 +202,26 @@ cc.all[, care.home := relevel(care.home, ref="Independent")]
 if(old) {
     cc.all <- mutate(cc.all, testpositive.case = CASE==1 & nrs_covid_case==0)
 } else {
-    cc.all$ECOSS_POSITIVE[is.na(cc.all$ECOSS_POSITIVE)] <- "No test"
-    cc.all$ECOSS_POSITIVE[cc.all$ECOSS_POSITIVE==""] <- "No result"
-    ## 91 individuals are included as cases but they do not have covid on death cert and their test result is negative or empty string (labelled "No result")
-    ## probably have a later test result that was positive
-    ## assigned for now as test-positive cases
-    cc.all$testpositive.case <- cc.all$CASE==1 &
-        (cc.all$ECOSS_POSITIVE=="Positive" |
-         cc.all$ECOSS_POSITIVE=="Negative" | 
-         cc.all$ECOSS_POSITIVE=="No result")
-    with(subset(cc.all, CASE==1), table(ECOSS_POSITIVE, covid_cod))
-    with(cc.all[cc.all$CASE==1, ], table(ECOSS_POSITIVE, adm28, exclude=NULL))
-}
+    with(subset(cc.all, CASE==1), table(ECOSS_POSITIVE, covid_cod, exclude=NULL))
+    ## 92 individuals are included as cases but they do not have covid on death cert and their test result is negative or empty string
 
+    ## relabel empty string as "No result"
+    cc.all[is.na(ECOSS_POSITIVE) | ECOSS_POSITIVE=="", ECOSS_POSITIVE := "No result"] 
+
+    ## generate a factor variable with 3 levels
+    cc.all[, ecoss := as.factor(ECOSS_POSITIVE)]
+
+    ## generate testpositive.case based on ecoss
+    cc.all <- mutate(cc.all, testpositive.case = CASE==1 & ecoss=="Positive")
+
+    ## set testpositive case to TRUE for all cases with covid_cod=0
+    ## they couldn't have been ascertained except through testing positive
+    cc.all[CASE==1 & covid_cod==0, testpositive.case := TRUE]
+
+    ## now all cases without covid_cod are test-positive
+    with(subset(cc.all, CASE==1), table(covid_cod, testpositive.case, exclude=NULL))
+    with(cc.all[cc.all$CASE==1, ], table(ecoss, testpositive.case, exclude=NULL))
+}
 
 ## all cases have nonmissing SPECDATE
 ## controls should be assigned same SPECDATE as the case they were matched to
@@ -474,7 +480,7 @@ cc.severe <- subset(cc.all, subset=casegroup=="A")
 ############ FIXME: with enough memory, this can be done on cc.all ###
 
 ## merge drugs, one variable per chapter
-scrips.wide <- reshape2::dcast(scrips, ANON_ID ~ chapternum, fun.aggregate=length, 
+scrips.wide <- data.table::dcast(scrips, ANON_ID ~ chapternum, fun.aggregate=length, 
                                value.var="chapternum")
 shortnames.cols <-  bnfchapters$shortname[match(as.integer(colnames(scrips.wide)[-1]),
                                                 as.integer(bnfchapters$chapternum))]
@@ -535,7 +541,7 @@ for(i in 1:length(unique.diagnoses)) {
 unique.diagnoses <- data.frame(ICD10=unique.diagnoses, chapter=chapter, subchapter=subchapter)
 diagnoses <- merge(diagnoses, unique.diagnoses, by="ICD10", all.x=TRUE)
 
-diagnoses.wide <- reshape2::dcast(diagnoses, ANON_ID ~ chapter, fun.aggregate=length,
+diagnoses.wide <- data.table::dcast(diagnoses, ANON_ID ~ chapter, fun.aggregate=length,
                                   value.var="chapter")
 colnames(diagnoses.wide)[-1] <-
     paste0("Ch.", as.integer(colnames(diagnoses.wide)[-1]), "_", 

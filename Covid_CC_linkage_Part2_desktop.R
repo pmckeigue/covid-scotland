@@ -16,7 +16,7 @@ stats_path <- "//stats/cl-out/HPS/Covid19/case_control"
 westdata_path <- "//westdata01/dept/HPS/private/Statistics/StatsSupport/Coronavirus"
 shared_path <- "//stats/HPS/Covid19/Case_control/data"
 
-filedate <- "2020-06-08" # date input files used for matching
+filedate <- "2020-06-18" # date input files used for matching
 
 # ### working file --------------------------------------------------------
 
@@ -73,6 +73,7 @@ rm(rapid, rapid.agg, rapid.long)
 
 # ### nosocomial infection -----------------------------------------------------------------
 # this is derived from RAPID and provided by Chris R
+### TO BE REMOVED IN FUTURE ITTERATIONS AS NOT REQUIRED ###
 
 nos <- read_csv(paste0(westdata_path, "/Hospitalisations/COVID19_nosocomial/analysis/outputs/CHIs_HAIs_ECDC.csv"), trim_ws = T)
 nos$HAI <- 1
@@ -94,7 +95,7 @@ rm(nos, nos.uk)
 
 # ### SICSAG ICU ----------------------------------------------------------
 
-icu <- read_spss("//freddy/dept/PHIBCS/PHI/HPS-OA/Collaborative Working/2019-nCoV/01 Surveillance and investigation/24 ICU/CHI Linkage/2020-06-08 Full episode level extract - Input.sav")
+icu <- read_spss("//freddy/dept/PHIBCS/PHI/HPS-OA/Collaborative Working/2019-nCoV/01 Surveillance and investigation/24 ICU/CHI Linkage/2020-06-15 Full episode level extract - Input.sav")
 icu <- as.data.frame(icu)
 
 icu <- rename(icu, CHI=ChiNo)
@@ -105,9 +106,21 @@ min(nchar(icu$CHI))
 icu$CHI <- as.character(icu$CHI)
 icu$CHI <- ifelse((nchar(icu$CHI) == 9) & !is.na(icu$CHI), paste0("0", icu$CHI), icu$CHI) # lpad with 0
 
-tp <- cc[c("upi", "SPECIMENDATE")]
+tp <- cc[c("upi", "ANON_ID", "SPECIMENDATE")]
 icu <- merge(x=icu, y=tp, by.x="CHI", by.y="upi", all.x=T)
-icu <- subset(icu, !is.na(SPECIMENDATE) & SPECIMENDATE <= AdmitUnit & !is.na(covidICUorHDU))
+icu <- subset(icu, !is.na(SPECIMENDATE))
+
+# strip identifiable fields for long format file
+
+icu.long <- icu[c("ANON_ID", "UnitID", "AdmitHosp", "AdmitUnit", "AdmitTime", "DiscDate", "DiscTime", "DateDiscHosp",
+  "covidICUorHDU")]
+
+saveRDS(icu.long, paste0(stats_path, "/CC_SICSAG_ANON_", filedate, ".rds"))
+
+
+ # icu/combined and hdu flags
+
+icu <- subset(icu, SPECIMENDATE <= AdmitUnit & !is.na(covidICUorHDU))
 
 summary(icu$AdmitUnit)
 icu$icu <- ifelse(icu$covidICUorHDU ==1, 1, 0)
@@ -141,14 +154,23 @@ cc <- merge(cc, diab, by.x="upi", by.y="CHI", all.x=T)
 cc$diab.reg[is.na(cc$diab.reg)] <- 0
 
 
+# ### ECOSS  ---------------------------------------------------
+##ECOSS data
+ecoss <- read_spss("//stats/cl-out/HPS/Covid19/case_control/Cases_ECOSS_2020_06_18.sav")
+cc <- merge(cc, ecoss, by.x="upi", by.y="CHI", all.x=T)
+
+
+
 # ### save working file ---------------------------------------------------
 
 saveRDS(cc, paste0(stats_path, "/CC_working_", filedate, ".rds"))
 # cc <- readRDS(paste0(stats_path, "/CC_working_", filedate, ".rds"))
+write_sav(cc,"//stats/cl-out/HPS/jen/CC_working_2020_06_18.sav")
+
 
 # ### save out final anonymised files ----------------------------------------------
 
-cc.anon <- cc[c("ANON_ID", "PATID", "stratum", "is.case", "SPECIMENDATE", "SEX", "AgeYear",
+cc.anon <- cc[c("ANON_ID", "PATID", "stratum", "is.case", "ECOSS_POSITIVE", "SPECIMENDATE", "SEX", "AgeYear",
   "INSTITUTION_CODE", "Prisoner_Flag", "DATE_OF_DEATH", "DATE_OF_REGISTRATION", "UNDERLYING_CAUSE_OF_DEATH",
   "CAUSE_OF_DEATH_CODE_0", "CAUSE_OF_DEATH_CODE_1", "CAUSE_OF_DEATH_CODE_2", "CAUSE_OF_DEATH_CODE_3",
   "CAUSE_OF_DEATH_CODE_4", "CAUSE_OF_DEATH_CODE_5", "CAUSE_OF_DEATH_CODE_6", "CAUSE_OF_DEATH_CODE_7",
@@ -183,15 +205,27 @@ rapid.long <- readRDS(paste0(stats_path, "/CC_RAPID_ANON_", filedate, ".rds"))
 rapid.long <- rapid.long[c("ANON_ID", "Admission.Date", "Discharge.Date")]
 saveRDS(rapid.long, paste0(shared_path, "/CC_RAPID_ANON_", filedate, ".rds"))
 
+icu.long <- readRDS(paste0(stats_path, "/CC_SICSAG_ANON_", filedate, ".rds"))
+saveRDS(icu.long, paste0(shared_path, "/CC_SICSAG_ANON_", filedate, ".rds"))
 
-#PIS.x15 <- readRDS(paste0(stats_path, "/CC_PIS_x15_ANON_", filedate, ".rds"))
-#PIS.x15 <- select(PIS.x15, -c("CHI))
-#saveRDS(PIS.x15, paste0(shared_path, "/CC_PIS_x15_ANON_", filedate, ".rds"))
-
-#PIS.15 <- readRDS(paste0(stats_path, "/CC_PIS_15_ANON_", filedate, ".rds"))
-#PIS.15 <- select(PIS.x15, -c("CHI))
-#saveRDS(PIS.15, paste0(shared_path, "/CC_PIS_15_ANON_", filedate, ".rds"))
+SMR06.long <- readRDS(paste0(stats_path, "/CC_SMR06_ICD10_", filedate, ".rds"))
+SMR06.long <- SMR06.long[c("ANON_ID", "INCIDENCE_DATE", "ICD10S_CANCER_SITE")]
+saveRDS(SMR06.long, paste0(shared_path, "/CC_SMR06_ICD10_ANON_", filedate, ".rds"))
 
 
+PIS.x15 <- readRDS(paste0(stats_path, "/nine_month_excl_15_day_PIS_data_20200619.rds"))
+PIS.x15$upi <- NULL
+PIS.x15 <- rename(PIS.x15, ANON_ID=anon_id, SPECIMENDATE=specimendate)
+saveRDS(PIS.x15, paste0(shared_path, "/CC_PIS_x15_ANON_", filedate, ".rds"))
 
+PIS.15 <- readRDS(paste0(stats_path, "/fifteen_day_PIS_data_20200619.rds"))
+PIS.15$upi <- NULL
+PIS.15 <- rename(PIS.15, ANON_ID=anon_id, SPECIMENDATE=specimendate)
+saveRDS(PIS.15, paste0(shared_path, "/CC_PIS_15_ANON_", filedate, ".rds"))
+
+
+##ONOMAP
+ono <- read_spss("//stats/cl-out/HPS/Covid19/case_control/ONOMAP_2020_06_18.sav")
+ono<-ono[c("ANON_ID","OnolyticsType", "GeographicalArea")]
+saveRDS(ono, paste0(shared_path, "/ONOMAP_ANON_", filedate, ".rds"))
 

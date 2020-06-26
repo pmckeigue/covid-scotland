@@ -12,7 +12,7 @@ getdaysbeforetest <- function(scrips.in, specdates) {
 }
 
 getdoseTWday.wide <- function(scrips.in, varname.prefix="dose.") {
-    doseTWday <-  reshape2::dcast(data=scrips.in,
+    doseTWday <-  data.table::dcast(data=scrips.in,
                                   formula=ANON_ID + intervalTWday ~ approved_name,
                                   value.var="dose",
                                   fun.aggregate=sum)
@@ -25,7 +25,7 @@ getdoseTWday.wide <- function(scrips.in, varname.prefix="dose.") {
     ## drop columns for individual drugs, and cast again to get one column for each interval
     doseTWday <- doseTWday[, c("ANON_ID", "intervalTWday", "doseTWday.all")]
     doseTWday <- doseTWday[!is.na(doseTWday$intervalTWday), ]
-    doseTWday.wide <-  reshape2::dcast(data=doseTWday,
+    doseTWday.wide <-  data.table::dcast(data=doseTWday,
                                        formula=ANON_ID ~ intervalTWday,
                                        value.var="doseTWday.all",
                                        fun.aggregate=sum)
@@ -73,7 +73,7 @@ length(table(substr(scrips$bnf_paragraph_code, 1, 4))) # chapter, section
 length(table(substr(scrips$bnf_paragraph_code, 1, 6)))  # chapter, section, paragraph
 length(table(scrips$bnf_paragraph_code)) # 537 groups
 
-## we need integer variables chapter, sectioncode, paracode for use with reshape2::dcast
+## we need integer variables chapter, sectioncode, paracode for use with data.table::dcast
 scrips$chapternum <- as.integer(substr(scrips$bnf_paragraph_code, 1, 2))
 scrips$sectioncode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 4))
 scrips$paracode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 6))
@@ -289,13 +289,13 @@ scrips.protonpump$dose <- scrips.protonpump$item_strength * scrips.protonpump$qu
     scrips.protonpump$DDD
 
 ## calculate dose of each drug over entire period
-dose.protonpump <-  reshape2::dcast(data=scrips.protonpump,
+dose.protonpump <-  data.table::dcast(data=scrips.protonpump,
                                     formula=ANON_ID + dispensing.days ~ approved_name,
                                     value.var="dose",
                                     fun.aggregate=sum)
 
 for(j in 3:ncol(dose.protonpump)) { # loop over approved names to divide by dispensing.days 
-    dose.protonpump[, j] <- dose.protonpump[, j] / dose.protonpump$dispensing.days 
+    dose.protonpump[[j]] <- dose.protonpump[[j]] / dose.protonpump$dispensing.days 
 }
 dose.protonpump$DDDs.all <- rowSums(dose.protonpump[, -(1:2)])
 dose.protonpump <- as.data.table(dose.protonpump, key="ANON_ID")
@@ -360,12 +360,12 @@ scrips.compound.opiates$dose <- scrips.compound.opiates$item_strength *
     scrips.compound.opiates$factor.oral
 
 ## calculate dose of each drug over entire period
-dose.compound.opiates <-  reshape2::dcast(data=scrips.compound.opiates,
+dose.compound.opiates <-  data.table::dcast(data=scrips.compound.opiates,
                                     formula=ANON_ID + dispensing.days ~ approved_name,
                                     value.var="dose",
                                     fun.aggregate=sum)
 for(j in 3:ncol(dose.compound.opiates)) { # loop over approved names to divide by dispensing.days 
-    dose.compound.opiates[, j] <- dose.compound.opiates[, j] / dose.compound.opiates$dispensing.days
+    dose.compound.opiates[[j]] <- dose.compound.opiates[[j]] / dose.compound.opiates$dispensing.days
 }
 dose.compound.opiates$dose.compound.opiates.daily <- rowSums(dose.compound.opiates[, -(1:2)])
 
@@ -400,12 +400,12 @@ scrips.opiate$dose[mode.patch] <- scrips.opiate$quantity[mode.patch] *
     scrips.opiate$factor.patch[mode.patch]
 
 ## calculate dose of each drug over entire period
-dose.opiate <-  reshape2::dcast(data=scrips.opiate,
+dose.opiate <-  data.table::dcast(data=scrips.opiate,
                                     formula=ANON_ID + dispensing.days ~ approved_name,
                                     value.var="dose",
                                     fun.aggregate=sum)
 for(j in 3:ncol(dose.opiate)) { # loop over approved names to divide by dispensing.days 
-    dose.opiate[, j] <- dose.opiate[, j] / dose.opiate$dispensing.days
+    dose.opiate[[j]] <- dose.opiate[[j]] / dose.opiate$dispensing.days
 }
 dose.opiate$dose.opiate.daily <- rowSums(dose.opiate[, -(1:2)])
 

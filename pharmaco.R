@@ -53,8 +53,6 @@ colnames(table.jointcardiovasc)[2:3] <- paste0(c("Controls (", "Cases ("),
 
 ################################################################
 ## generate subpara.coeffs and subparacols.keep
-## consider restricting to age < 75
-## FIXME - rewrite code below to use subset
 restrict <- with(cc.severe, listed.any==0)
 
 ## select subpara codes excluding cardiovascular (chapter 2)
@@ -69,7 +67,7 @@ for(col in subparacols) {
     x <- subset(cc.severe, restrict)[[col]]
     freqs.cc <- table(as.integer(x), y)
     if(nrow(freqs.cc) > 1 & ncol(freqs.cc) > 1) {
-        if(sum(freqs.cc[2, ]) >= 20) { # if at least 20 in row
+        if(sum(freqs.cc[2, ]) >= 50) { # if at least 20 in row
             coeffs <- summary(clogit(formula=y ~ x + strata(stratum)))$coefficients
             if(coeffs[1, 5] < 0.001) {
                 subpara.coeffs <- rbind(subpara.coeffs,
@@ -150,14 +148,37 @@ for(agegr in levels(cc.severe$agegr2)) {
    
     x <- rbind(rep(NA, ncol(x)), x)
     freqs <- paste.colpercent(with(cc.severe[cc.severe$agegr2==agegr, ], table(dosegr.opiate, CASE)))
-    x <- data.frame(DDD.average=rownames(freqs), freqs, x)
+    x <- data.frame(MME.average=rownames(freqs), freqs, x)
     rownames(x) <- paste0(agegr, ": ", rownames(x))
     table.dosegr.opiate <- rbind(table.dosegr.opiate, x)
 }
 
 colnames(table.dosegr.opiate)[2:3] <- paste0(c("Controls (", "Cases ("),
-                                                 as.integer(table(cc.severe$CASE)),
-                                                 rep(")", 2))
+                                             as.integer(table(cc.severe$CASE)),
+                                             rep(")", 2))
+
+x <- summary(clogit(formula=CASE ~ dosegr.opiate + strata(stratum), 
+                    data=subset(cc.severe, notlisted)))$coefficients
+x <- as.data.frame(x)
+x$u.ci <- or.ci(x[, 1], x[, 3])
+x$u.pvalue <- pvalue.latex(x[, 5])
+x <- x[, c("u.ci", "u.pvalue")]
+y <- summary(clogit(formula=withcovariates.formula,
+                    data=subset(cc.severe, notlisted)))$coefficients[coeff.rows, ]
+y <- as.data.frame(y)
+y$m.ci <- or.ci(y[, 1], y[, 3])
+y$m.pvalue <- pvalue.latex(y[, 5])
+y <- y[, c("m.ci", "m.pvalue")]
+x <- data.frame(x, y)               
+x <- rbind(rep(NA, ncol(x)), x)
+freqs <- paste.colpercent(with(subset(cc.severe, notlisted), table(dosegr.opiate, CASE)))
+x <- data.frame(MME.average=rownames(freqs), freqs, x)
+table.dosegr.opiate.notlisted <- x 
+
+colnames(table.dosegr.opiate.notlisted)[2:3] <-
+    paste0(c("Controls (", "Cases ("),
+           as.integer(table(subset(cc.severe, notlisted)[["CASE"]])),
+           rep(")", 2))
 
 ##############################################################################
 ## tabulate.freqs.regressions() can only be used with factor variables
@@ -203,6 +224,28 @@ colnames(table.dosegr.protonpump)[2:3] <- paste0(c("Controls (", "Cases ("),
                                                  rep(")", 2))
 
 ## print(table.dosegr.protonpump)
+x <- summary(clogit(formula=CASE ~ DDDsgr + strata(stratum), 
+                    data=subset(cc.severe, notlisted)))$coefficients
+x <- as.data.frame(x)
+x$u.ci <- or.ci(x[, 1], x[, 3])
+x$u.pvalue <- pvalue.latex(x[, 5])
+x <- x[, c("u.ci", "u.pvalue")]
+y <- summary(clogit(formula=withcovariates.formula,
+                    data=subset(cc.severe, notlisted)))$coefficients[coeff.rows, ]
+y <- as.data.frame(y)
+y$m.ci <- or.ci(y[, 1], y[, 3])
+y$m.pvalue <- pvalue.latex(y[, 5])
+y <- y[, c("m.ci", "m.pvalue")]
+x <- data.frame(x, y)               
+x <- rbind(rep(NA, ncol(x)), x)
+freqs <- paste.colpercent(with(subset(cc.severe, notlisted), table(DDDsgr, CASE)))
+x <- data.frame(DDDs.average=rownames(freqs), freqs, x)
+table.dosegr.protonpump.notlisted <- x 
+
+colnames(table.dosegr.protonpump.notlisted)[2:3] <-
+    paste0(c("Controls (", "Cases ("),
+           as.integer(table(subset(cc.severe, notlisted)[["CASE"]])),
+           rep(")", 2))
 
 #### opiate effect by time window ##################################
 

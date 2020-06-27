@@ -31,7 +31,6 @@ list.of.packages = c("car",
                      "dplyr",
                      "data.table")
 
-
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages) > 0) {install.packages(new.packages)}
 lapply(list.of.packages, require, character.only=T)
@@ -64,15 +63,53 @@ include.nrs.only <- TRUE
 stepwise <- TRUE   
 stepwise <- FALSE ## uncomment to save time if old version still valid
 
+recode.dmtype <- function(x) {
+    r <- as.factor(car::recode(x, 
+                        "c(0, 10, 17, 97)='Not diabetic';
+                         c(1, 101, 102)='Type 1 diabetes';
+                         c(2, 202, 203)='Type 2 diabetes'; 
+                         3:9='Other/unknown type';
+                         11:16='Other/unknown type';
+                         18:96='Other/unknown type';
+                         98:100='Other/unknown type'"))
+    r <- factor(r, levels=levels(r)[c(1, 3, 4, 2)])
+    return(r)
+}
+
+cases.old <- as.data.table(readRDS("./data/CC_linked_ANON_20200515.rds"), key="ANON_ID")
+cases.new <- as.data.table(readRDS("./data/CC_linked_ANON_2020-06-18.rds"), key="ANON_ID")
+cases.old <- subset(cases.old, CASE==1)
+cases.new <- subset(cases.new, is.case)
+
+setnames(cases.old, "age", "AGE")
+
+setnames(cases.new, "SPECIMENDATE", "SPECDATE")
+setnames(cases.new, "AgeYear", "AGE")
+
+cases.old$dm.type <- recode.dmtype(cases.old$dm.type)
+cases.new$dm.type <- recode.dmtype(cases.new$dm.type)
+
+with(subset(cases.old, AGE<50), table(dead28 | covid_cod, icu==1 | hdu==1))
+with(subset(cases.new, AGE<50), table(dead28 | covid_cod, icu==1 | hdu==1))
+
+##################################################################
+     
 if(old) {
-    cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_20200515.rds"))
-    diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200515.rds")
+    cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_20200515.rds"), key="ANON_ID")
+    setnames(cases.old, "age", "AGE")
+
+    diagnoses <- as.data.table(readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200515.rds"),
+                               key="ANON_ID")
     procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200515.rds")
     scrips.filename <- "./data/CC_PIS_x15_ANON_20200515.rds" 
     controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-15.rds")
 } else {
     cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_2020-06-18.rds"), key="ANON_ID")
-    diagnoses <- readRDS("./data/CC_SMR01_ICD10_x25_ANON_2020-06-18.rds")
+    setnames(cc.all, "SPECIMENDATE", "SPECDATE")
+    setnames(cc.all, "AgeYear", "AGE")
+    
+    diagnoses <- as.data.table(readRDS("./data/CC_SMR01_ICD10_x25_ANON_2020-06-18.rds"),
+                               key="ANON_ID")
     procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_2020-06-18.rds")
     scrips.filename <- "./data/CC_PIS_x15_ANON_2020-06-18.rds"
     onomap <- as.data.table(readRDS("./data/ONOMAP_ANON_2020-06-18.rds"), key="ANON_ID")
@@ -180,6 +217,7 @@ cc.all$SIMD.quintile <- car::recode(cc.all$SIMD.quintile, "'Unknown'=NA")
 
 cc.all$scripordiag <- as.integer(with(cc.all, as.integer(diag.any)==2 |
                                               as.integer(scrip.any)==2))
+cc.all$scripordiag <- as.factor(cc.all$scripordiag)
 
 cc.all$sex <- car::recode(as.factor(cc.all$sex), "1='Male'; 2='Female'")
 cc.all[, sex := relevel(sex, ref="Female")]
@@ -252,7 +290,6 @@ cc.all <- mutate(cc.all, adm28 = adm28 & testpositive.case)
 with(cc.all[cc.all$CASE==1, ], table(inhosp, adm28, exclude=NULL))
 ## Covid_CC_linkage_Part2_desktop.R:rapid$days <- as.numeric(rapid$Admission.Date - rapid$SPECIMENDATE)
 ## Covid_CC_linkage_Part2_desktop.R:rapid$adm28 <- ifelse(rapid$days %in% c(0:28), 1, 0)
-
 
 ## new linkage does not have the variable nrs_covid_case
 with(subset(cc.all, CASE==1 & covid_ucod==1), table(deathwithin28, exclude=NULL))
@@ -384,7 +421,6 @@ cc.all <- mutate(cc.all, ethnic4.onomap = car::recode(ethnic5.onomap, "'Black'='
 cc.all[, ethnic4.onomap := factor(ethnic4.onomap,
                                   levels=levels(ethnic4.onomap)[c(4, 3, 1, 2)])]
 
-
 ## recode to 3 categories: White, South Asian, Other
 cc.all <- mutate(cc.all, ethnic3.onomap = car::recode(ethnic4.onomap, "'Chinese'='Other'"))
 cc.all[, ethnic3.onomap := factor(ethnic3.onomap,
@@ -410,8 +446,6 @@ ids.icd.diabetes <- unique(diagnoses$ANON_ID[grep("^E1[0-4]", diagnoses$ICD10)])
 ids.bnf.diabetes <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 601])
 ids.diabetes.extra <- unique(c(ids.icd.diabetes, ids.bnf.diabetes))
 
-# recode diabetes type
-cc.all$dm.type <- as.integer(cc.all$dm.type)
 ## missing recoded as zero
 cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
 
@@ -419,8 +453,8 @@ cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
 ## of diabetes type from SDRN database
 cc.all$dm.type[cc.all$dm.type==0 & cc.all$diab.reg==1] <- 3
 
-cat("Extra diabetes cases from SCI-Diabetes by diabetes type\n")
-print(table(cc.all$dm.type, cc.all$ANON_ID %in% ids.diabetes.extra))
+#cat("Extra diabetes cases from SCI-Diabetes by diabetes type\n")
+#print(table(cc.all$dm.type, cc.all$ANON_ID %in% ids.diabetes.extra))
 
 ## code diagnoses detected from discharges or BNF codes as unknown type
 ## we could classify those not on insulin as definite Type 2 but Helen says no
@@ -429,18 +463,10 @@ print(table(cc.all$dm.type, cc.all$ANON_ID %in% ids.diabetes.extra))
 
 ## cc.all$dm.type[cc.all$dm.type==0 & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
 
-cc.all$dm.type <- 
-  as.factor(car::recode(cc.all$dm.type, 
-                        "c(0, 10, 17, 97)='Not diabetic';
-                         c(1, 101, 102)='Type 1 diabetes';
-                         c(2, 202, 203)='Type 2 diabetes'; 
-                         3:9='Other/unknown type';
-                         11:16='Other/unknown type';
-                         18:96='Other/unknown type';
-                         98:100='Other/unknown type'"))
+# recode diabetes type
+cc.all$dm.type <- recode.dmtype(cc.all$dm.type)
 
-cc.all <- within(cc.all, dm.type <- relevel(dm.type, ref="Not diabetic"))
-cc.all$dm.type <- factor(cc.all$dm.type, levels=levels(cc.all$dm.type)[c(1, 3, 4, 2)])
+with(subset(cc.all, CASE==1), table(dm.type))
 
 ## define an indicator variable for any diabetes
 cc.all$diabetes.any <- as.integer(cc.all$dm.type != "Not diabetic")
@@ -546,10 +572,13 @@ diagnoses.wide <- data.table::dcast(diagnoses, ANON_ID ~ chapter, fun.aggregate=
 colnames(diagnoses.wide)[-1] <-
     paste0("Ch.", as.integer(colnames(diagnoses.wide)[-1]), "_", 
            icdchapters$shortname[as.integer(colnames(diagnoses.wide)[-1])])
-## drop rare chapters
-diagnoses.wide <- diagnoses.wide[, colSums(diagnoses.wide) > 20]
 
 diagnoses.wide <- as.data.table(diagnoses.wide, key="ANON_ID")
+
+## drop rare chapters
+cols.keep <- colSums(diagnoses.wide) >= 20
+diagnoses.wide <- diagnoses.wide[, ..cols.keep]
+
 cc.severe <- diagnoses.wide[cc.severe]
 
 icdcols <- grep("^Ch.", colnames(cc.severe))
@@ -591,186 +620,9 @@ cc.severe$diag.other <- as.factor(car::recode(cc.severe$diag.other,
                                   "0='Listed condition or no admission';
                                    1='No listed condition, but other admission diagnosis'"))
 
-
 ####################################################################
 
-## code care home residents as 1, other as 0
-cc.severe$cats3 <-  as.integer(cc.severe$care.home == "Care/nursing home")
-cc.severe$cats3[cc.severe$cats3==0 & cc.severe$listed.any==1] <- 2 
-cc.severe$cats3[cc.severe$cats3==0 & cc.severe$listed.any==0] <- 3
-cc.severe$cats3 <- as.factor(car::recode(cc.severe$cats3, "1='Care/nursing home';
-                               2='Independent living, listed condition';
-                               3='Independent living, no listed condition'"))     
-
-########### variable lists for tabulating
-
-demog <- c("ethnic3.onomap", "SIMD.quintile", "care.home")
-
-demog.smr <- c("ethnic4.smr", "SIMD.quintile", "care.home")
-
-varnames.extended <- c("care.home", "scrip.any", "diag.any", "listed.any", "diag.other",
-                     "scripordiag", listed.conditions)
-
-varnames.listedpluscovs <- c("care.home", "scrip.any", "diag.any", listed.conditions)
-
-bnfcols <- grep("^BNF", colnames(cc.severe))
-bnf.chapternames <- colnames(cc.severe)[bnfcols]
-
-icdcols <- grep("^Ch.", colnames(cc.severe))
-icd.chapternames <- colnames(cc.severe)[icdcols]
-
-full.varnames <- c(demog, listed.conditions,
-                   "diag.any", icd.chapternames, "scrip.any", bnf.chapternames)
-
-## logical vectors for subsetting
-nocare <- cc.severe$care.home=="Independent"
-notlisted <- cc.severe$listed.any == 0
-nocare.notlisted <- nocare & notlisted
-
-##### tables for first paper  ######################
-
-table.severe.demog <- tabulate.freqs.regressions(varnames=demog,
-                                                 data=cc.severe)
-
-table.scripordiag <- NULL
-for(agegr in levels(cc.severe$agegr20)) {
-    x <- with(cc.severe[cc.severe$agegr20==agegr, ],
-              table(scripordiag, CASE))
-    colnames(x) <- c("Controls", "Cases")
-    x <- paste.colpercent(x)
-    y <- with(cc.severe[cc.severe$agegr20==agegr, ],
-              table(listed.any, CASE))
-    y <- paste.colpercent(y)
-    y <- y[2, , drop=FALSE]
-    rownames(y) <- "Any listed condition"
-    z <- with(cc.severe[cc.severe$agegr20==agegr, ],
-              table(listed.any==0 & diag.any==1, CASE))
-    z <- paste.colpercent(z)
-    z <- z[2, , drop=FALSE]
-    rownames(z) <- "No listed condition, but other diagnosis"
-    
-    x <- rbind(x[1, , drop=FALSE], y, z, x[2, , drop=FALSE])
-    table.scripordiag <- cbind(table.scripordiag, x)
-}
-
-table.scripordiag.fatal <- NULL
-for(agegr in levels(cc.severe$agegr3)) {
-    x <- with(cc.severe[cc.severe$agegr3==agegr, ],
-              table(scripordiag, fatalcase))
-    colnames(x) <- c("Controls", "Fatal cases")
-    x <- paste.colpercent(x)
-    # x <- x[1, , drop=FALSE]
-    rownames(x) <- c("No scrip or diagnosis", "Scrip or diagnosis")
-    table.scripordiag.fatal <- rbind(table.scripordiag.fatal, x)
-}
-
-cc.severe$scripordiag <- as.factor(cc.severe$scripordiag)
-
-## table.agegr shown in paper 1: frequencies by age group but no rate ratios
-## varnames.listed
-table.agegr <- NULL
-for(agegr in levels(cc.severe$agegr20)) {
-    x <- univariate.tabulate(varnames=varnames.extended, 
-                             outcome="CASE",
-                             data=cc.severe[cc.severe$agegr20==agegr, ],
-                             drop.reflevel=FALSE)
-    table.agegr <- cbind(table.agegr, x)
-}
-## all ages including 28-day fatality
-freqs.all <- univariate.tabulate(varnames=c("deathwithin28", varnames.extended),
-                             outcome="CASE",
-                             data=cc.severe,
-                             drop.reflevel=FALSE)
-
-## list of tables by age group shown in paper 1
-## varnames.listedpluscovs
-tables.agegr <- vector("list", length(levels(cc.severe$agegr3)))
-for(i in 1:length(levels(cc.severe$agegr3))) {
-    agegr <- levels(cc.severe$agegr3)[i]
-    tables.agegr[[i]] <-
-        tabulate.freqs.regressions(varnames=varnames.listedpluscovs,
-                                   data=cc.severe[cc.severe$agegr3==agegr, ])
-}
-
-## table.agegr.all shown in paper 1: rate ratios for all age groups combined
-## varnames.listedpluscovs
-table.agegr.all <- tabulate.freqs.regressions(varnames=varnames.listedpluscovs,
-                                              data=cc.severe)
-
-## demographic vars
-table.demog.aug <- tabulate.freqs.regressions(varnames=demog, data=cc.severe)
-
-## separate analysis using SMR ethnicity 
-table.ethnicsmr <- univariate.tabulate(varnames="ethnic4.smr", outcome="CASE",
-                                       data=cc.severe[!is.na(cc.severe$ethnic4.smr), ],
-                                       drop.reflevel=FALSE)
-univariate.ethnicsmr <-
-    univariate.clogit(varnames="ethnic4.smr",
-                      data=cc.severe[!is.na(cc.severe$ethnic4.smr), ],
-                      add.reflevel=TRUE)
-table.ethnicsmr.aug <- combine.tables2(table.ethnicsmr, univariate.ethnicsmr)
-rownames(table.ethnicsmr.aug) <- replace.names(rownames(table.ethnicsmr.aug))
-
-## listed conditions
-table.listed.conditions.lt60 <-
-    tabulate.freqs.regressions(varnames=listed.conditions,
-                               data=cc.severe[cc.severe$AGE < 60, ])
-table.listed.conditions.ge60 <-
-    tabulate.freqs.regressions(varnames=listed.conditions,
-                               data=cc.severe[cc.severe$AGE >= 60 ])
-
-## full multivariate model variables -- for this use dm.type rather than diabetes.any 
-multivariate.all <-
-    multivariate.clogit(varnames=full.varnames,
-                        data=cc.severe, add.reflevel=TRUE)
-
-################# restrict to those without listed conditions #############
-
-## conditions
-table.conditions.aug <- tabulate.freqs.regressions(varnames=icd.chapternames, 
-                                                   data=cc.severe[notlisted, ])
-
-cat("Tabulating ICD subchapter diagnoses ...")
-## tabulate subchapters in ICD chapters of interest
-table.icdchapter2 <- tabulate.icdchapter(chnum=2, data=cc.severe[notlisted, ])
-table.icdchapter7 <-  tabulate.icdchapter(chnum=7, data=cc.severe[notlisted, ])
-table.icdchapter11 <- tabulate.icdchapter(chnum=11, data=cc.severe[notlisted, ])
-
-## table icdsubchapters shown in paper 1
-table.icdsubchapters <- NULL
-for(i in 1:20) {
-    table.icdsubchapters <-
-        rbind(table.icdsubchapters,
-              tabulate.icdchapter(chnum=i, data=cc.severe[notlisted, ], minrowsum=50))
-}
-
-#table.icdsubchapters <- table.icdsubchapters[grep("ensuremath",
-#                                                  table.icdsubchapters$u.pvalue), ]
-cat("done\n")
-
-#########################################################################
-
-## drugs 
-table.drugs.aug <- tabulate.freqs.regressions(varnames=bnf.chapternames, 
-                                              data=cc.severe[notlisted, ])
-
-#############################################################################
-
-## tabulate scrip.any effect by carehome and listed.any
-
-## code care home residents as 1, other as 0
-cc.severe$cats3 <-  as.integer(cc.severe$care.home == "Care/nursing home")
-cc.severe$cats3[cc.severe$cats3==0 & cc.severe$listed.any==1] <- 2 
-cc.severe$cats3[cc.severe$cats3==0 & cc.severe$listed.any==0] <- 3
-cc.severe$cats3 <- as.factor(car::recode(cc.severe$cats3, "1='Care/nursing home';
-                               2='Independent living, listed condition';
-                               3='Independent living, no listed condition'"))     
-
-################################################################
-
-## tabulate associations with drug chapters in those not in care homes and without listed conditions 
-table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=bnf.chapternames, 
-                                                           data=cc.severe[nocare.notlisted, ])
+source("paper1tables.R")
 
 ######## stepwise regressions use saved version #####################
 
@@ -799,3 +651,9 @@ rmarkdown::render("casecontrol_script.Rmd", output_file="casecontrol_script.pdf"
 
 Rprof()
 print(summaryRprof(tmp)$by.total[1:20, ])
+
+print(with(subset(cc.all, CASE==1), table(casegroup, dm.type)))
+print(with(subset(cc.all, CASE==1), table(dm.type)))
+
+print(with(cases.old, table(dm.type)))
+print(with(cases.new, table(dm.type)))

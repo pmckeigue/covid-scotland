@@ -455,7 +455,20 @@ opiate.exposure.cat <- factor(opiate.exposure.cat,
 
 ## data.table behaves strangely when type of an existing column is changed
 cc.all <- mutate(cc.all, opiate.exposurecat = opiate.exposure.cat)
-
+    
+    ids.opioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40702])
+    cc.all$opioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
+                                                    ids.opioid.analgesic))
+    
+    ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40701])
+    cc.all$nonopioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
+                                                       ids.nonopioid.analgesic))
+    
+    ## this variable must be class integer to be included in numdrugs
+    cc.all <- mutate(cc.all,
+                     anyopiate = as.integer(ANON_ID %in%
+                                            unique(scrips.compound.opiates$ANON_ID) |
+                                            ANON_ID %in% ids.opioid.analgesic))                 
 }
 
 ########### other drugs of interest coded as binary ####################
@@ -466,17 +479,6 @@ cc.all$antiplatelet <- as.factor(as.integer(cc.all$ANON_ID %in% ids.antiplatelet
 ids.nsaid <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 100101])
 cc.all$nsaid <- as.factor(as.integer(cc.all$ANON_ID %in% ids.nsaid))
 
-ids.opioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40702])
-cc.all$opioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                      ids.opioid.analgesic))
-
-ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40701])
-cc.all$nonopioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                   ids.nonopioid.analgesic))
-
-## this variable must be class integer to be included in numdrugs
-cc.all <- mutate(cc.all, anyopiate = as.integer(ANON_ID %in% unique(scrips.compound.opiates$ANON_ID) |
-                                                ANON_ID %in% ids.opioid.analgesic))                 
 
 ids.antipsychotic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40201])
 cc.all$antipsychotic <- as.factor(as.integer(cc.all$ANON_ID %in%

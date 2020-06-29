@@ -199,7 +199,7 @@ multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FAL
 
     nonmissing <- nonmissing.obs(data, varnames)
     data.selected <- subset(data, subset=nonmissing) %>%
-        select(outcome, stratum, varnames)
+        select(all_of(outcome), stratum, all_of(varnames))
     multivariate.formula <- as.formula(paste(outcome, "~ . + strata(stratum)"))
     
     multivariate.model <- clogit(formula=multivariate.formula, data=data.selected)
@@ -525,7 +525,7 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
                 table.icd.ch.aug <- combine.tables2(ftable=table.icd.ch, utable=univariate.icd.ch)
                 #browser("tabulateicd")
                 # table.icd.ch.aug[, 4] <- pvalue.latex(table.icd.ch.aug[, 4])
-                print(table.icd.ch.aug) # without this line the first two cols are dropped?
+                # print(table.icd.ch.aug) # without this line the first two cols are dropped?
             } else {
                 return(NULL)
             }

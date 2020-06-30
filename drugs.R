@@ -237,9 +237,10 @@ scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="FENTANYL"
         subset(!(substring(bnf_item_code, 1, 9) %in% compound.opiates$chemicalcode))
     
     scrips.compound.opiates <- as.data.table(scrips.compound.opiates)
-    scrips.compound.opiates <- subset(scrips.compound.opiates,
-                                      subset=scrips.compound.opiates$approved_name %in%
-                                          names(table(scrips.compound.opiates$approved_name))[2:4])
+    scrips.compound.opiates <-
+        subset(scrips.compound.opiates,
+               subset=scrips.compound.opiates$approved_name %in%
+                   names(table(scrips.compound.opiates$approved_name))[2:4])
     
 item.desc <- subset(scrips.compound.opiates, approved_name=="CO-DYDRAMOL",
                     select="bnf_item_description") %>% table() %>% names()

@@ -109,8 +109,7 @@ colnames(x) <- colnames(cc.severe)[subparacols.forstepwisedrop]
 y <- subset(cc.severe, restrict)[["CASE"]]
 stratum <- subset(cc.severe, restrict)[["stratum"]]
 covariates.subparas <- subset(cc.severe, restrict)[["care.home"]] 
-cat("Stepwise drop procedure over BNF subpara codes adjusted for",
-    names(covariates.subparas), "...")
+cat("Stepwise drop procedure over BNF subpara codes adjusted for care home status...")
 stepwise.drop.subparas <- stepwise.union.dropcols(x=x, y=y, covariates=covariates.subparas, stratum=stratum)
 cat("done\n")
 
@@ -119,7 +118,6 @@ print(stepwise.drop.subparas)
 ################################################################
 
 ## tabulate dose-response effects by age group
-
 
 #### opiates  #####################################
 ####### tabulate dose-response effect by opiate dose group ###############################
@@ -466,11 +464,13 @@ table.fatal.protonpump <- rbind(table.fatal.protonpump, x)
 
 #################################################################
 ## tabulate para or subpara codes in BNF chapters of interest
-table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=cc.severe, minrowsum=50)
-table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.severe, minrowsum=50)
-table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.severe, minrowsum=50)
+## restrict to age < 75 otherwise associations dominated by drugs used in frail elderly
+
+table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=subset(cc.severe, AGE < 75), minrowsum=50)
+table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=subset(cc.severe, AGE < 75), minrowsum=50)
+table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=subset(cc.severe, AGE < 75), minrowsum=50)
 ## chapter 10 has to be disaggregated to drug names as grouping of DMARDs is too broad
-table.bnfchapter10 <- tabulate.bnfchemicals(chnum=10, data=cc.severe, minrowsum=50)
+table.bnfchapter10 <- tabulate.bnfchemicals(chnum=10, data=subset(cc.severe, AGE < 75), minrowsum=50)
 
 nocare.drugfreqs <-
     sapply(subset(cc.severe,
@@ -489,7 +489,7 @@ care.drugfreqs <-
 coeff.anticoagulant.univariate <- summary(clogit(formula=CASE ~ anticoagulant.any + strata(stratum),
                data=cc.severe))$coefficients[1, ]
 
-coeff.anticoagulant.adjusted <- summary(clogit(formula=CASE ~ anticoagulant.any +  heart.other.any + protonpump + strata(stratum),
+coeff.anticoagulant.adjusted <- summary(clogit(formula=CASE ~ anticoagulant.any + IHD.any +  heart.other.any + protonpump + strata(stratum),
                data=cc.severe))$coefficients[1, ]
 
 ############################

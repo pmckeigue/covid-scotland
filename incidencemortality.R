@@ -1,4 +1,3 @@
-logit <- function(x) log(x) - log(1 - x) 
 
 ## https://www.nrscotland.gov.uk/statistics-and-data/statistics/statistics-by-theme/population/population-estimates/mid-year-population-estimates/mid-2019
 
@@ -90,4 +89,55 @@ discrim$W <- log.likratio / log(2)
 lambda1 <- sum(discrim$W * discrim$Deaths) / sum(discrim$Deaths)
 lambda0 <- sum(-discrim$W * discrim$Survivors) / sum(discrim$Survivors)
 deaths.Lambda.agesex <- 0.5 * (lambda0 +  lambda1)
+
+
+get.covidage <- function(popmodel, sex, logitrisk) {
+    ## get interpolated age given logitrisk and sex
+    ## popmodel has columns sex, age, logit
+    N <- length(sex)
+    covidage <- numeric(N)
+    model.m <- subset(popmodel, sex="Males")
+    model.f <- subset(popmodel, sex="Females")
+    covidage[sex=="Males"] <- approx(x=model.m$logit,  y=model.m$age, xout=logitrisk)
+    covidage[sex=="Females"] <- approx(x=model.f$logit,  y=model.f$age, xout=logitrisk)
+    return(covidage$y)
+}
+
+getlogitrisk <- function(popmodel, sex, age) {
+    ## get logit risk given sex and age, from population model
+    N <- length(age)
+    logitrisk <- numeric(N)
+    model.m <- subset(popmodel, sex="Males")
+    model.f <- subset(popmodel, sex="Females")
+    logitrisk[sex=="Males"] <- approx(x=model.m$age,  y=model.m$logit, xout=age)
+    logitrisk[sex=="Females"] <- approx(x=model.f$age,  y=model.f$logit, xout=age)
+    return(logitrisk)
+}
+
+calibrate.condlogit <- function(popmodel, sex, age, c.logit) {
+    ## find value of intercept that equates observed and expected risk
+    ## where the linear predictor is the sum of the logit from popmodel and
+    ## conditional logit c.logit from case-control study
+
+    ## left join data.table(sex, age, clogit) with popmodel
+
+    ## sum the logits
+
+    ## equate observed and predicted risk over all individuals
+    
+}
+
+popmodel <- subset(gam, Status=="Deaths", select=c("Sex", "Age", "value"))
+colnames(popmodel) <- c("sex", "age", "logit")
+      
+covidage <- get.covidage(popmodel=popmodel, sex="Males", logitrisk=-10)
+
+print(covidage)
+
+logitrisk <- getlogitrisk(popmodel=popmodel, sex="Males", age=covidage)
+
+print(logitrisk)
+
+## function to calibrate the sum of the logit from the population model and the logit from the conditional logistic regression model by equating observed and expected for each sex 
+
 

@@ -1,5 +1,9 @@
 ## helperfunctions for COVID analyses
 
+logit <- function(x) log(x) - log(1 - x) 
+
+invlogit <- function(x) 1 / (1 + exp(-x))
+
 tolower.exceptfirstchar <- function(x) {
     lowercase.str <- substr(tolower(x), 2, nchar(x))
     x <- paste0(substr(x, 1, 1), lowercase.str)
@@ -203,11 +207,13 @@ multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FAL
     multivariate.formula <- as.formula(paste(outcome, "~ . + strata(stratum)"))
     
     multivariate.model <- clogit(formula=multivariate.formula, data=data.selected)
-    multivariate.coeffs <- summary(multivariate.model)$coefficients
+    ## using . to represent all other coeffs gives a coeffs matrix with stratum as first line
+    ## so we have to drop firstb line
+    multivariate.coeffs <- summary(multivariate.model)$coefficients[-1, , drop=FALSE]
     multivariate.table <- NULL
    
     for(i in 1:length(varnames)) {
-        ## numrows.i is number of rows in multivariate.coeffs for varnames[i]
+         ## numrows.i is number of rows in multivariate.coeffs for varnames[i]
         ## numrows.i is 1 for numeric variables
         ## is length(levels) -1 for factor variables
         numrows.i <- 1
@@ -215,7 +221,7 @@ multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FAL
         if(is.factor(data[nonmissing, ][[varnames[i]]])) {
             numrows.i <- length(levels(data[nonmissing, ][[varnames[i]]])) - 1
         }
-        ## if variable is factor with > 2 levels and add.reflevel,
+       ## if variable is factor with > 2 levels and add.reflevel,
         ## add line for reference level
         if(is.factor(data[nonmissing, ][[varnames[i]]]) &
            length(levels(data[nonmissing, ][[varnames[i]]])) > 2 &

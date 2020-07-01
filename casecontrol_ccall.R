@@ -483,7 +483,8 @@ cc.all <- mutate(cc.all,
                  ethnic8.onomap = collapseto8.onomap.group(group.onomap2))
 cc.all <- mutate(cc.all,
                  ethnic7.onomap = collapseto7.onomap.group(group.onomap2))
-
+cc.all <- mutate(cc.all,
+                 ethnic6.onomap = collapseto6.onomap.group(group.onomap2))
 
 setkey(cc.all, ANON_ID)
 ######################################################

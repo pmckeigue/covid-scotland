@@ -40,9 +40,7 @@ options(knitr.kable.NA='')
 # Part B Tables
 In this paper we attempt carry out a more detailed disaggregation of ethnicity presented in the "Briefing paper on Ethnicity and COVID-19 status in Scotland".
 
-Where there is evidence of an elevated risk of "severe test positive disease" or "severe test positive or death" among those of South Asian ethnicity in Part A of this report, the observed rate ratios are slightly higher among those of Indian ethnicity compared to those of Pakistani/Bangladeshi using the disaggregated SMR approach.  For those with Black ethnicity in Part A of the report, the disaggregated data show that those classed as Black Caribbean have an increased risk of "severe test positive disease" and "severe test positive or death", as do Black Africans, but numbers are very small in these groups and therefore estimates are more unstable.
-
-When applying the disaggregated ONOMAP approach, we see that those with Muslim South Asian ethnicity are at an increased risk of "severe test positive disease" or "severe test positive or death" and not those classed as Other South Asian ethnicity.
+The following tables further disaggregate the ethnicity distributions - the coding to these disaggregated groups is as follows; 
 
 SMR recodes:-
 1L - White Polish.
@@ -53,7 +51,7 @@ SMR recodes:-
 
 ONOMAP "OnolyticsType" recodes:-
 White - White and White Polish.
-Black - Black African and Black Caribbean.
+Black - Other
 Bangladeshi - Muslim South Asian.
 Muslim Indian - Muslim South Asian.
 Pakistani - Muslim South Asian.
@@ -208,12 +206,12 @@ knitr::kable(table.testpositives.demogB,
 
 ```{r onomap.hospB, echo=FALSE, warning=FALSE, message=FALSE}
 
-rownames(table.hospitalized.demogB7) <- gsub("_", " ", rownames(table.hospitalized.demogB7))
-knitr::kable(table.hospitalized.demogB7,
+rownames(table.hospitalized.demogB6) <- gsub("_", " ", rownames(table.hospitalized.demogB6))
+knitr::kable(table.hospitalized.demogB6,
              escape=FALSE, 
              booktabs=TRUE,
              label="onomap.hosp",
-             col.names=c(clean.header(colnames(table.hospitalized.demogB7)[1:2]),
+             col.names=c(clean.header(colnames(table.hospitalized.demogB6)[1:2]),
                          "Rate ratio (95\\% CI)", "p-value",
                          "Rate ratio (95\\% CI)", "p-value"),
              align=rep("c", 6), 
@@ -255,14 +253,14 @@ knitr::kable(table.hospitalized.demogB7,
 ```
 
 
-```{r onomapB7, echo=FALSE, warning=FALSE, message=FALSE}
+```{r onomapB6, echo=FALSE, warning=FALSE, message=FALSE}
 
-rownames(table.severe.demogB7) <- gsub("_", " ", rownames(table.severe.demogB7))
-knitr::kable(table.severe.demogB7,
+rownames(table.severe.demogB6) <- gsub("_", " ", rownames(table.severe.demogB6))
+knitr::kable(table.severe.demogB6,
              escape=FALSE, 
              booktabs=TRUE,
-             label="onomapB7",
-             col.names=c(clean.header(colnames(table.severe.demogB7)[1:2]),
+             label="onomapB6",
+             col.names=c(clean.header(colnames(table.severe.demogB6)[1:2]),
                          "Rate ratio (95\\% CI)", "p-value",
                          "Rate ratio (95\\% CI)", "p-value"),
              align=rep("c", 6),
@@ -306,14 +304,14 @@ knitr::kable(table.severe.demogB7,
 
 
 
-```{r onomapNRSB7, echo=FALSE, warning=FALSE, message=FALSE}
+```{r onomapNRSB6, echo=FALSE, warning=FALSE, message=FALSE}
 
-rownames(table.severe.demogNRSB7) <- gsub("_", " ", rownames(table.severe.demogNRSB7))
-knitr::kable(table.severe.demogNRSB7,
+rownames(table.severe.demogNRSB6) <- gsub("_", " ", rownames(table.severe.demogNRSB6))
+knitr::kable(table.severe.demogNRSB6,
              escape=FALSE, 
              booktabs=TRUE,
-             label="onomapNRSB7",
-             col.names=c(clean.header(colnames(table.severe.demogNRSB7)[1:2]),
+             label="onomapNRSB6",
+             col.names=c(clean.header(colnames(table.severe.demogNRSB6)[1:2]),
                          "Rate ratio (95\\% CI)", "p-value",
                          "Rate ratio (95\\% CI)", "p-value"),
              align=rep("c", 6),

@@ -361,7 +361,7 @@ dbWriteTable(SMRAconnection, "TEMP", tp, overwrite=T)
 SMR01 <- tbl_df(dbGetQuery(SMRAconnection, statement=
   'SELECT
   T0.CHI, T0.ANON_ID, T0.SPECDATE, T0.RFSTART,
-  T1.UPI_NUMBER, T1.ADMISSION_DATE, T1.DISCHARGE_DATE, 
+  T1.UPI_NUMBER, T1.ADMISSION_DATE, T1.DISCHARGE_DATE, T1.CIS_MARKER,
   T1.MAIN_CONDITION, T1.OTHER_CONDITION_1, T1.OTHER_CONDITION_2, T1.OTHER_CONDITION_3, T1.OTHER_CONDITION_4, 
   T1.OTHER_CONDITION_5, T1.MAIN_OPERATION
   FROM SHAROK01."TEMP" T0, ANALYSIS.SMR01_PI T1
@@ -373,6 +373,7 @@ SMR01 <- tbl_df(dbGetQuery(SMRAconnection, statement=
 
 # format dates
 SMR01$SPECDATE <- as.Date(as.character(SMR01$SPECDATE), "%Y%m%d")
+SMR01$ADMISSION_DATE <- as.Date(SMR01$ADMISSION_DATE, "%Y-%m-%d", tz="GMT")
 SMR01$DISCHARGE_DATE <- as.Date(SMR01$DISCHARGE_DATE, "%Y-%m-%d", tz="GMT")
 
 # lookback period 
@@ -381,25 +382,25 @@ SMR01$pre25 <- ifelse(SMR01$DISCHARGE_DATE < SMR01$SPECDATE - days(25), 1, 0)
 ### diagnoses
 
 tp <- subset(SMR01, pre25==1)
-tp <- tp[c("ANON_ID", "MAIN_CONDITION", "OTHER_CONDITION_1", "OTHER_CONDITION_2", "OTHER_CONDITION_3", "OTHER_CONDITION_4", "OTHER_CONDITION_5")]
+tp <- tp[c("ANON_ID", "DISCHARGE_DATE", "MAIN_CONDITION", "OTHER_CONDITION_1", "OTHER_CONDITION_2", "OTHER_CONDITION_3", "OTHER_CONDITION_4", "OTHER_CONDITION_5")]
 tp <- melt(tp,
-           id.vars=c("ANON_ID"),
+           id.vars=c("ANON_ID", "DISCHARGE_DATE"),
            variable.name="diag",
            value.name="ICD10",
            na.rm = TRUE )
-tp <- tp %>% group_by(ANON_ID, ICD10) %>% summarise() %>% ungroup
+tp <- tp %>% group_by(ANON_ID, DISCHARGE_DATE, ICD10) %>% summarise() %>% ungroup
 
 saveRDS(tp, paste0(stats_path, "/CC_SMR01_ICD10_x25_", filedate, ".rds"))
 rm(tp)
 
 tp <- subset(SMR01, pre25!=1)
-tp <- tp[c("ANON_ID", "MAIN_CONDITION", "OTHER_CONDITION_1", "OTHER_CONDITION_2", "OTHER_CONDITION_3", "OTHER_CONDITION_4", "OTHER_CONDITION_5")]
+tp <- tp[c("ANON_ID", "DISCHARGE_DATE", "MAIN_CONDITION", "OTHER_CONDITION_1", "OTHER_CONDITION_2", "OTHER_CONDITION_3", "OTHER_CONDITION_4", "OTHER_CONDITION_5")]
 tp <- melt(tp,
-           id.vars=c("ANON_ID"),
+           id.vars=c("ANON_ID", "DISCHARGE_DATE"),
            variable.name="diag",
            value.name="ICD10",
            na.rm = TRUE )
-tp <- tp %>% group_by(ANON_ID, ICD10) %>% summarise() %>% ungroup
+tp <- tp %>% group_by(ANON_ID, DISCHARGE_DATE, ICD10) %>% summarise() %>% ungroup
 
 saveRDS(tp, paste0(stats_path, "/CC_SMR01_ICD10_25_", filedate, ".rds"))
 rm(tp)

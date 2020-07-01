@@ -114,8 +114,8 @@ table.severe.demogNRSDB <-
 ###--------------------------------------------------------------------------------------------------
 ###--------------------------------------------------------------------------------------------------
 
-  ## tabulate ONOMAP ethnicity against SMR ethnicity
-  table.ethnicB <- table(cc.all$ethnic8.onomap, cc.all$ethnic9.smr, exclude=NULL)
+## tabulate ONOMAP ethnicity against SMR ethnicity
+  table.ethnicB <- table(cc.all$ethnic6.onomap, cc.all$ethnic9.smr, exclude=NULL)
   
   #tn <- table(cc.all$ethnic5, cc.all$ethnic9.smr)
   #SouthAsian.sensitivity <- 100 * tn[5, 2] / sum(tn[, 2])
@@ -141,25 +141,25 @@ table.hospitalized.demog.ethnicsmrB <-
 
   ## tabulate ethnicity by case group
   testpositives.ethnicB <- paste.colpercent(with(cc.all[cc.all$CASE==1&cc.all$nrs_covid_case!=1, ],
-                                                table(ethnic8.onomap, casegroup)), 1)
+                                                table(ethnic6.onomap, casegroup)), 1)
   
   testpositives.carehomeB <- paste.colpercent(with(cc.all[cc.all$CASE==1&cc.all$nrs_covid_case!=1, ],
-                                                  table(ethnic8.onomap, care.home)), 0)
+                                                  table(ethnic6.onomap, care.home)), 0)
   
   testpositives.healthboardB <- t(paste.colpercent(with(cc.all[cc.all$CASE==1&cc.all$nrs_covid_case!=1, ],
-                                                       table(ethnic8.onomap, hb2019name)), 0))
+                                                       table(ethnic6.onomap, hb2019name)), 0))
   
   table.testpositives.demogB <-
-    tabulate.freqs.regressions(varnames=c("ethnic8.onomap", "care.home", "SIMD.quintile"),
+    tabulate.freqs.regressions(varnames=c("ethnic6.onomap", "care.home", "SIMD.quintile"),
                                data=cc.all[cc.all$nrs_covid_case!=1,])
   
   table.hospitalized.demogB <-
-    tabulate.freqs.regressions(varnames=c("ethnic8.onomap", "care.home", "SIMD.quintile"),
+    tabulate.freqs.regressions(varnames=c("ethnic6.onomap", "care.home", "SIMD.quintile"),
                                data=cc.all[(cc.all$casegroup=="Hospitalised, not severe" |
                                               cc.all$casegroup=="Critical care or fatal") &cc.all$nrs_covid_case!=1, ])
 
-  table.hospitalized.demogB7 <-
-    tabulate.freqs.regressions(varnames=c("ethnic7.onomap", "care.home", "SIMD.quintile"),
+  table.hospitalized.demogB6 <-
+    tabulate.freqs.regressions(varnames=c("ethnic6.onomap", "care.home", "SIMD.quintile"),
                                data=cc.all[(cc.all$casegroup=="Hospitalised, not severe" |
                                               cc.all$casegroup=="Critical care or fatal") &cc.all$nrs_covid_case!=1, ])
   
@@ -171,8 +171,8 @@ table.ethnic9smrB <-
 rownames(table.ethnic9smrB) <- replace.names(rownames(table.ethnic9smrB))
 
 
-table.severe.demogB7 <-
-  tabulate.freqs.regressions(varnames=c("ethnic7.onomap", "care.home",
+table.severe.demogB6 <-
+  tabulate.freqs.regressions(varnames=c("ethnic6.onomap", "care.home",
                                         "SIMD.quintile"),
                              data=cc.severe[cc.severe$nrs_covid_case!=1,])
 
@@ -186,8 +186,8 @@ table.ethnic9smrNRSB <-
 rownames(table.ethnic9smrNRSB) <- replace.names(rownames(table.ethnic9smrNRSB))
 
 
-table.severe.demogNRSB7 <-
-  tabulate.freqs.regressions(varnames=c("ethnic7.onomap", "care.home",
+table.severe.demogNRSB6 <-
+  tabulate.freqs.regressions(varnames=c("ethnic6.onomap", "care.home",
                                         "SIMD.quintile"),
                              data=cc.severe)
 

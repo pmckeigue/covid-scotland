@@ -1,0 +1,75 @@
+---
+title: 'REACT-SCOT analysis script report'
+author: Paul McKeigue
+
+header-includes: |
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \usepackage{array}
+  \usepackage{booktabs}
+  \usepackage{longtable}
+  \usepackage{lscape}
+output: 
+  pdf_document
+
+always_allow_html: true
+urlcolor: blue
+---
+
+
+```{r functions, echo=FALSE}
+library(knitr)
+library(kableExtra)
+library(bookdown)
+
+# rmarkdown::render("casecontrol_script.Rmd", output_file="casecontrol_script.pdf")
+
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+source("helperfunctions.R")
+
+```
+
+\newpage
+
+\newpage
+
+# Tables
+
+
+```{r death28, echo=FALSE, warning=FALSE, message=FALSE}
+options(knitr.kable.NA = '')
+
+knitr::kable(with(cc.all[cc.all$CASE==1, ],
+                  paste.colpercent(table(deathwithin28, casegroup))), 
+             escape=FALSE, 
+             booktabs=TRUE,
+             row.names=FALSE,
+             caption="Death within 28 days by case group") %>%
+    kable_styling(latex_options="hold_position") 
+
+```
+
+```{r casegroup, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table(cc.all$CASE, cc.all$casegroup, exclude=NULL),
+             escape=FALSE, 
+             booktabs=TRUE,
+             row.names=FALSE,
+             caption="Case groups") %>%
+    kable_styling(latex_options="hold_position") 
+
+```
+
+```{r criticalcare, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(with(subset(cc.all, CASE==1), table(criticalcare, deathwithin28, exclude=NULL)),
+             caption="critical care x deathwithin28")
+
+
+```

@@ -1,5 +1,9 @@
 ## helperfunctions for COVID analyses
 
+logit <- function(x) log(x) - log(1 - x) 
+
+invlogit <- function(x) 1 / (1 + exp(-x))
+
 tolower.exceptfirstchar <- function(x) {
     lowercase.str <- substr(tolower(x), 2, nchar(x))
     x <- paste0(substr(x, 1, 1), lowercase.str)
@@ -172,21 +176,23 @@ tabulate.freqs.regressions <- function(varnames, outcome="CASE", data) {
 univariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE) {
     univariate.table <- NULL
     for(i in 1:length(varnames)) {
-        if(length(table(as.numeric(with(data, eval(str2expression(varnames[i])))))) > 1) {
+        xvar <- data[[varnames[i]]]
+        if(length(table(xvar)) > 1) {
             univariate.formula <-
-                as.formula(paste(outcome, "~", varnames[i], "+ strata(stratum)"))
+                as.formula(paste(outcome, "~ xvar + strata(stratum)"))
             x <- summary(clogit(formula=univariate.formula, data=data))$coefficients
             x.colnames <- colnames(x)
         } else {
             x <- rep(NA, 5) ##FIXME: will not work for > 2 levels
-            
         }
-        if(with(data, is.factor(eval(str2expression(varnames[i])))) &
-           with(data, length(levels(eval(str2expression(varnames[i]))))) > 2 &
-           add.reflevel) {
-           x <- rbind(rep(NA, ncol(x)), x)
-           rownames(x)[1] <- with(data, levels(eval(str2expression(varnames[i])))[1])
-           colnames(x) <- x.colnames
+        if(!is.factor(xvar)) {
+            rownames(x) <- varnames[i]
+        } else {
+            if(length(levels(xvar[i])) > 2 & add.reflevel) {
+            x <- rbind(rep(NA, ncol(x)), x) # extra line for reference level
+            rownames(x)[1] <- with(data, levels(xvar)[1])
+            colnames(x) <- x.colnames
+            }
         }
         univariate.table <- rbind(univariate.table, x)
     }
@@ -194,49 +200,51 @@ univariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE
 }
 
 multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE) {
-    multivariate.formula <- as.formula(paste(outcome, "~",
-                                  paste(varnames, collapse=" + "),
-                                  "+ strata(stratum)"))
+
     nonmissing <- nonmissing.obs(data, varnames)
-    multivariate.model <- clogit(formula=multivariate.formula, data=data[nonmissing, ])
-    multivariate.coeffs <- summary(multivariate.model)$coefficients
+    data.selected <- subset(data, subset=nonmissing) %>%
+        select(all_of(outcome), stratum, all_of(varnames))
+    multivariate.formula <- as.formula(paste(outcome, "~ . + strata(stratum)"))
+    
+    multivariate.model <- clogit(formula=multivariate.formula, data=data.selected)
+    ## using . to represent all other coeffs gives a coeffs matrix with stratum as first line
+    ## so we have to drop firstb line
+    multivariate.coeffs <- summary(multivariate.model)$coefficients[-1, , drop=FALSE]
     multivariate.table <- NULL
    
     for(i in 1:length(varnames)) {
-        ## numrows.i is number of rows in multivariate.coeffs for varnames[i]
+         ## numrows.i is number of rows in multivariate.coeffs for varnames[i]
         ## numrows.i is 1 for numeric variables
         ## is length(levels) -1 for factor variables
         numrows.i <- 1
         ## set number of rows in multivariate.coeffs for factor variable as num levels -1 
-        if(with(data[nonmissing, ], is.factor(eval(str2expression(varnames[i]))))) {
-            numrows.i <-
-                with(data[nonmissing, ], length(levels(eval(str2expression(varnames[i]))))) - 1
+        if(is.factor(data[nonmissing, ][[varnames[i]]])) {
+            numrows.i <- length(levels(data[nonmissing, ][[varnames[i]]])) - 1
         }
-        ## if variable is factor, > 2 levels and add.reflevel
-        if(with(data[nonmissing, ], is.factor(eval(str2expression(varnames[i])))) &
-           with(data[nonmissing, ], length(levels(eval(str2expression(varnames[i]))))) > 2 &
+       ## if variable is factor with > 2 levels and add.reflevel,
+        ## add line for reference level
+        if(is.factor(data[nonmissing, ][[varnames[i]]]) &
+           length(levels(data[nonmissing, ][[varnames[i]]])) > 2 &
            add.reflevel) {
             ## add empty line to multivariate.table
             multivariate.table <- rbind(multivariate.table,
                                         rep(NA, ncol(multivariate.coeffs)))
             ## label this empty line as reference level of factor
             rownames(multivariate.table)[nrow(multivariate.table)] <-
-                 with(data[nonmissing, ], levels(eval(str2expression(varnames[i])))[1])
+                levels(data[nonmissing, ][[varnames[i]]])[1]
         }
         ## label rows of multivariate.coeffs that will be added
         ## this step is run irrespective of add.reflevel
         ## if variable is factor with >2 levels
-        if(with(data[nonmissing, ], is.factor(eval(str2expression(varnames[i])))) &
-           with(data[nonmissing, ], length(levels(eval(str2expression(varnames[i]))))) > 2) {
+        if(is.factor(data[nonmissing, ][[varnames[i]]]) &
+           length(levels(data[nonmissing, ][[varnames[i]]])) > 2) {
             ## label rows with levels
             rownames(multivariate.coeffs)[1:numrows.i] <-
-                with(data[nonmissing, ], levels(eval(str2expression(varnames[i])))[-1])
+                levels(data[nonmissing, ][[varnames[i]]])[-1]
         } else { # if numeric, or factor with 2 levels
             ## label single row with variable name
-            rownames(multivariate.coeffs)[1] <-
-                with(data[nonmissing, ], varnames[i])
+            rownames(multivariate.coeffs)[1] <- varnames[i]
         }
-
         ## add rows from multivariate.coeffs    
         multivariate.table <- rbind(multivariate.table,
                                     multivariate.coeffs[1:numrows.i, , drop=FALSE])
@@ -247,43 +255,46 @@ multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FAL
 
 tabulate.bnfsection <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=20) {
     ## get sectioncode in wide format, one col per subchapter
-    scrips.ch.wide <- reshape2::dcast(scrips[scrips$chapternum==chnum, ],
+    scrips.section.wide <- data.table::dcast(scrips[scrips$chapternum==chnum, ],
                                          ANON_ID ~ sectioncode, fun.aggregate=length,
                                          value.var="sectioncode")
-    colnames(scrips.ch.wide)[-1] <- paste0("section.",
-                                              as.integer(colnames(scrips.ch.wide)[-1]))
+    colnames(scrips.section.wide)[-1] <- paste0("section.",
+                                              as.integer(colnames(scrips.section.wide)[-1]))
+  
     ## drop rare sectioncodes
-    scrips.ch.wide <- scrips.ch.wide[, colSums(scrips.ch.wide) > 20]
-    
-    cc.bnf.ch <- merge(data[, c("ANON_ID", "CASE", "stratum")],
-                       scrips.ch.wide,
+    cols.keep <- c(TRUE, colSums(scrips.section.wide)[-1] >= 20)
+    scrips.section.wide <- scrips.section.wide[, ..cols.keep]
+
+    setkey(scrips.section.wide, ANON_ID)
+    cc.bnf.section <- merge(data[, c("ANON_ID", "CASE", "stratum")],
+                       scrips.section.wide,
                        by="ANON_ID", all.x=TRUE)
     ## now fix colnames and set missing to 0
-    bnfcols <- grep("^section.", colnames(cc.bnf.ch))
+    bnfcols <- grep("^section.", colnames(cc.bnf.section))
     for(j in bnfcols) {
-        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
-        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
-        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
+        cc.bnf.section[[j]][is.na(cc.bnf.section[[j]])] <- 0
+        cc.bnf.section[[j]][cc.bnf.section[[j]] > 1] <- 1
+        cc.bnf.section[[j]] <- as.factor(cc.bnf.section[[j]])
     }
     
-    bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
+    bnf.section <- colnames(cc.bnf.section)[-(1:3)]
     ## FIXME: regressions should be fixed to use only rows retained by univariate.tabulate
-    table.bnf.ch <- univariate.tabulate(varnames=bnf.ch, outcome=outcome, data=cc.bnf.ch,
+    table.bnf.section <- univariate.tabulate(varnames=bnf.section, outcome=outcome, data=cc.bnf.section,
                                         drop.sparserows=TRUE, minrowsum=20)
-    if(nrow(table.bnf.ch) >= 1) { 
-        bnf.ch <- rownames(table.bnf.ch)  
-        subsectioncodes <- as.integer(gsub("section.", "", rownames(table.bnf.ch)))
-        rownames(table.bnf.ch) <-
+    if(nrow(table.bnf.section) >= 1) { 
+        bnf.section <- rownames(table.bnf.section)  
+        subsectioncodes <- as.integer(gsub("section.", "", rownames(table.bnf.section)))
+        rownames(table.bnf.section) <-
             bnfcodes$sectionname[match(subsectioncodes, bnfcodes$sectioncode)]
-        univariate.bnf.ch <- NULL
-        for(i in 1:length(bnf.ch)) {
-            univariate.formula <- as.formula(paste(outcome, "~", bnf.ch[i], " + strata(stratum)"))
-            x <- summary(clogit(formula=univariate.formula, data=cc.bnf.ch))$coefficients
-            univariate.bnf.ch <- rbind(univariate.bnf.ch, x)
+        univariate.bnf.section <- NULL
+        for(i in 1:length(bnf.section)) {
+            univariate.formula <- as.formula(paste(outcome, "~", bnf.section[i], " + strata(stratum)"))
+            x <- summary(clogit(formula=univariate.formula, data=cc.bnf.section))$coefficients
+            univariate.bnf.section <- rbind(univariate.bnf.section, x)
         }
         
-        table.bnf.ch.aug <- combine.tables2(table.bnf.ch, univariate.bnf.ch)
-        return(table.bnf.ch.aug) 
+        table.bnf.section.aug <- combine.tables2(table.bnf.section, univariate.bnf.section)
+        return(table.bnf.section.aug) 
     } else {
         return(NULL)
     }
@@ -291,47 +302,50 @@ tabulate.bnfsection <- function(chnum, outcome="CASE", data=cc.severe, minrowsum
 
 tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=20) {
     ## get sectioncode in wide format, one col per subchapter
-    scrips.ch.wide <- reshape2::dcast(scrips[scrips$chapternum==chnum, ],
+    scrips.para.wide <- data.table::dcast(scrips[scrips$chapternum==chnum, ],
                                          ANON_ID ~ paracode, fun.aggregate=length,
                                          value.var="paracode")
-    colnames(scrips.ch.wide)[-1] <- paste0("para.",
-                                              as.integer(colnames(scrips.ch.wide)[-1]))
+    colnames(scrips.para.wide)[-1] <- paste0("para.",
+                                              as.integer(colnames(scrips.para.wide)[-1]))
+
     ## drop rare paragraphcodes
-    scrips.ch.wide <- scrips.ch.wide[, colSums(scrips.ch.wide) > 20]
+    cols.keep <- c(TRUE, colSums(scrips.para.wide)[-1] >= 20)
+    scrips.para.wide[, ..cols.keep]
     
-    cc.bnf.ch <- merge(data[, c("ANON_ID", "CASE", "stratum")],
-                       scrips.ch.wide,
+    scrips.para.wide <- as.data.table(scrips.para.wide, key="ANON_ID")
+    cc.bnf.para <- merge(data[, c("ANON_ID", "CASE", "stratum")],
+                       scrips.para.wide,
                        by="ANON_ID", all.x=TRUE)
     ## now fix colnames and set missing to 0
-    bnfcols <- grep("^para.", colnames(cc.bnf.ch))
+    bnfcols <- grep("^para.", colnames(cc.bnf.para))
     for(j in bnfcols) {
-        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
-        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
-        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
+        cc.bnf.para[[j]][is.na(cc.bnf.para[[j]])] <- 0
+        cc.bnf.para[[j]][cc.bnf.para[[j]] > 1] <- 1
+        cc.bnf.para[[j]] <- as.factor(cc.bnf.para[[j]])
     }
     
-    bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
-    table.bnf.ch <- univariate.tabulate(varnames=bnf.ch, outcome="CASE", data=cc.bnf.ch,
+    bnf.para <- colnames(cc.bnf.para)[-(1:3)]
+    table.bnf.para <- univariate.tabulate(varnames=bnf.para, outcome="CASE", data=cc.bnf.para,
                                         drop.sparserows=TRUE, minrowsum=minrowsum)
     ## regressions fixed to use only rows retained by univariate.tabulate
-    if(nrow(table.bnf.ch) >= 1) { 
-        bnf.ch <- rownames(table.bnf.ch)  
-        paracodes <- as.integer(gsub("para.", "", rownames(table.bnf.ch)))
-        rownames(table.bnf.ch) <-
+    if(nrow(table.bnf.para) >= 1) { 
+        bnf.para <- rownames(table.bnf.para)  
+        paracodes <- as.integer(gsub("para.", "", rownames(table.bnf.para)))
+        rownames(table.bnf.para) <-
             bnfparacodes$paraname[match(paracodes, bnfparacodes$paracode)]
-        univariate.bnf.ch <- NULL
-        for(i in 1:length(bnf.ch)) {
-            univariate.formula <- as.formula(paste(outcome, "~", bnf.ch[i], " + strata(stratum)"))
-            x <- summary(clogit(formula=univariate.formula, data=cc.bnf.ch))$coefficients
-            univariate.bnf.ch <- rbind(univariate.bnf.ch, x)
+        univariate.bnf.para <- NULL
+        for(i in 1:length(bnf.para)) {
+            univariate.formula <- as.formula(paste(outcome, "~", bnf.para[i], " + strata(stratum)"))
+            x <- summary(clogit(formula=univariate.formula, data=cc.bnf.para))$coefficients
+            univariate.bnf.para <- rbind(univariate.bnf.para, x)
         }
 
-        multivariate.bnf.ch <- multivariate.clogit(varnames=bnf.ch,
-                                                   data=cc.bnf.ch, add.reflevel=FALSE)
+        multivariate.bnf.para <- multivariate.clogit(varnames=bnf.para,
+                                                   data=cc.bnf.para, add.reflevel=FALSE)
 
-        table.bnf.ch.aug <- combine.tables3(table.bnf.ch, univariate.bnf.ch,
-                                            multivariate.bnf.ch)
-        return(table.bnf.ch.aug) 
+        table.bnf.para.aug <- combine.tables3(table.bnf.para, univariate.bnf.para,
+                                            multivariate.bnf.para)
+        return(table.bnf.para.aug) 
     } else {
         return(NULL)
     }
@@ -340,76 +354,80 @@ tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=2
 merge.bnfsubparas <- function(chnums, data) {
     ## merge with data all drug subparas in chapter numbers in vector chnums
     ## subparacode has 7 digits, leading zeroes stripped in scrips
-    scrips.ch.wide <- reshape2::dcast(scrips[scrips$chapternum %in% chnums, ],
+    scrips.subpara.wide <- data.table::dcast(scrips[scrips$chapternum %in% chnums, ],
                                       ANON_ID ~ bnf_paragraph_code, fun.aggregate=length,
                                       value.var="bnf_paragraph_code")
     names.subparas <-
-        bnfsubparacodes$subparaname[match(as.integer(colnames(scrips.ch.wide)[-1]),
+        bnfsubparacodes$subparaname[match(as.integer(colnames(scrips.subpara.wide)[-1]),
                                           bnfsubparacodes$subparacode)]
-    colnames(scrips.ch.wide)[-1] <- paste("subpara",
-                                          as.integer(colnames(scrips.ch.wide)[-1]),
+    colnames(scrips.subpara.wide)[-1] <- paste("subpara",
+                                          as.integer(colnames(scrips.subpara.wide)[-1]),
                                           names.subparas, sep=".")
     
     ## drop rare subparagraphcodes
-    scrips.ch.wide <- subset(scrips.ch.wide, select=colSums(scrips.ch.wide) > 20)
-    
-    cc.bnf.ch <- merge(data, scrips.ch.wide,
+    scrips.subpara.wide <- subset(scrips.subpara.wide, select=colSums(scrips.subpara.wide) > 20)
+
+    setkey(scrips.subpara.wide, ANON_ID)
+    cc.bnf.subpara <- merge(data, scrips.subpara.wide,
                        by="ANON_ID", all.x=TRUE)
     ## now fix colnames and set missing to 0
-    bnfcols <- grep("^subpara.", colnames(cc.bnf.ch))
+    bnfcols <- grep("^subpara.", colnames(cc.bnf.subpara))
     for(j in bnfcols) {
-        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
-        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
-        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
+        cc.bnf.subpara[[j]][is.na(cc.bnf.subpara[[j]])] <- 0
+        cc.bnf.subpara[[j]][cc.bnf.subpara[[j]] > 1] <- 1
+        cc.bnf.subpara[[j]] <- as.factor(cc.bnf.subpara[[j]])
     }
-    return(cc.bnf.ch)
+    return(cc.bnf.subpara)
 }
 
 tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=20) {
     ## get subparacode in wide format, one col per subchapter
     ## subpara code is misnamed bnf_paragraph_code
-    scrips.ch.wide <- reshape2::dcast(scrips[scrips$chapternum==chnum, ],
+    scrips.subpara.wide <- data.table::dcast(scrips[scrips$chapternum==chnum, ],
                                          ANON_ID ~ bnf_paragraph_code, fun.aggregate=length,
                                          value.var="bnf_paragraph_code")
-    colnames(scrips.ch.wide)[-1] <- paste0("subpara.",
-                                              as.integer(colnames(scrips.ch.wide)[-1]))
+    colnames(scrips.subpara.wide)[-1] <- paste0("subpara.",
+                                              as.integer(colnames(scrips.subpara.wide)[-1]))
     ## drop rare subparagraphcodes
-    scrips.ch.wide <- scrips.ch.wide[, colSums(scrips.ch.wide) > 20]
-    
-    cc.bnf.ch <- merge(data[, c("ANON_ID", "CASE", "stratum")],
-                       scrips.ch.wide,
+    cols.keep <- c(TRUE, colSums(scrips.subpara.wide)[-1] >= 20)
+    scrips.subpara.wide <- scrips.subpara.wide[, ..cols.keep]
+
+    scrips.subpara.wide <- as.data.table(scrips.subpara.wide, key="ANON_ID")
+    cc.bnf.subpara <- merge(data[, c("ANON_ID", "CASE", "stratum")],
+                       scrips.subpara.wide,
                        by="ANON_ID", all.x=TRUE)
     ## now fix colnames and set missing to 0
-    bnfcols <- grep("^subpara.", colnames(cc.bnf.ch))
+    bnfcols <- grep("^subpara.", colnames(cc.bnf.subpara))
     for(j in bnfcols) {
-        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
-        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
-        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
+        cc.bnf.subpara[[j]][is.na(cc.bnf.subpara[[j]])] <- 0
+        cc.bnf.subpara[[j]][cc.bnf.subpara[[j]] > 1] <- 1
+        cc.bnf.subpara[[j]] <- as.factor(cc.bnf.subpara[[j]])
     }
-    
-    bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
-    table.bnf.ch <- univariate.tabulate(varnames=bnf.ch, outcome="CASE", data=cc.bnf.ch,
-                                        drop.sparserows=TRUE, minrowsum=minrowsum)
+
+    bnf.subpara <- colnames(cc.bnf.subpara)[-(1:3)]
+    table.bnf.subpara <- univariate.tabulate(varnames=bnf.subpara, outcome="CASE",
+                                             data=cc.bnf.subpara,
+                                             drop.sparserows=TRUE, minrowsum=minrowsum)
     ## regressions fixed to use only rows retained by univariate.tabulate
-    if(nrow(table.bnf.ch) >= 1) { 
-        bnf.ch <- rownames(table.bnf.ch)
+    if(!is.null(table.bnf.subpara) & nrow(table.bnf.subpara) >= 1) { 
+        bnf.subpara <- rownames(table.bnf.subpara)
         ## get subpara names
-        subparacodes <- as.integer(gsub("subpara.", "", rownames(table.bnf.ch)))
-        rownames(table.bnf.ch) <-
+        subparacodes <- as.integer(gsub("subpara.", "", rownames(table.bnf.subpara)))
+        rownames(table.bnf.subpara) <-
             bnfsubparacodes$subparaname[match(subparacodes, bnfsubparacodes$subparacode)]
-        univariate.bnf.ch <- NULL
-        for(i in 1:length(bnf.ch)) {
-            univariate.formula <- as.formula(paste(outcome, "~", bnf.ch[i], " + strata(stratum)"))
-            x <- summary(clogit(formula=univariate.formula, data=cc.bnf.ch))$coefficients
-            univariate.bnf.ch <- rbind(univariate.bnf.ch, x)
+        univariate.bnf.subpara <- NULL
+        for(i in 1:length(bnf.subpara)) {
+            univariate.formula <- as.formula(paste(outcome, "~", bnf.subpara[i], " + strata(stratum)"))
+            x <- summary(clogit(formula=univariate.formula, data=cc.bnf.subpara))$coefficients
+            univariate.bnf.subpara <- rbind(univariate.bnf.subpara, x)
         }
 
-        multivariate.bnf.ch <- multivariate.clogit(varnames=bnf.ch,
-                                                   data=cc.bnf.ch, add.reflevel=FALSE)
+        multivariate.bnf.subpara <- multivariate.clogit(varnames=bnf.subpara,
+                                                   data=cc.bnf.subpara, add.reflevel=FALSE)
 
-        table.bnf.ch.aug <- combine.tables3(table.bnf.ch, univariate.bnf.ch,
-                                            multivariate.bnf.ch)
-        return(table.bnf.ch.aug) 
+        table.bnf.subpara.aug <- combine.tables3(table.bnf.subpara, univariate.bnf.subpara,
+                                            multivariate.bnf.subpara)
+        return(table.bnf.subpara.aug) 
     } else {
         return(NULL)
     }
@@ -418,49 +436,53 @@ tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsu
 tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=50) {
     ## get drug names in wide format,one col per approved_name
     chnum.str <- sprintf("%02d", chnum)
-    scrips.ch <- readRDS(scrips.filename) %>%
+    scrips.chem <- readRDS(scrips.filename) %>%
         subset(substr(bnf_paragraph_code, 1, 2)==chnum.str)
-    scrips.ch.wide <- reshape2::dcast(scrips.ch,
+    scrips.chem.wide <- data.table::dcast(scrips.chem,
                                          ANON_ID ~ approved_name, fun.aggregate=length,
                                          value.var="approved_name")
-    #colnames(scrips.ch.wide)[-1] <- paste0("chemical.",
-    #                                          as.integer(colnames(scrips.ch.wide)[-1]))
-    ## drop rare chemicalgraphcodes
-    scrips.ch.wide <- scrips.ch.wide[, colSums(scrips.ch.wide) > 20]
+    #colnames(scrips.chem.wide)[-1] <- paste0("chemical.",
+                                        #                                          as.integer(colnames(scrips.chem.wide)[-1]))
+
     
-    cc.bnf.ch <- merge(data[, c("ANON_ID", "CASE", "stratum")],
-                       scrips.ch.wide,
+    ## drop rare chemicalgraphcodes
+    cols.keep <- c(TRUE, colSums(scrips.chem.wide)[-1] >= 20)
+    scrips.chem.wide <- scrips.chem.wide[, ..cols.keep]
+
+    scrips.chem.wide <- as.data.table(scrips.chem.wide, key="ANON_ID")
+    cc.bnf.chem <- merge(data[, c("ANON_ID", "CASE", "stratum")],
+                       scrips.chem.wide,
                        by="ANON_ID", all.x=TRUE)
     ## now fix colnames and set missing to 0
-    bnfcols <- 4:ncol(cc.bnf.ch)
+    bnfcols <- 4:ncol(cc.bnf.chem)
     for(j in bnfcols) {
-        cc.bnf.ch[[j]][is.na(cc.bnf.ch[[j]])] <- 0
-        cc.bnf.ch[[j]][cc.bnf.ch[[j]] > 1] <- 1
-        cc.bnf.ch[[j]] <- as.factor(cc.bnf.ch[[j]])
+        cc.bnf.chem[[j]][is.na(cc.bnf.chem[[j]])] <- 0
+        cc.bnf.chem[[j]][cc.bnf.chem[[j]] > 1] <- 1
+        cc.bnf.chem[[j]] <- as.factor(cc.bnf.chem[[j]])
     }
 
     ## approved names contain spaces that have to be replaced with . for use in formula
-    colnames(cc.bnf.ch) <- gsub(" ", "\\.", colnames(cc.bnf.ch))
+    colnames(cc.bnf.chem) <- gsub(" ", "\\.", colnames(cc.bnf.chem))
     
-    bnf.ch <- colnames(cc.bnf.ch)[-(1:3)]
-    table.bnf.ch <- univariate.tabulate(varnames=bnf.ch, outcome=outcome, data=cc.bnf.ch,
+    bnf.chem <- colnames(cc.bnf.chem)[-(1:3)]
+    table.bnf.chem <- univariate.tabulate(varnames=bnf.chem, outcome=outcome, data=cc.bnf.chem,
                                         drop.sparserows=TRUE, minrowsum=minrowsum)
     ## regressions fixed to use only rows retained by univariate.tabulate
-    if(nrow(table.bnf.ch) >= 1) { 
-        bnf.ch <- rownames(table.bnf.ch)
-        univariate.bnf.ch <- NULL
-        for(i in 1:length(bnf.ch)) {
-            univariate.formula <- as.formula(paste(outcome, "~", bnf.ch[i], " + strata(stratum)"))
-            x <- summary(clogit(formula=univariate.formula, data=cc.bnf.ch))$coefficients
-            univariate.bnf.ch <- rbind(univariate.bnf.ch, x)
+    if(nrow(table.bnf.chem) >= 1) { 
+        bnf.chem <- rownames(table.bnf.chem)
+        univariate.bnf.chem <- NULL
+        for(i in 1:length(bnf.chem)) {
+            univariate.formula <- as.formula(paste(outcome, "~", bnf.chem[i], " + strata(stratum)"))
+            x <- summary(clogit(formula=univariate.formula, data=cc.bnf.chem))$coefficients
+            univariate.bnf.chem <- rbind(univariate.bnf.chem, x)
         }
 
-        multivariate.bnf.ch <- multivariate.clogit(varnames=bnf.ch,
-                                                   data=cc.bnf.ch, add.reflevel=FALSE)
+        multivariate.bnf.chem <- multivariate.clogit(varnames=bnf.chem,
+                                                   data=cc.bnf.chem, add.reflevel=FALSE)
 
-        table.bnf.ch.aug <- combine.tables3(table.bnf.ch, univariate.bnf.ch,
-                                            multivariate.bnf.ch)
-        return(table.bnf.ch.aug) 
+        table.bnf.chem.aug <- combine.tables3(table.bnf.chem, univariate.bnf.chem,
+                                            multivariate.bnf.chem)
+        return(table.bnf.chem.aug) 
     } else {
         return(NULL)
     }
@@ -468,7 +490,7 @@ tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe, minrows
 
 tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
     ## get chapternum in wide format, one col per subchapter
-    diagnoses.ch.wide <- reshape2::dcast(diagnoses[diagnoses$chapter==chnum, ],
+    diagnoses.ch.wide <- data.table::dcast(diagnoses[diagnoses$chapter==chnum, ],
                                          ANON_ID ~ subchapter, fun.aggregate=length,
                                          value.var="subchapter")
     colnames(diagnoses.ch.wide)[-1] <- paste0("subCh.",
@@ -509,7 +531,7 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
                 table.icd.ch.aug <- combine.tables2(ftable=table.icd.ch, utable=univariate.icd.ch)
                 #browser("tabulateicd")
                 # table.icd.ch.aug[, 4] <- pvalue.latex(table.icd.ch.aug[, 4])
-                print(table.icd.ch.aug) # without this line the first two cols are dropped?
+                # print(table.icd.ch.aug) # without this line the first two cols are dropped?
             } else {
                 return(NULL)
             }
@@ -631,19 +653,42 @@ replace.names <- function(varnames) {
     return(names)
 }
 
-traintest.fold <- function(i, cv.data,
+## cannot find train.data 
+cv.predict <- function(nfold, cv.data, lower.formula, upper.formula) {
+    cv.predicted <- NULL
+    ## maybe more memory-efficient not to pass cv.data as arg
+    cv.predicted <-
+        foreach(foldnum=1:nfold,
+                .combine=rbind,
+                .inorder=FALSE) %dopar% traintest.fold(foldnum=foldnum,
+                                                       cv.data=cv.data,
+                                                       lower.formula=lower.formula,
+                                                       upper.formula=upper.formula)
+    return(cv.predicted)
+}
+
+traintest.fold <- function(foldnum, cv.data,
                            lower.formula, upper.formula) { # stepwise clogit on training fold, predict on test fold
-    test.data  <- cv.data[cv.data$test.fold == i, ]
-    train.data <- cv.data[cv.data$test.fold != i, ]
-    start.model <- clogit(formula=upper.formula, data=train.data)
-    cat("train.data dimensions", dim(train.data), "\n")
+    test <- cv.data$test.fold == foldnum
+    train.data <- subset(cv.data, subset=!test)
+    ## use do.call to refer to the dataset in the calling environment
+    ## otherwise step cannot find train.data
+    start.model <- do.call(clogit, args=list(formula=upper.formula, data=train.data))
     stepwise.model <- step(start.model,
                            scope=list(lower=lower.formula, upper=upper.formula),
                            direction="both", trace=-1, method="approximate")
-    ## normalize within each stratum
+    
+    test.data  <- subset(cv.data, subset=test)
+    x <- t(with(test.data, table(CASE, stratum)))
+    numcontrols.stratum <- x[, 1]
+    numcases.stratum <- x[, 2]
+    a <- table(numcases.stratum, exclude=NULL)
+    b <- table(numcontrols.stratum, exclude=NULL)
+    if(length(a) > 1) stop("not all strata contain single case")
     unnorm.p <- predict(object=stepwise.model, newdata=test.data,
                         na.action="na.pass", 
                         type="risk", reference="sample")
+    ## normalize within each stratum
     norm.predicted <- normalize.predictions(unnorm.p=unnorm.p,
                                             stratum=test.data$stratum,
                                             y=test.data$CASE)

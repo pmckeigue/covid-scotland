@@ -1,3 +1,4 @@
+library(hsstan)
 
 ## stepwise regressions for casecontrol.R
 
@@ -20,39 +21,34 @@ full.formula <- as.formula(paste0("CASE ~ ",
                             " + strata(stratum)"))
 
 ## fit models
-nonmissing <- nonmissing.obs(cc.severe, full.varnames)
-cc.nonmissing <- cc.severe[nonmissing]
-
-if(fatal.predict) { # restrict to strata with fatal cases
-    cc.nonmissing <- cc.nonmissing[fatal.casegroup==1]
-}
 
 ## FIXME - for now, drop strata containing 2 or more cases
 ## should fix calculation of test log-likelihood to handle these strata
 ## also fix calculation of C-statistic conditional on marginal freqs
-nonmissing.numcases.strata <- cc.nonmissing[CASE==1, .(.N), by=.(stratum)]
-strata.onecase <- nonmissing.numcases.strata[N==1, stratum]
-
-## should do this as left join
-keep <- cc.nonmissing$stratum %in% strata.onecase
-cc.nonmissing <- cc.nonmissing[keep]
+severe.numcases.strata <- tapply(cc.severe$CASE, cc.severe$stratum, sum)
+strata.onecase <-
+    as.integer(names(severe.numcases.strata)[as.integer(severe.numcases.strata) == 1])
+keep <- cc.severe$stratum %in% strata.onecase
+nonmissing <- nonmissing.obs(cc.severe, full.varnames)
+cc.nonmissing <- subset(cc.severe, subset=nonmissing & keep)
 
 demog.model <- clogit(formula=demog.formula, data=cc.nonmissing)
 listed.model <- clogit(formula=listed.formula, data=cc.nonmissing)
 full.model <- clogit(formula=full.formula, data=cc.nonmissing)
 
 if(stepwise) {
+
     ## FORK cluster points to a shared memory space
     cl <- makeCluster(8, type="FORK")  
-    registerDoParallel(cl, cores=nfold)
-    
+    registerDoParallel(cl, cores=8)
+
     ## stepwise for full variable set
     stepwise.full <- step(full.model,
                           scope=list(lower=lower.formula, upper=full.formula),
                           direction="both", method="approximate", trace=-1)
     stepwise.full <- summary(stepwise.full)$coefficients
     rownames(stepwise.full) <- replace.names(rownames(stepwise.full))
-    
+
 ########## cross-validation of stepwise regression ######
     ## each stratum is assigned to one of nfold disjoint test folds
     test.folds <- testfolds.bystratum(stratum=cc.nonmissing[["stratum"]],
@@ -62,7 +58,7 @@ if(stepwise) {
     cv.data <- merge(cc.nonmissing, test.folds, by="stratum")
     cv.data <- subset(cv.data, select=c("test.fold", "CASE", "stratum", full.varnames))
     cat("cv.data has", nrow(cv.data), "rows\n")
-    
+   
 ###########################################
     demog.predicted <- cv.predict(nfold, cv.data, lower.formula, demog.formula) 
     demog.predicted <- demog.predicted[demog.predicted$prior.p < 1, ]
@@ -98,20 +94,20 @@ if(stepwise) {
          demog.densities, listed.densities, full.densities, 
          file="./data/stepwise_15May.RData")
     } else {
-        save(stepwise.full,
-             demog.densities, listed.densities, full.densities, 
-             file=paste0("./data/", ifelse(fatal.predict, "fatal_", ""), "stepwise.RData"))
-             
+            save(stepwise.full,
+         demog.densities, listed.densities, full.densities, 
+         file="./data/stepwise.RData")
+
     }
-    
+  
     parallel::stopCluster(cl)
     showConnections(all = TRUE)
     closeAllConnections()
-    
+
 } else {
     if(old) {
         load("./data/stepwise_15May.RData")
     } else {
-        load("./data/stepwise.RData")
+         load("./data/stepwise.RData")
     }
 }

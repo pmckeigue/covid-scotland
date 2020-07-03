@@ -11,6 +11,7 @@ table(ids.bnf.IHD %in% ids.icd.IHD)
 ids.procedures.IHD <- unique(procedures$ANON_ID[grep("^K4[012349]|^K50", procedures$MAIN_OPERATION)])
 
 ids.IHD <- unique(c(ids.icd.IHD, ids.bnf.IHD, ids.procedures.IHD))
+cc.all$IHD.any <- as.factor(as.integer(cc.all$ANON_ID %in% ids.IHD))
 cc.severe$IHD.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.IHD))
 
 ##### other heart disease ####################################
@@ -25,6 +26,7 @@ table(ids.bnf.heart.other %in% ids.icd.heart.other)
 ids.procedures.heart.other <- unique(procedures$ANON_ID[grep("^K57", procedures$MAIN_OPERATION)])
 
 ids.heart.other <- unique(c(ids.icd.heart.other, ids.bnf.heart.other, ids.procedures.heart.other))
+cc.all$heart.other.any <- as.factor(as.integer(cc.all$ANON_ID %in% ids.heart.other))
 cc.severe$heart.other.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.heart.other))
 
 #######################################################################
@@ -33,8 +35,10 @@ cc.severe$heart.other.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.hea
 ids.icd.circulatory.other <-
     unique(diagnoses$ANON_ID[grep("^I[6-9]|^Z95", diagnoses$ICD10)])
 
+cc.all$circulatory.other <-
+    as.factor(as.integer(cc.all$ANON_ID %in% ids.icd.circulatory.other))
 cc.severe$circulatory.other <-
-    as.factor(as.integer(cc.severe$ANON_ID %in% ids.icd.circulatory.other))
+  as.factor(as.integer(cc.severe$ANON_ID %in% ids.icd.circulatory.other))
 
 ############# chronic kidney disease ##########################
 
@@ -46,6 +50,7 @@ ids.kidneytransplant <- unique(procedures$ANON_ID[grep("^M01[1234589]",
                                                        procedures$MAIN_OPERATION)])
 table(ids.kidneytransplant %in% ids.icd.ckd)
 ids.ckd.any <- unique(c(ids.icd.ckd, ids.kidneytransplant))
+cc.all$ckd.any <-  as.factor(as.integer(cc.all$ANON_ID %in% ids.ckd.any))
 cc.severe$ckd.any <-  as.factor(as.integer(cc.severe$ANON_ID %in% ids.ckd.any))
 
 ##### asthma and chronic lower respiratory disease #################
@@ -58,6 +63,7 @@ ids.bnf.broncho <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) >= 301 &
 table(ids.icd.asthma %in% ids.bnf.broncho)
 table(ids.icd.chronresp %in% ids.bnf.broncho)
 ids.oad.any <- unique(c(ids.icd.asthma, ids.icd.chronresp, ids.bnf.broncho))
+cc.all$oad.any <- as.factor(as.integer(cc.all$ANON_ID %in% ids.oad.any))
 cc.severe$oad.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.oad.any))
 
 ##### Neurological disorders #######################
@@ -76,6 +82,7 @@ table(ids.bnf.neuro %in% ids.icd.neuro)
 ## no records in scrips for these drugs
 ## 526 records in scrips[substr(scrips$bnf_paragraph_code, 1, 5) == "08020", ]
 ids.neuro.any <- unique(c(ids.icd.neuro, ids.bnf.neuro))
+cc.all$neuro.any <- as.factor(as.integer(cc.all$ANON_ID %in% ids.neuro.any))
 cc.severe$neuro.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.neuro.any))
 
 ############## Liver disease #############################################
@@ -83,6 +90,7 @@ cc.severe$neuro.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.neuro.any
 liver.grep.string <- "^C22\\.?0|^I85\\.?0|^I98\\.?3|^K70\\.?[234|^K71\\.?7|^K72\\.?[019]|^K72\\.?[019|^K73|^K74\\.?[023456]|^K76\\.?7|^R18"
 table(grep(liver.grep.string, diagnoses$ICD10, value=TRUE))
 ids.icd.liver <- unique(diagnoses$ANON_ID[grep(liver.grep.string, diagnoses$ICD10)])
+cc.all$liver.any <- as.factor(as.integer(cc.all$ANON_ID %in% ids.icd.liver))
 cc.severe$liver.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.icd.liver))
 
 #### Immunodeficiency and immunosuppression #################################
@@ -96,6 +104,7 @@ ids.bnf.immune <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 802 |
                                         as.integer(scrips$paracode) == 50301])
 
 ids.immune.any <- unique(c(ids.icd.immune, ids.bnf.immune))
+cc.all$immune.any <- as.factor(as.integer(cc.all$ANON_ID %in% ids.immune.any))
 cc.severe$immune.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.immune.any))
 
 ############# neoplasms ################
@@ -104,14 +113,19 @@ ids.icd.neoplasm <- unique(diagnoses$ANON_ID[grep("^C[0-9]|^D[0-4]", diagnoses$I
 ids.bnf.neoplasm <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 801])
 ids.neoplasm.any <- unique(c(ids.icd.neoplasm, ids.bnf.neoplasm))
 
-cc.severe <- mutate(cc.severe,
+cc.all <- mutate(cc.all,
                     neoplasm.any = as.factor(as.integer(ANON_ID %in% ids.neoplasm.any |
                                              can.reg==1)))
+cc.severe <- mutate(cc.severe,
+                 neoplasm.any = as.factor(as.integer(ANON_ID %in% ids.neoplasm.any |
+                                                       can.reg==1)))
 
 ###### disorders of esophagus, stomach and duodenum ############################
 
 ids.esoph.stomach.duod <-  unique(diagnoses$ANON_ID[grep("^K2[0-9]|^K3[01]", diagnoses$ICD10)])
+cc.all$esoph.stomach.duod <-
+    as.factor(as.integer(cc.all$ANON_ID %in% ids.esoph.stomach.duod))
 cc.severe$esoph.stomach.duod <-
-    as.factor(as.integer(cc.severe$ANON_ID %in% ids.esoph.stomach.duod))
+  as.factor(as.integer(cc.severe$ANON_ID %in% ids.esoph.stomach.duod))
 
 

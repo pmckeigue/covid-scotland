@@ -1,4 +1,8 @@
 
+## https://www.nrscotland.gov.uk/statistics-and-data/statistics/statistics-by-theme/population/population-estimates/mid-year-population-estimates/mid-2019
+
+## https://www.nrscotland.gov.uk/files//statistics/population-estimates/mid-19/mid-year-pop-est-2019-figures.xlsx
+
 scotpop <- read_excel("./Scotland_midyearpop_est2019.xlsx")
 
 # load("casefreqs.RData") ## national cumulative cases and deaths by sex and one year age group
@@ -52,21 +56,21 @@ gam.model.MaleCases<- gam::gam(formula=y.cases[male, ] ~ s(Age), family=binomial
 gam.model.FemaleCases <- gam::gam(formula=y.cases[female, ] ~ s(Age), family=binomial("logit"),
                                   data=discrim[female, ])
 
-gam.male <- data.frame(Cases=car::logit(gam.model.MaleCases$fitted.values),
-                       Deaths=car::logit(gam.model.MaleDeaths$fitted.values),
+gam.male <- data.frame(Cases=logit(gam.model.MaleCases$fitted.values),
+                       Deaths=logit(gam.model.MaleDeaths$fitted.values),
                        Age=discrim$Age[male])
 gam.male.long <- reshape2::melt(data=gam.male, id="Age")
 colnames(gam.male.long)[2] <- "Status"
 gam.male.long$Sex <- "Males"
 
-gam.female <- data.frame(Cases=car::logit(gam.model.FemaleCases$fitted.values),
-                       Deaths=car::logit(gam.model.FemaleDeaths$fitted.values),
+gam.female <- data.frame(Cases=logit(gam.model.FemaleCases$fitted.values),
+                       Deaths=logit(gam.model.FemaleDeaths$fitted.values),
                        Age=discrim$Age[female])
 gam.female.long <- reshape2::melt(data=gam.female, id="Age")
 colnames(gam.female.long)[2] <- "Status"
 gam.female.long$Sex <- "Females"
 gam <- rbind(gam.male.long, gam.female.long)
-     
+
 ###############################################################
 
 logodds.posterior <- predict(object=cases.model, newdata=discrim, type="link")
@@ -85,4 +89,55 @@ discrim$W <- log.likratio / log(2)
 lambda1 <- sum(discrim$W * discrim$Deaths) / sum(discrim$Deaths)
 lambda0 <- sum(-discrim$W * discrim$Survivors) / sum(discrim$Survivors)
 deaths.Lambda.agesex <- 0.5 * (lambda0 +  lambda1)
+
+
+get.covidage <- function(popmodel, sex, logitrisk) {
+    ## get interpolated age given logitrisk and sex
+    ## popmodel has columns sex, age, logit
+    N <- length(sex)
+    covidage <- numeric(N)
+    model.m <- subset(popmodel, sex="Males")
+    model.f <- subset(popmodel, sex="Females")
+    covidage[sex=="Males"] <- approx(x=model.m$logit,  y=model.m$age, xout=logitrisk)
+    covidage[sex=="Females"] <- approx(x=model.f$logit,  y=model.f$age, xout=logitrisk)
+    return(covidage$y)
+}
+
+getlogitrisk <- function(popmodel, sex, age) {
+    ## get logit risk given sex and age, from population model
+    N <- length(age)
+    logitrisk <- numeric(N)
+    model.m <- subset(popmodel, sex="Males")
+    model.f <- subset(popmodel, sex="Females")
+    logitrisk[sex=="Males"] <- approx(x=model.m$age,  y=model.m$logit, xout=age)
+    logitrisk[sex=="Females"] <- approx(x=model.f$age,  y=model.f$logit, xout=age)
+    return(logitrisk)
+}
+
+calibrate.condlogit <- function(popmodel, sex, age, c.logit) {
+    ## find value of intercept that equates observed and expected risk
+    ## where the linear predictor is the sum of the logit from popmodel and
+    ## conditional logit c.logit from case-control study
+
+    ## left join data.table(sex, age, clogit) with popmodel
+
+    ## sum the logits
+
+    ## equate observed and predicted risk over all individuals
+    
+}
+
+popmodel <- subset(gam, Status=="Deaths", select=c("Sex", "Age", "value"))
+colnames(popmodel) <- c("sex", "age", "logit")
+      
+covidage <- get.covidage(popmodel=popmodel, sex="Males", logitrisk=-10)
+
+print(covidage)
+
+logitrisk <- getlogitrisk(popmodel=popmodel, sex="Males", age=covidage)
+
+print(logitrisk)
+
+## function to calibrate the sum of the logit from the population model and the logit from the conditional logistic regression model by equating observed and expected for each sex 
+
 

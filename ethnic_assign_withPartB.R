@@ -105,6 +105,7 @@ collapseto5.onomap.group <- function(onomap.group) {
     return(ethnic5)
 }
 
+
 ### DISSAGGREGATED RECODES FOR ETHNICITY REPORT
 
 ## extra codes: 1[DEFGHJ] White, 3[ABC] South Asian, 3[E] Chinese, 3D Other Asian, 4[ABCE]  African
@@ -200,3 +201,15 @@ collapseto7.onomap.group <- function(onomap.group) {
   return(ethnic7)
 }
 
+collapseto6.onomap.group <- function(onomap.group) {
+  ## reduce to 5 categories: White, South Asian, Chinese, Black, Other
+  ethnic7 <- car::recode(onomap.group, "'Britain&Ireland'='White';  'Other Europe'='White';  'East Med'='Other'; 'Other Asia & Pacific'='Other'") 
+  ethnic6 <- as.character(ethnic7)
+  ethnic6 <- car::recode(ethnic6, "'Black Caribbean'='Other'")
+  ethnic6 <- car::recode(ethnic6, "'Black African'='Other'")
+  ethnic6 <- as.factor(ethnic6)
+  #print(levels(ethnic6))
+  ethnic6 <- factor(ethnic6, levels=levels(ethnic6)[c(5,6,1,2,4,3)])
+  ethnic6 <- relevel(as.factor(ethnic6), ref="White")
+  return(ethnic6)
+}

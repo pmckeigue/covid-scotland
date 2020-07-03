@@ -1,6 +1,6 @@
 #****************************************
 #matching case and control records
-#Martin 12-06-20
+#Martin 03-07-20
 #run on RStudio Server Cluster, v3.6.1
 #****************************************
 
@@ -8,12 +8,13 @@
 #load packages
 #****************************************
 
-
-
 library(odbc)
+library(tidyverse)
 library(lubridate)
 library(tidylog)
 library(data.table)
+library(fuzzyjoin)
+library(janitor)
 #library(tictoc)
 library(stringdist)
 library(glue)
@@ -21,6 +22,7 @@ library(phsmethods)
 library(stringr)
 library(Hmisc)
 library(dplyr)
+
 #install.packages("Hmisc")
 # remotes::install_github("Health-SocialCare-Scotland/phsmethods")
 
@@ -132,6 +134,19 @@ new_indexer_result <- new_indexer_result %>%
 #seeded file with original payload
 SEEDED<-left_join(new_indexer_result,ECOSS_deduped1,by="PATID")
 
+#check how many changed during seedinf
+changes<-full_join(ECOSS_deduped1,new_indexer_result,by=c("CHI"="UPI"),keep=T)
+changes2<-changes %>% 
+  filter(!UPI%in%CHI) %>% 
+  select(UPI,CHI)
+
+length(unique(new_indexer_result$UPI))
+#[1] 15518
+length(unique(ECOSS_deduped1$CHI))
+#[1] 15435
+
+#83 altered 17 new chi introduced by seeding.
+
 SEEDED<-SEEDED %>% 
   select(UPI,LabSpecimenNo, SpecimenDate) %>% 
   rename(UPI_NUMBER=UPI) %>% 
@@ -178,7 +193,7 @@ dedupedcases<-dedupedcases %>%
   distinct()
 cases<-dedupedcases 
 
-#fwrite(cases,"/conf/linkage/output/HPS/Covid19/casecontrolupi_seeded.csv")
+#fwrite(cases,"/chi/(1) Project Folders/Case Control/june_cases.csv")
 
 cases <- cases %>% rename(SPECIMENDATE = SpecimenDate)  
 
@@ -435,10 +450,185 @@ output <- cc.table_e %>%
   dplyr::select(upi, is.case, stratum,SPECIMENDATE, SEX,AgeYear, CURRENT_POSTCODE,GP_PRAC_NO, INSTITUTION_CODE,DATE_OF_DEATH) 
 
 
+#############################
+#household macthing 30-06-20#
+#############################
+
+#define username for writing SQL tables
+user_name <- unname(toupper(Sys.info()['user']))
+
+#*******************************************
+#read and process matches####
+#*******************************************
+
+#read data and clean up
+cohort <- output %>%  
+  rename(UPI_NUMBER = upi) %>% 
+  mutate(UPI_NUMBER = chi_pad(UPI_NUMBER)) %>% #pad to 10
+  arrange(UPI_NUMBER) %>% 
+  mutate(SERIAL=row_number()) %>% 
+  select(SERIAL,UPI_NUMBER,is.case,stratum) %>% 
+  rename(ISCASE=is.case,STRATUM=stratum) 
+
+
+#remove old table if exists
+dbRemoveTable(con, "COHORT") 
+
+#write up to SMRA for swift join
+dbWriteTable(con,"COHORT",
+             cohort,
+             overwrite = TRUE,
+             field.types = c(UPI_NUMBER = "VARCHAR2 (10)",
+                             SERIAL = "VARCHAR2 (7)",
+                             ISCASE = "VARCHAR2 (1)",
+                             STRATUM= "VARCHAR2 (7)")
+)
+
+#make tibble and order
+cohort <- cohort %>% tibble() %>% arrange(UPI_NUMBER) 
+#*******************************************
+#collect address####
+#*******************************************
+
+#remove old table if exists
+dbRemoveTable(con, "ADDRESS") 
+
+#create table of addresses
+ADDRESS <-(dbGetQuery(con, statement = glue("CREATE TABLE {user_name}.ADDRESS AS SELECT DISTINCT COHORT.UPI_NUMBER,
+                                            COHORT.SERIAL,
+                                            COHORT.ISCASE,
+                                            COHORT.STRATUM,
+                                            L_UPI_DATA.CURRENT_LINE1,
+                                            L_UPI_DATA.CURRENT_LINE2,
+                                            L_UPI_DATA.CURRENT_LINE3,
+                                            L_UPI_DATA.CURRENT_POSTCODE,
+                                            L_UPI_DATA.DATE_ADDRESS_CHANGED,
+                                            L_UPI_DATA.CHI_STATUS,
+                                            L_UPI_DATA.EXTENDED_STATUS
+                                            FROM {user_name}.COHORT COHORT LEFT OUTER JOIN UPIP.L_UPI_DATA L_UPI_DATA
+                                            ON (COHORT.UPI_NUMBER = L_UPI_DATA.UPI_NUMBER)
+                                            WHERE ( (L_UPI_DATA.CHI_STATUS = 'C') OR (L_UPI_DATA.CHI_STATUS IS NULL))")))
+
+#*******************************************
+#match households####
+#*******************************************
+
+#GET UNIQUE ADDRESSES WHICH ARE IN CASESS OR CONTROLS - ASSIGN hid
+HOUSEHOLD_link <- (dbGetQuery(con, statement = glue("SELECT DISTINCT ADDRESS.CURRENT_LINE1 AS IN_1,
+                                                    ADDRESS.CURRENT_LINE2 AS IN_2,
+                                                    ADDRESS.CURRENT_LINE3 AS IN_3,
+                                                    ADDRESS.CURRENT_POSTCODE AS IN_PC,
+                                                    L_UPI_DATA.CURRENT_LINE1,
+                                                    L_UPI_DATA.CURRENT_LINE2,
+                                                    L_UPI_DATA.CURRENT_LINE3,
+                                                    L_UPI_DATA.CURRENT_POSTCODE,
+                                                    L_UPI_DATA.CHI_STATUS
+                                                    FROM UPIP.L_UPI_DATA L_UPI_DATA INNER JOIN {user_name}.ADDRESS ADDRESS
+                                                    ON (L_UPI_DATA.CURRENT_POSTCODE = ADDRESS.CURRENT_POSTCODE)
+                                                    WHERE (L_UPI_DATA.CURRENT_LINE1 = ADDRESS.CURRENT_LINE1)
+                                                    AND (L_UPI_DATA.CURRENT_LINE2 = ADDRESS.CURRENT_LINE2)
+                                                    AND ( (L_UPI_DATA.CURRENT_POSTCODE = ADDRESS.CURRENT_POSTCODE)
+                                                    OR (L_UPI_DATA.CURRENT_POSTCODE IS NULL))
+                                                    AND ( (L_UPI_DATA.CHI_STATUS = 'C') OR (L_UPI_DATA.CHI_STATUS IS NULL))
+                                                    ")))
+HOUSEHOLD_link <-HOUSEHOLD_link %>% 
+  mutate(in_address=paste0(IN_1,IN_2,IN_3,IN_PC)) %>% 
+  mutate(CHI_ADDRESS=paste0(CURRENT_LINE1,CURRENT_LINE2,CURRENT_LINE3,CURRENT_POSTCODE)) %>% 
+  distinct(CHI_ADDRESS,CURRENT_LINE1,CURRENT_LINE2,CURRENT_LINE3,CURRENT_POSTCODE) %>% 
+  mutate(HID=row_number()) %>% 
+  select(HID,CHI_ADDRESS,CURRENT_LINE1,CURRENT_LINE2,CURRENT_LINE3,CURRENT_POSTCODE)
+
+#Upload reference address file
+
+dbRemoveTable(con, "ADD_REF") 
+
+#write up to SMRA for swift join
+dbWriteTable(con,"ADD_REF",
+             HOUSEHOLD_link,
+             overwrite = TRUE,
+             field.types = c(HID = "VARCHAR2 (10)",
+                             CURRENT_LINE1 = "VARCHAR2 (25)",
+                             CURRENT_LINE2 = "VARCHAR2 (25)",
+                             CURRENT_LINE3 = "VARCHAR2 (25)",
+                             CURRENT_POSTCODE = "VARCHAR2 (7)",
+                             CHI_ADDRESS = "VARCHAR2(75)"
+             ))
+
+#GET ALL POTENTIAL UPI FROM chi FILE WITH ADDRESSES MATCHING CASE OR CONTROL ADDRESSES.
+
+POTENTIAL_HH <-(dbGetQuery(con, statement = glue("SELECT L_UPI_DATA.UPI_NUMBER,
+                                                 L_UPI_DATA.CHI_STATUS,
+                                                 L_UPI_DATA.DATE_OF_BIRTH,
+                                                 L_UPI_DATA.CHI_NUMBER,
+                                                 L_UPI_DATA.SURNAME,
+                                                 L_UPI_DATA.FIRST_FORENAME,
+                                                 L_UPI_DATA.CURRENT_LINE1,
+                                                 L_UPI_DATA.CURRENT_LINE2,
+                                                 L_UPI_DATA.CURRENT_LINE3,
+                                                 L_UPI_DATA.CURRENT_POSTCODE,
+                                                 L_UPI_DATA.DATE_OF_DEATH,
+                                                 ADD_REF.HID,
+                                                 ADD_REF.CHI_ADDRESS,
+                                                 ADD_REF.CURRENT_LINE1 AS LINE1,
+                                                 ADD_REF.CURRENT_LINE2 AS LINE2,
+                                                 ADD_REF.CURRENT_LINE3 AS LINE3,
+                                                 ADD_REF.CURRENT_POSTCODE AS REFPC
+                                                 FROM MARTIR03.ADD_REF ADD_REF INNER JOIN UPIP.L_UPI_DATA L_UPI_DATA
+                                                 ON (ADD_REF.CURRENT_POSTCODE = L_UPI_DATA.CURRENT_POSTCODE)
+                                                 WHERE ( (L_UPI_DATA.CHI_STATUS = 'C') OR (L_UPI_DATA.CHI_STATUS IS NULL))
+                                                 AND ( (L_UPI_DATA.DATE_OF_DEATH >=
+                                                 TO_DATE ('2020-03-01 00:00:00', 'yyyy/mm/dd hh24:mi:ss'))
+                                                 OR (L_UPI_DATA.DATE_OF_DEATH IS NULL))
+                                                 AND (ADD_REF.CURRENT_LINE1 = L_UPI_DATA.CURRENT_LINE1)
+                                                 AND (ADD_REF.CURRENT_LINE2 = L_UPI_DATA.CURRENT_LINE2)
+                                                 AND ( (ADD_REF.CURRENT_POSTCODE = L_UPI_DATA.CURRENT_POSTCODE)
+                                                 OR (ADD_REF.CURRENT_POSTCODE IS NULL))")))
+
+#assign HID based on unique address
+HID_ALL<-left_join(HOUSEHOLD_link,POTENTIAL_HH,by="CHI_ADDRESS")#Potential HH memebrs with HID assigned.
+HID_ALL<-HID_ALL %>% 
+  select(HID.x,CHI_ADDRESS,UPI_NUMBER,DATE_OF_BIRTH,DATE_OF_DEATH) %>% 
+  rename(HID=HID.x)
+# hid_HH<-hid %>% 
+#   filter(!UPI_NUMBER %in% cohort$UPI_NUMBER) %>% #remove Cases and control to avoid them being joined to themselves.
+#     distinct() %>%  #data frame of all household members who aren't 
+# select(HID.x,CHI_ADDRESS,UPI_NUMBER,DATE_OF_BIRTH,DATE_OF_DEATH,LINE1,LINE2,LINE3,REFPC,SURNAME) %>% 
+# rename(HID=HID.x)  
+
+
+#AGE GROUPING
+
+age_breaks <- c(-1,4, 11, 17, 119)
+
+age_labels <- c("0-4","5-11","12-17",">=18")
+
+HID_ALL <- HID_ALL %>% 
+  mutate(age = interval(start = DATE_OF_BIRTH, end = "2020-04-01"),
+         age = floor(time_length(age, unit = "year")))
+
+#add age groups
+HID_ALL <- HID_ALL %>% 
+  mutate(age_group = as.character(cut(age, 
+                                      breaks = age_breaks, 
+                                      labels = age_labels, 
+                                      include.lowest = TRUE)))
+
+HID_ALLWIDE<-HID_ALL%>% 
+  distinct()%>% 
+  count(HID,age_group) %>% 
+  pivot_wider(names_from=age_group,values_from=n)
+HID_ALL <- HID_ALL %>% 
+  select(HID,CHI_ADDRESS,UPI_NUMBER)
+
+hid_age<-left_join(HID_ALL,HID_ALLWIDE,by="HID")
+
+output2<-left_join(cohort,hid_age,by="UPI_NUMBER")
+output2<-output2%>% 
+  distinct(SERIAL,.keep_all = TRUE)
+
 #######get prisoner records identified and extracted from CHI database
 PRISONS<-fread("/chi/(1) Project Folders/Case Control/Prisons.csv")
 PRISONS<-PRISONS %>% 
-  select(-X) %>% 
   mutate(PRISONPC=gsub(" ","",PRISONPC)) %>% 
   mutate(HC_PC=gsub(" ","",HC_PC)) %>% 
   filter(!is.na(GPPRISON))
@@ -558,17 +748,43 @@ CHI_Prisoners<-CHI_Prisoners %>%
   mutate(UPI_NUMBER=as.character(UPI_NUMBER))%>%
   dplyr::mutate(UPI_NUMBER= ifelse(nchar(UPI_NUMBER) == 9, paste0("0", UPI_NUMBER), paste0(UPI_NUMBER)))
 
-final<-left_join(output,CHI_Prisoners,by=c("upi"="UPI_NUMBER"))
-#check for dup cases
-final_check<-final %>% 
-  group_by(upi) %>% 
-  mutate(n_upi=n()) %>% 
-  filter(is.case=="TRUE")
+IC_FLAG<-output %>%
+  select(upi,INSTITUTION_CODE) %>% 
+  distinct()
 
-final_check2<-final %>% 
-  group_by(upi) %>% 
-  mutate(n_upi=n()) %>% 
-  filter(is.case=="FALSE")
+addICflag<-left_join(output2,IC_FLAG,by=c("UPI_NUMBER"="upi"))
 
-CHECK_FINAL<-left_join(final_check2,final_check,by="upi")
-fwrite(final,"/conf/linkage/output/y2k_cat_check/conf/case_and_controls_June_4.csv")
+final<-left_join(addICflag,CHI_Prisoners,by="UPI_NUMBER")
+
+
+
+
+# #check for dup cases
+# final_check<-final %>% 
+#   group_by(upi) %>% 
+#   mutate(n_upi=n()) %>% 
+#   filter(is.case=="TRUE")
+# 
+# final_check2<-final %>% 
+#   group_by(upi) %>% 
+#   mutate(n_upi=n()) %>% 
+#   filter(is.case=="FALSE")
+# 
+# CHECK_FINAL<-left_join(final_check2,final_check,by="upi")
+# fwrite(final,"/conf/linkage/output/y2k_cat_check/conf/case_and_controls_June_HH.csv")
+
+addnames<-left_join(final,upip_ex,by=c("upi"="UPI_NUMBER"))
+addnames<-addnames %>% 
+  select(upi,SURNAME,FIRST_FORENAME,is.case)
+fwrite(addnames,"/conf/linkage/output/y2k_cat_check/conf/case_and_controls_june_ononmap.csv")
+
+library(readr)
+June20_OnoMap_result <- read_csv("/conf/linkage/output/Martin_R/19June20_Onolytics_Export_File.csv", 
+                                 col_types = cols(`Clean Forename` = col_skip(), 
+                                                  `Clean Surname` = col_skip(), FIRST_FORENAME = col_skip(), 
+                                                  SURNAME = col_skip()))
+
+final2<-left_join(final,June20_OnoMap_result,by=c("UPI_NUMBER"="upi"))
+final2<-final2 %>% 
+  select(-CHI_ADDRESS)
+fwrite(final2,"/conf/linkage/output/y2k_cat_check/conf/case_and_controls_June2_HH.csv")

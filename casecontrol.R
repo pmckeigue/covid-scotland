@@ -1,6 +1,6 @@
 ## analysis script for case-control study
 if(exists("cl")) {
-    parallel::stopCluster(cl)
+    # parallel::stopCluster(cl)
     showConnections(all = TRUE)
     closeAllConnections()
 }
@@ -23,7 +23,6 @@ list.of.packages = c("car",
                      "pander", 
                      "ggplot2", 
                      "doParallel", 
-                     # "reshape2",  # deprecated
                      "readxl", 
                      "DescTools", 
                      "icd.data", 
@@ -43,7 +42,7 @@ library(rmarkdown)
 library(pander)
 library(ggplot2)
 library(doParallel)
-library(reshape2)
+# library(reshape2)
 library(readxl)
 library(DescTools)
 library(icd.data)
@@ -61,9 +60,10 @@ include.nrs.only <- TRUE
 #include.nrs.only <- FALSE # uncomment to exclude NRS-only deaths
 
 stepwise <- TRUE   
-# stepwise <- FALSE ## uncomment to save time if old version still valid
+stepwise <- FALSE ## uncomment to save time if old version still valid
 
 fatal.predict <- TRUE
+fatal.predict <- FALSE
 
 recode.dmtype <- function(x) {
     r <- as.factor(car::recode(x, 
@@ -78,21 +78,6 @@ recode.dmtype <- function(x) {
     return(r)
 }
 
-cases.old <- as.data.table(readRDS("./data/CC_linked_ANON_20200515.rds"), key="ANON_ID")
-cases.new <- as.data.table(readRDS("./data/CC_linked_ANON_2020-06-18.rds"), key="ANON_ID")
-cases.old <- subset(cases.old, CASE==1)
-cases.new <- subset(cases.new, is.case)
-
-setnames(cases.old, "age", "AGE")
-
-setnames(cases.new, "SPECIMENDATE", "SPECDATE")
-setnames(cases.new, "AgeYear", "AGE")
-
-cases.old$dm.type <- recode.dmtype(cases.old$dm.type)
-cases.new$dm.type <- recode.dmtype(cases.new$dm.type)
-
-with(subset(cases.old, AGE<50), table(dead28 | covid_cod, icu==1 | hdu==1))
-with(subset(cases.new, AGE<50), table(dead28 | covid_cod, icu==1 | hdu==1))
 
 ##################################################################
      
@@ -103,7 +88,10 @@ if(old) {
     diagnoses <- as.data.table(readRDS("./data/CC_SMR01_ICD10_x25_ANON_20200515.rds"),
                                key="ANON_ID")
     procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_20200515.rds")
-    scrips.filename <- "./data/CC_PIS_x15_ANON_20200515.rds" 
+    scrips.filename <- "./data/CC_PIS_x15_ANON_20200515.rds"
+    scrips <- readRDS(scrips.filename)[, c("ANON_ID", 
+                                           "bnf_paragraph_code",
+                                           "bnf_paragraph_description")]
     controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-15.rds")
 } else {
     cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_2020-06-18.rds"), key="ANON_ID")
@@ -113,17 +101,25 @@ if(old) {
     diagnoses <- as.data.table(readRDS("./data/CC_SMR01_ICD10_x25_ANON_2020-06-18.rds"),
                                key="ANON_ID")
     procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_2020-06-18.rds")
-    scrips.filename <- "./data/CC_PIS_x15_ANON_2020-06-18.rds"
     onomap <- as.data.table(readRDS("./data/ONOMAP_ANON_2020-06-18.rds"), key="ANON_ID")
     rapid <- readRDS("./data/CC_RAPID_ANON_2020-06-18.rds")
     cases.status <-
         as.data.table(readRDS("./data/CC_EXTENDED_STATUS_ANON_2020-06-18.rds"), key="ANON_ID")
     sicsag <- as.data.table(readRDS("./data/CC_SICSAG_ANON_2020-06-18.rds"), key="ANON_ID")
-
+    scrips.filename <- "./data/scrips.last240days.rds"
+    scrips.firsttime <- FALSE
+    if(scrips.firsttime) {
+        scrips <- readRDS( "./data/CC_PIS_x15_ANON_2020-06-18.rds")
+        scrips[, daysbefore := as.integer(SPECIMENDATE - dispensed_date)]
+        ## restrict to last 240 days before cutoff of (specimendate - 15) 
+        scrips <- scrips[daysbefore - 15 <= 240]
+        ## save this file so that other reads from it will have this restriction applied 
+        saveRDS(scrips, scrips.filename)
+    }
+    scrips <- as.data.table(readRDS(scrips.filename)[, c("ANON_ID", "daysbefore",
+                                           "bnf_paragraph_code",
+                                           "bnf_paragraph_description")], key="ANON_ID")
 }
-
-scrips <- as.data.table(readRDS(scrips.filename)[, c("ANON_ID", "bnf_paragraph_code",
-                                                     "bnf_paragraph_description")])
 
 ################### short names for ICD chapters ########################
 
@@ -166,7 +162,6 @@ cc.all$stratum <- as.integer(cc.all$stratum)
 ## merge SICSAG data and overwrite icu and hdu values incorrectly coded 0
 sicsag <- sicsag[covidICUorHDU==1 | covidICUorHDU==3] ## what are codes 4 and 5?
 sicsag <- cc.all[, .(ANON_ID, SPECDATE)][sicsag]
-print(with(sicsag, table(AdmitUnit - SPECDATE)))
 
 ## exclude entries to critical care more than 7 days before first positive test
 sicsag <- sicsag[AdmitUnit - SPECDATE >= -7]
@@ -174,7 +169,7 @@ sicsag <- sicsag[AdmitUnit - SPECDATE >= -7]
 ## get last date of entry in table 
 maxdate.sicsag <- max(sicsag$AdmitUnit)
 
-## restrict to first record for each ID
+## restrict to first SICSAG record for each ID
 setkeyv(sicsag, c("ANON_ID", "AdmitUnit"))
 sicsag <- sicsag[!duplicated(ANON_ID), c("ANON_ID", "AdmitUnit", "covidICUorHDU")]
 setkey(sicsag, ANON_ID)
@@ -186,15 +181,15 @@ print(with(cc.all, table(covidICUorHDU, icu==1 | hdu==1)))
 cc.all[covidICUorHDU==1, icu := 1]
 cc.all[covidICUorHDU==1, hdu := 1]
 
-cc.all <- mutate(cc.all, dispensing.days = as.integer(SPECDATE - as.Date("2019-06-01")))
+cc.all[, dispensing.days := as.integer(SPECDATE - as.Date("2019-06-01"))]
 
 ## HAI is based on the ECDC definition of nosocomial infection
 
 paste.colpercent(with(cc.all, table(ANON_ID %in% scrips$ANON_ID, CASE)))
 paste.colpercent(with(cc.all, table(ANON_ID %in% diagnoses$ANON_ID, CASE)))
 
-cc.all$scrip.any <- as.factor(as.integer(cc.all$ANON_ID %in% scrips$ANON_ID))
-cc.all$diag.any <- as.factor(as.integer(cc.all$ANON_ID %in% diagnoses$ANON_ID))
+cc.all[, scrip.any := as.factor(as.integer(ANON_ID %in% scrips$ANON_ID))]
+cc.all[, diag.any := as.factor(as.integer(ANON_ID %in% diagnoses$ANON_ID))]
 
 ids.noscrip.agegt75 <- subset(cc.all, CASE==0 & scrip.any==0 & AGE > 75)[["ANON_ID"]][1:20]
 ids.nodiag.agegt75 <- subset(cc.all, CASE==0 & diag.any==0 & AGE > 75)[["ANON_ID"]][1:20]
@@ -240,27 +235,27 @@ numcases.strata <- tapply(cc.all$CASE, cc.all$stratum, sum)
 numctrls.strata <- tapply(1 - cc.all$CASE, cc.all$stratum, sum)
 print(table(numctrls.strata, numcases.strata))
 
-cc.all$SIMD.quintile <- car::recode(cc.all$SIMD.quintile, "'Unknown'=NA")
+cc.all[, SIMD.quintile := car::recode(SIMD.quintile, "'Unknown'=NA")]
 
-cc.all$scripordiag <- as.integer(with(cc.all, as.integer(diag.any)==2 |
-                                              as.integer(scrip.any)==2))
-cc.all$scripordiag <- as.factor(cc.all$scripordiag)
+cc.all[, scripordiag :=  as.factor(as.integer(as.integer(diag.any)==2 |
+                                              as.integer(scrip.any)==2))]
 
-cc.all$sex <- car::recode(as.factor(cc.all$sex), "1='Male'; 2='Female'")
+cc.all[, sex := car::recode(as.factor(sex), "1='Male'; 2='Female'")]
 cc.all[, sex := relevel(sex, ref="Female")]
 
-cc.all$agegr20 <- as.factor(car::recode(as.integer(cc.all$AGE),
+cc.all[, agegr20 := as.factor(car::recode(as.integer(AGE),
                               "0:39='0-39'; 40:59='40-59';
-                                  60:74='60-74'; 75:hi='75 or more'"))
-cc.all$agegr3 <-
-    as.factor(car::recode(cc.all$AGE,
-                          "0:59='0-60 years'; 60:74='60-74 years'; 75:hi='75+ years'"))
-cc.all$agegr2 <-
-    as.factor(car::recode(cc.all$AGE,
-                          "0:74='0-74 years'; 75:hi='75+ years'"))
+                               60:74='60-74'; 75:hi='75 or more'"))]
+cc.all[, agegr3 :=
+    as.factor(car::recode(AGE,
+                          "0:59='0-60 years'; 60:74='60-74 years'; 75:hi='75+ years'"))]
+cc.all[, agegr2 :=
+    as.factor(car::recode(AGE,
+                          "0:74='0-74 years'; 75:hi='75+ years'"))]
 
-cc.all$care.home[cc.all$NURSINGHOME==1] <- 1
-cc.all$care.home <- as.factor(car::recode(cc.all$care.home, "0='Independent'; 1='Care/nursing home'"))
+cc.all[NURSINGHOME==1, care.home := 1]
+cc.all[, care.home := as.factor(car::recode(care.home, "0='Independent';
+                                                        1='Care/nursing home'"))]
 cc.all[, care.home := relevel(care.home, ref="Independent")]
 
 if(old) {
@@ -276,7 +271,7 @@ if(old) {
     cc.all[, ecoss := as.factor(ECOSS_POSITIVE)]
 
     ## generate testpositive.case based on ecoss
-    cc.all <- mutate(cc.all, testpositive.case = CASE==1 & ecoss=="Positive")
+    cc.all[, testpositive.case := CASE==1 & ecoss=="Positive"]
 
     ## set testpositive case to TRUE for all cases with covid_cod=0
     ## they couldn't have been ascertained except through testing positive
@@ -284,15 +279,15 @@ if(old) {
 
     ## now all cases without covid_cod are test-positive
     with(cc.all[CASE==1], table(covid_cod, testpositive.case, exclude=NULL))
-    with(cc.all[cc.all$CASE==1, ], table(ecoss, testpositive.case, exclude=NULL))
+    with(cc.all[CASE==1], table(ecoss, testpositive.case, exclude=NULL))
 }
 
 ## all cases have nonmissing SPECDATE
 ## controls should be assigned same SPECDATE as the case they were matched to
 ## but deathwithin28 should be 0 for those who did not test positive
-cc.all <- mutate(cc.all, deathwithin28 = testpositive.case &
-                             !is.na(Date.Death) & 
-                             Date.Death - SPECDATE >= 0 & Date.Death - SPECDATE <= 28)
+cc.all[, deathwithin28 := testpositive.case &
+             !is.na(Date.Death) & 
+             Date.Death - SPECDATE >= 0 & Date.Death - SPECDATE <= 28]
 
 ## Sharon's variable dead28 is assigned by this line
 ## Covid_CC_linkage_Part2_desktop.R:
@@ -347,17 +342,31 @@ cc.all[CASE==1 & group=="Unclassified" & covid_cod==1, group := "D"]
 
 print(table(cc.all$CASE, cc.all$group, exclude=NULL))
 
-## assign a binary variable for fatalcase.group
+## assign a logical variable for fatalcase, and a binary variable for fatal.casegroup
+
+cc.all$fatalcase <- with(cc.all, CASE==1 & group=="A" & (deathwithin28 | covid_ucod==1))
 cc.all <- mutate(cc.all, fatal.casegroup = 0)
-cc.all[CASE==1, fatal.casegroup := as.integer(deathwithin28 | covid_ucod==1)]
+cc.all[CASE==1, fatal.casegroup := as.integer(fatalcase)]
 
-#print(subset(cc.all, CASE==1 & group=="Unclassified", 
-#             select=c(covid_cod, deathwithin28, ECOSS_POSITIVE, criticalcare)))
+## four categories of severe case
 
-#print(with(subset(cc.all, CASE==1 & group=="Unclassified"), table(ECOSS_POSITIVE, covid_cod)))
-
-## remove unclassified cases 
-#cc.all <- subset(cc.all, !(CASE==1 & group == "Unclassified"))
+#cc.all[, severe.casegr := NULL]
+cc.all[, severe.casegr := 0]
+cc.all[CASE==1 & group=="A" & testpositive.case & criticalcare & !fatalcase,
+       severe.casegr := 1]
+cc.all[CASE==1 & group=="A" & testpositive.case & criticalcare & fatalcase, 
+       severe.casegr := 2]
+cc.all[CASE==1 & group=="A" & testpositive.case & !criticalcare & fatalcase,
+       severe.casegr := 3]
+cc.all[CASE==1 & group=="A" & !criticalcare & !testpositive.case & fatalcase,
+       severe.casegr := 4]
+cc.all[severe.casegr==0, severe.casegr := NA]
+cc.all[, severe.casegr := factor(severe.casegr,
+                                 labels=c("Test-positive, critical care, non-fatal",
+                                          "Test-positive, critical care, fatal",
+                                          "Test-positive, no critical care, fatal",
+                                          "Not test-positive, no critical care, fatal"))]
+print(table(cc.all$severe.casegr))
 
 ## assign controls in each stratum to same casegroup as case
 ## for strata with 2 or more cases, assign all controls to highest group of case
@@ -371,24 +380,18 @@ cc.all <- casegroups[cc.all]
 
 ## for cases, overwrite the casegroup field with the group assigned above
 cc.all[CASE==1, casegroup := group]
-
 table(cc.all$CASE, cc.all$casegroup, exclude=NULL)
 
 ## drop records with missing casegroup (controls in strata with no remaining classified case)
 cc.all <- cc.all[!is.na(casegroup)]
 
 with(cc.all[CASE==1], table(casegroup, deathwithin28, exclude=NULL))
-
-#cc.all$casegroup <- car::recode(cc.all$casegroup,
-#                                "'A'='Critical care or fatal'; 'B'='Hospitalised, not severe'; 'C'='Test-positive, not hospitalised'; 'D'='Contributing cause on death cert, no test'")
-
 print(paste.colpercent(with(cc.all[CASE==1], table(care.home, casegroup))))
 
 ### incidence and mortality using national population estimates #####
 narrow.case <- cc.all$CASE==1 & cc.all$casegroup=="A"
 narrow.fatalcase <- narrow.case & (cc.all$deathwithin28 | cc.all$covid_ucod==1)
 table(narrow.case, narrow.fatalcase)
-cc.all$fatalcase <- narrow.fatalcase # for later use
 
 ## broad.case adds in all those with mention of covid on death cert
 broad.case <- cc.all$CASE==1 & (cc.all$casegroup=="A" | cc.all$casegroup=="D")
@@ -468,8 +471,6 @@ source("drugs.R")
 ## add in BNF codes 6.1 for diabetes drugs and
 ## E10 to E14 for diabetes
 
-## immune.any includes primary immunodeficiency and secondary immunosuppression
-
 ########## coding listed conditions ####################
 
 ids.icd.diabetes <- unique(diagnoses$ANON_ID[grep("^E1[0-4]", diagnoses$ICD10)])
@@ -477,11 +478,11 @@ ids.bnf.diabetes <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 601]
 ids.diabetes.extra <- unique(c(ids.icd.diabetes, ids.bnf.diabetes))
 
 ## missing recoded as zero
-cc.all$dm.type[is.na(cc.all$dm.type)] <- 0
+cc.all[is.na(dm.type), dm.type := 0]
 
 ## add in extra cases notified directly from SCI-Diabetes register, without assignment
 ## of diabetes type from SDRN database
-cc.all$dm.type[cc.all$dm.type==0 & cc.all$diab.reg==1] <- 3
+cc.all[dm.type==0 & diab.reg==1, dm.type := 3]
 
 #cat("Extra diabetes cases from SCI-Diabetes by diabetes type\n")
 #print(table(cc.all$dm.type, cc.all$ANON_ID %in% ids.diabetes.extra))
@@ -494,33 +495,19 @@ cc.all$dm.type[cc.all$dm.type==0 & cc.all$diab.reg==1] <- 3
 ## cc.all$dm.type[cc.all$dm.type==0 & cc.all$ANON_ID %in% ids.diabetes.extra] <- 3
 
 # recode diabetes type
-cc.all$dm.type <- recode.dmtype(cc.all$dm.type)
-
-with(cc.all[CASE==1], table(dm.type))
+cc.all[, dm.type := recode.dmtype(dm.type)]
 
 ## define an indicator variable for any diabetes
-cc.all$diabetes.any <- as.integer(cc.all$dm.type != "Not diabetic")
-cc.all$diabetes.any <- as.factor(car::recode(cc.all$diabetes.any,
-                                        "0='Not diabetic'; 1='Diabetic'"))
-cc.all <- within(cc.all, diabetes.any <- relevel(diabetes.any, ref="Not diabetic"))
+cc.all[, diabetes.any := as.integer(dm.type != "Not diabetic")]
+cc.all[, diabetes.any := as.factor(car::recode(diabetes.any,
+                                               "0='Not diabetic'; 1='Diabetic'"))]
+cc.all[, diabetes.any := relevel(diabetes.any, ref="Not diabetic")]
 
-####################################################################
-if(FALSE) {
-## code care home residents as 1, other as 0
-
-cc.all$cats3 <-  as.integer(cc.all$care.home == "Care/nursing home")
-cc.all$cats3[cc.all$cats3==0 & cc.all$listed.any==1] <- 2 
-cc.all$cats3[cc.all$cats3==0 & cc.all$listed.any==0] <- 3
-cc.all$cats3 <- as.factor(car::recode(cc.all$cats3, "1='Care/nursing home';
-                               2='Independent living, listed condition';
-                               3='Independent living, no listed condition'"))     
-}
 ############ save hospitalized non-severe for later use as training dataset #############
 
-## merge BNF chapters, one variable per subpara
+## merge BNF subparas
 chnums = 1:13
 cc.hosp <- merge.bnfsubparas(chnums=chnums, data=cc.all[casegroup=="B"])
-
 saveRDS(cc.hosp, file="cchosp.rds")
 rm(cc.hosp)
 
@@ -532,7 +519,7 @@ print(tail(objmem))
 cat("Restricting to severe cases and matched controls\n")
 cc.severe <- cc.all[casegroup=="A"]
 
-############ FIXME: with enough memory, this can be done on cc.all ###
+############ with enough memory, this can be done on cc.all ###
 
 ## merge drugs, one variable per chapter
 scrips.wide <- data.table::dcast(scrips, ANON_ID ~ chapternum, fun.aggregate=length, 
@@ -544,12 +531,9 @@ colnames(scrips.wide)[-1] <- paste("BNF", colnames(scrips.wide)[-1], shortnames.
 scrips.wide <- as.data.table(scrips.wide, key="ANON_ID")
 cc.severe <- scrips.wide[cc.severe]
 
-bnfcols <- grep("^BNF", colnames(cc.severe))
-for(j in bnfcols) {
-    cc.severe[[j]][is.na(cc.severe[[j]])] <- 0
-    cc.severe[[j]][cc.severe[[j]] > 1] <- 1
-    cc.severe[[j]] <- as.factor(cc.severe[[j]])
-}
+bnfcols <- as.integer(grep("^BNF", colnames(cc.severe)))
+## recode indicator variables
+cc.severe[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
 
 ## merge BNF chapters, one variable per subpara
 cat("Merging BNF subparagraph codes ...")
@@ -567,7 +551,6 @@ cc.severe$numdrugsgr <- as.factor(car::recode(cc.severe$numdrugsgr,
                                               12='10 to 12'; 15:hi='>12'"))
 cc.severe[, numdrugsgr := factor(numdrugsgr,
                                  levels=levels(numdrugsgr)[c(2, 3, 5, 6, 4, 1)])]
-table(cc.severe$numdrugsgr)
 
 cc.severe$numdrugs.notppi <- cc.severe$numdrugs.subpara - cc.severe$y.protonpump
 cc.severe$numdrugs.notppi.gr <- 3 * ceiling(cc.severe$numdrugs.notppi / 3)
@@ -607,15 +590,11 @@ diagnoses.wide <- as.data.table(diagnoses.wide, key="ANON_ID")
 ## drop rare chapters
 cols.keep <- colSums(diagnoses.wide) >= 20
 diagnoses.wide <- diagnoses.wide[, ..cols.keep]
-
 cc.severe <- diagnoses.wide[cc.severe]
 
-icdcols <- grep("^Ch.", colnames(cc.severe))
-for(j in icdcols) {
-    cc.severe[[j]][is.na(cc.severe[[j]])] <- 0
-    cc.severe[[j]][cc.severe[[j]] > 1] <- 1
-    cc.severe[[j]] <- as.factor(cc.severe[[j]])
-}
+icdcols <- as.integer(grep("^Ch.", colnames(cc.severe)))
+## recode indicator variables
+cc.severe[, (icdcols) := lapply(.SD, recode.indicator), .SDcols = icdcols]
 
 cc.severe$num.icdchapters <-
     rowSums(matrix(as.integer(as.matrix(subset(cc.severe, select=icdcols))),
@@ -629,6 +608,8 @@ cc.severe[, num.icdchapters.gr := relevel(num.icdchapters.gr, ref="No discharge 
 ###########################################
 
 source("comorbidity.R")
+
+## immune.any includes primary immunodeficiency and secondary immunosuppression
 
 ## 8 listed conditions designated by NHS
 listed.conditions <- c("dm.type", "IHD.any", "heart.other.any", "oad.any",
@@ -655,7 +636,7 @@ source("paper1tables.R")
 
 ######## stepwise regressions use saved version #####################
 
-nfold <- 8
+nfold <- 10
 source("stepwise.R")
 
 #####################################################
@@ -681,8 +662,3 @@ rmarkdown::render("casecontrol_script.Rmd", output_file="casecontrol_script.pdf"
 Rprof()
 print(summaryRprof(tmp)$by.total[1:20, ])
 
-print(with(cc.all[CASE==1], table(casegroup, dm.type)))
-print(with(cc.all[CASE==1], table(dm.type)))
-
-print(with(cases.old, table(dm.type)))
-print(with(cases.new, table(dm.type)))

@@ -1,5 +1,27 @@
 ## helperfunctions for COVID analyses
 
+recode.indicator <- function(x) {
+    x[is.na(x)] <- 0
+    x[x > 1] <- 1
+    return(as.factor(x))
+}
+
+pnorm.extreme <- function(z, upper=TRUE) {
+    ## https://www.johndcook.com/blog/norm-dist-bounds/
+    if(upper) { # upper bound on log10 tail prob
+        c <- 8 / pi
+    } else { # lower bound
+        c = 4 
+    }
+    x <-  2 * sqrt(2 / pi) / (z + sqrt(z^2 + c))
+    ln_p = -0.5 * z^2 + log(x)
+    log10p <- ln_p / log(10)
+    exponent <- floor(log10p)
+    coeff <- 10^(log10p - exponent)
+    string <- paste0(round(coeff), "E", exponent)
+    return(string)
+}
+
 logit <- function(x) log(x) - log(1 - x) 
 
 invlogit <- function(x) 1 / (1 + exp(-x))
@@ -72,7 +94,8 @@ stepwise.union.dropcols <- function(x, y, covariates=NULL, stratum) {
     return(stepwise.drop[, -1])
 }
 
-lookup.names <- data.frame(varname=c("deathwithin28", "scrip.any", "diag.any", "care.home",
+lookup.names <- data.frame(varname=c("AGE", "sex",
+                                     "deathwithin28", "scrip.any", "diag.any", "care.home",
                                      "diag.other", "scripordiag", 
                                      "emerg", "icu.hdu.ccu", "inpat",
                                      "protonpump",
@@ -111,7 +134,8 @@ lookup.names <- data.frame(varname=c("deathwithin28", "scrip.any", "diag.any", "
                                      "statins6.bnf",
                                      "hydroxychloroquine6.bnf"
                                      ),
-                           longname=c("Death within 28 days of test",
+                           longname=c("Age", "Males",
+                                      "Death within 28 days of test",
                                       "Any prescription", "Any admission", "Care home",
                                       "No listed condition, other diagnosis",
                                       "Diagnosis or prescription",
@@ -277,7 +301,7 @@ tabulate.bnfsection <- function(chnum, outcome="CASE", data=cc.severe, minrowsum
         cc.bnf.section[[j]] <- as.factor(cc.bnf.section[[j]])
     }
     
-    bnf.section <- colnames(cc.bnf.section)[-(1:3)]
+    bnf.section <- colnames(cc.bnf.section)[bnfcols]
     ## FIXME: regressions should be fixed to use only rows retained by univariate.tabulate
     table.bnf.section <- univariate.tabulate(varnames=bnf.section, outcome=outcome, data=cc.bnf.section,
                                         drop.sparserows=TRUE, minrowsum=20)
@@ -313,9 +337,7 @@ tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=2
     scrips.para.wide[, ..cols.keep]
     
     scrips.para.wide <- as.data.table(scrips.para.wide, key="ANON_ID")
-    cc.bnf.para <- merge(data[, c("ANON_ID", "CASE", "stratum")],
-                       scrips.para.wide,
-                       by="ANON_ID", all.x=TRUE)
+    cc.bnf.para <- scrips.para.wide[data[, c("ANON_ID", "CASE", "stratum")]]
     ## now fix colnames and set missing to 0
     bnfcols <- grep("^para.", colnames(cc.bnf.para))
     for(j in bnfcols) {
@@ -324,7 +346,8 @@ tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=2
         cc.bnf.para[[j]] <- as.factor(cc.bnf.para[[j]])
     }
     
-    bnf.para <- colnames(cc.bnf.para)[-(1:3)]
+    bnf.para <- colnames(cc.bnf.para)[bnfcols]
+    
     table.bnf.para <- univariate.tabulate(varnames=bnf.para, outcome="CASE", data=cc.bnf.para,
                                         drop.sparserows=TRUE, minrowsum=minrowsum)
     ## regressions fixed to use only rows retained by univariate.tabulate
@@ -368,15 +391,16 @@ merge.bnfsubparas <- function(chnums, data) {
     scrips.subpara.wide <- subset(scrips.subpara.wide, select=colSums(scrips.subpara.wide) > 20)
 
     setkey(scrips.subpara.wide, ANON_ID)
-    cc.bnf.subpara <- merge(data, scrips.subpara.wide,
-                       by="ANON_ID", all.x=TRUE)
-    ## now fix colnames and set missing to 0
-    bnfcols <- grep("^subpara.", colnames(cc.bnf.subpara))
-    for(j in bnfcols) {
-        cc.bnf.subpara[[j]][is.na(cc.bnf.subpara[[j]])] <- 0
-        cc.bnf.subpara[[j]][cc.bnf.subpara[[j]] > 1] <- 1
-        cc.bnf.subpara[[j]] <- as.factor(cc.bnf.subpara[[j]])
-    }
+    cc.bnf.subpara <- scrips.subpara.wide[data]
+    ## fix colnames and recode indicator variables
+    bnfcols <- as.integer(grep("^subpara.", colnames(cc.bnf.subpara)))
+    ## recode indicator variables
+    cc.bnf.subpara[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
+#   for(j in bnfcols) {
+#        cc.bnf.subpara[[j]][is.na(cc.bnf.subpara[[j]])] <- 0
+#        cc.bnf.subpara[[j]][cc.bnf.subpara[[j]] > 1] <- 1
+#        cc.bnf.subpara[[j]] <- as.factor(cc.bnf.subpara[[j]])
+#    }
     return(cc.bnf.subpara)
 }
 
@@ -393,9 +417,7 @@ tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsu
     scrips.subpara.wide <- scrips.subpara.wide[, ..cols.keep]
 
     scrips.subpara.wide <- as.data.table(scrips.subpara.wide, key="ANON_ID")
-    cc.bnf.subpara <- merge(data[, c("ANON_ID", "CASE", "stratum")],
-                       scrips.subpara.wide,
-                       by="ANON_ID", all.x=TRUE)
+    cc.bnf.subpara <- scrips.subpara.wide[data[, c("ANON_ID", "CASE", "stratum")]]
     ## now fix colnames and set missing to 0
     bnfcols <- grep("^subpara.", colnames(cc.bnf.subpara))
     for(j in bnfcols) {
@@ -404,7 +426,7 @@ tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsu
         cc.bnf.subpara[[j]] <- as.factor(cc.bnf.subpara[[j]])
     }
 
-    bnf.subpara <- colnames(cc.bnf.subpara)[-(1:3)]
+    bnf.subpara <- colnames(cc.bnf.subpara)[bnfcols]
     table.bnf.subpara <- univariate.tabulate(varnames=bnf.subpara, outcome="CASE",
                                              data=cc.bnf.subpara,
                                              drop.sparserows=TRUE, minrowsum=minrowsum)
@@ -441,20 +463,15 @@ tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe, minrows
     scrips.chem.wide <- data.table::dcast(scrips.chem,
                                          ANON_ID ~ approved_name, fun.aggregate=length,
                                          value.var="approved_name")
-    #colnames(scrips.chem.wide)[-1] <- paste0("chemical.",
-                                        #                                          as.integer(colnames(scrips.chem.wide)[-1]))
-
     
     ## drop rare chemicalgraphcodes
     cols.keep <- c(TRUE, colSums(scrips.chem.wide)[-1] >= 20)
     scrips.chem.wide <- scrips.chem.wide[, ..cols.keep]
 
     scrips.chem.wide <- as.data.table(scrips.chem.wide, key="ANON_ID")
-    cc.bnf.chem <- merge(data[, c("ANON_ID", "CASE", "stratum")],
-                       scrips.chem.wide,
-                       by="ANON_ID", all.x=TRUE)
+    cc.bnf.chem <- scrips.chem.wide[data[, c("ANON_ID", "CASE", "stratum")]]
     ## now fix colnames and set missing to 0
-    bnfcols <- 4:ncol(cc.bnf.chem)
+    bnfcols <- which(colnames(cc.bnf.chem) %in% colnames(scrips.chem.wide)[-1])
     for(j in bnfcols) {
         cc.bnf.chem[[j]][is.na(cc.bnf.chem[[j]])] <- 0
         cc.bnf.chem[[j]][cc.bnf.chem[[j]] > 1] <- 1
@@ -464,7 +481,7 @@ tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe, minrows
     ## approved names contain spaces that have to be replaced with . for use in formula
     colnames(cc.bnf.chem) <- gsub(" ", "\\.", colnames(cc.bnf.chem))
     
-    bnf.chem <- colnames(cc.bnf.chem)[-(1:3)]
+    bnf.chem <- colnames(cc.bnf.chem)[bnfcols]
     table.bnf.chem <- univariate.tabulate(varnames=bnf.chem, outcome=outcome, data=cc.bnf.chem,
                                         drop.sparserows=TRUE, minrowsum=minrowsum)
     ## regressions fixed to use only rows retained by univariate.tabulate
@@ -510,7 +527,7 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
             cc.icd.ch[[j]] <- as.factor(cc.icd.ch[[j]])
         }
         
-        icd.ch <- colnames(cc.icd.ch)[-(1:3)]
+        icd.ch <- colnames(cc.icd.ch)[icdcols]
         ## FIXME: this function should be fixed to drop rows with small numbers
         ## regressions should be fixed to use only rows retained by univariate.tabulate
         table.icd.ch <- univariate.tabulate(varnames=icd.ch, outcome="CASE", data=cc.icd.ch,
@@ -545,19 +562,32 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
 
 combine.tables3 <- function(ftable, utable, mtable)  {# returns single table from freqs, univariate, multivariate 
     
-    u.ci <- or.ci(utable[, 1], utable[, 3]) 
-    u.pvalue <- signif(utable[, 5], 1)
+    u.ci <- or.ci(utable[, 1], utable[, 3])
+
+    pvalue.na <- is.na(utable[, 5])
+    ## convert to character so that extreme p-values can be represented in scientific notation
+    u.pvalue <- as.character(signif(utable[, 5], 1))
+    
+    u.pvalue[!pvalue.na & u.pvalue == "0"] <- pnorm.extreme(utable[, 4][!pvalue.na &
+                                                                        u.pvalue == "0"])
     u.pvalue <- as.character(pvalue.latex(u.pvalue))
     
     mult.ci <- or.ci(mtable[, 1], mtable[, 3])
     mult.pvalue <- signif(mtable[, 5], 1)
+    
+    pvalue.na <- is.na(mtable[, 5])
+    ## convert to character so that extreme p-values can be represented in scientific notation
+    mult.pvalue <- as.character(signif(mtable[, 5], 1))
+    
+    mult.pvalue[!pvalue.na & mult.pvalue == "0"] <-
+        pnorm.extreme(mtable[, 4][!pvalue.na & mult.pvalue == "0"])
     mult.pvalue <- as.character(pvalue.latex(mult.pvalue))
      
     table.aug <- data.frame(ftable,
                             u.ci, u.pvalue,
                             mult.ci, mult.pvalue)
     return(table.aug)
-}    
+}
 
 combine.tables2 <- function(ftable, utable)  {# returns single table from freqs, univariate 
     
@@ -570,19 +600,24 @@ combine.tables2 <- function(ftable, utable)  {# returns single table from freqs,
     return(table.aug)
 }    
 
- 
-
 ## format a vector of pvalues in LaTeX and return a vector of mode character 
 pvalue.latex <- function(x, n=1, nexp=1) {
-    x <- as.numeric(x)
-    pvalue <- sapply(x, function(z) { # sapply returns a vector applying FUN to each element of z
+    ## this function has to be able to handle x whether numeric or character 
+    pvalue <- sapply(x, function(z) { # sapply returns a vector applying FUN to each element of x
+
         if (is.na(z)) {
             return(NA)
-        } else if(z >= 0.001) {
-            return(signif(z, 1))
+        } else if(as.numeric(z) >= 0.001) {
+            ## return character string to one sig fig, not in scientific notation
+            return(as.character(signif(as.numeric(z), 1)))
         } else {
-            z <- sprintf("%.*E", 0, signif(z, n)) # default is 1 sig fig
-            z <- as.numeric(unlist(strsplit(z, "E"))) # split z at E
+            if(is.numeric(z)) {
+                ## rounds to 1 sig fig and convert to character string
+                z <- sprintf("%.*E", 0, signif(z, n)) # default is 1 sig fig
+            } else {
+                z <- toupper(z)
+            }
+            z <- as.numeric(unlist(strsplit(as.character(z), "E"))) # split z at E
             sprintf("\\ensuremath{%.*f\\times 10^{%0*d}}", 0, z[1], nexp, z[2])
         }
     })
@@ -603,21 +638,21 @@ or.ci <- function(coeff, se, ndigits=2) {
 
 univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TRUE,
                                 drop.sparserows=FALSE, minrowsum=10) {
-    outcome <- data[[outcome]]
+    outcomevar <- data[[outcome]]
     table.varnames <- NULL
     for(i in 1:length(varnames)) {
         keep.x <- TRUE
         ## test whether variable is factor or numeric
-        z <- data[[match(varnames[i], names(data))]] 
+        z <- data[[varnames[i]]] 
         if(is.numeric(z)) { # median (IQR) for numeric variables 
-            x <- tapply(z, outcome,
+            x <- tapply(z, outcomevar,
                         function(x) return(paste0(median(x, na.rm=TRUE),
                                                   " (", quantile(x, probs=0.25, na.rm=TRUE),
                                                   "-", quantile(x, probs=0.75, na.rm=TRUE), ")")))
             x <- matrix(x, nrow=1)
             rownames(x) <- varnames[i]
         } else { # freqs for factor variables
-            x <- table(z, outcome)
+            x <- table(z, outcomevar)
             ## keep if at least one factor level has row sum >= minrowsum
             keep.x <- !any(rowSums(x) < minrowsum)
             x <- paste.colpercent(x)
@@ -630,17 +665,17 @@ univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TR
                 if(nrow(x) == 1)
                     rownames(x) <- varnames[i]
             } 
-            if(!drop.sparserows | keep.x) { # rbind this table variable
-                table.varnames <- rbind(table.varnames, x)
-            } 
-        } 
+        }
+        if(!drop.sparserows | keep.x) { # rbind this table variable
+            table.varnames <- rbind(table.varnames, x)
+        }
     }
-    
-    ## this line breaks code
     if(!is.null(table.varnames)) {
-        colnames(table.varnames)[1:2] <- c("Controls", "Cases")
+        if(outcome=="CASE") {
+            colnames(table.varnames)[1:2] <- c("Controls", "Cases")
+        }
         colnames(table.varnames) <- paste0(colnames(table.varnames),
-                                           " (", as.integer(table(outcome)), ")")
+                                           " (", as.integer(table(outcomevar)), ")")
     }
     return(table.varnames)
 }
@@ -653,7 +688,6 @@ replace.names <- function(varnames) {
     return(names)
 }
 
-## cannot find train.data 
 cv.predict <- function(nfold, cv.data, lower.formula, upper.formula) {
     cv.predicted <- NULL
     ## maybe more memory-efficient not to pass cv.data as arg
@@ -669,8 +703,8 @@ cv.predict <- function(nfold, cv.data, lower.formula, upper.formula) {
 
 traintest.fold <- function(foldnum, cv.data,
                            lower.formula, upper.formula) { # stepwise clogit on training fold, predict on test fold
-    test <- cv.data$test.fold == foldnum
-    train.data <- subset(cv.data, subset=!test)
+    test <- cv.data[, test.fold] == foldnum
+    train.data <- cv.data[!test]
     ## use do.call to refer to the dataset in the calling environment
     ## otherwise step cannot find train.data
     start.model <- do.call(clogit, args=list(formula=upper.formula, data=train.data))
@@ -678,7 +712,7 @@ traintest.fold <- function(foldnum, cv.data,
                            scope=list(lower=lower.formula, upper=upper.formula),
                            direction="both", trace=-1, method="approximate")
     
-    test.data  <- subset(cv.data, subset=test)
+    test.data  <- cv.data[test]
     x <- t(with(test.data, table(CASE, stratum)))
     numcontrols.stratum <- x[, 1]
     numcases.stratum <- x[, 2]
@@ -703,7 +737,7 @@ nonmissing.obs <- function(x, varnames) { ## subset rows nonmissing for varnames
     return(keep)
 }
 
-normalize.predictions <- function(unnorm.p, stratum, y) { # format a pvalue in latex
+normalize.predictions <- function(unnorm.p, stratum, y) { 
     ## normalize probs so that they sum to 1 within each stratum
     ## returns data frame with 4 columns: stratum, normconst, prior.p, posterior.p
 

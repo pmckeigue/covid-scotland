@@ -15,7 +15,6 @@ table.numdrugsgr.listed.any <- data.frame(numdrugsgr=rep(levels(cc.severe$numdru
                                      table.numdrugsgr.listed.any)
 colnames(table.numdrugsgr.listed.any)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe$CASE)), rep(")", 2))
 
-
 ########################################################################
 ## in those without listed conditions, by age group
 
@@ -222,27 +221,35 @@ colnames(table.dosegr.protonpump)[2:3] <- paste0(c("Controls (", "Cases ("),
                                                  rep(")", 2))
 
 ## print(table.dosegr.protonpump)
-x <- summary(clogit(formula=CASE ~ DDDsgr + strata(stratum), 
-                    data=subset(cc.severe, notlisted)))$coefficients
+
+cc.severe$DDDsgr4 <- car::recode(cc.severe$DDDsgr,
+                                 "c('1.5', '2 or more')='1.5 or more'")
+
+withcovariates.formula <- as.formula(paste("CASE ~ DDDsgr4 +",
+                                           ppi.covariates.string, "+ strata(stratum)"))
+coeff.rows <- 1:3
+
+x <- summary(clogit(formula=CASE ~ DDDsgr4 + strata(stratum), 
+                    data=cc.severe[notlisted & AGE < 75]))$coefficients
 x <- as.data.frame(x)
 x$u.ci <- or.ci(x[, 1], x[, 3])
 x$u.pvalue <- pvalue.latex(x[, 5])
 x <- x[, c("u.ci", "u.pvalue")]
 y <- summary(clogit(formula=withcovariates.formula,
-                    data=subset(cc.severe, notlisted)))$coefficients[coeff.rows, ]
+                    data=cc.severe[notlisted & AGE < 75]))$coefficients[coeff.rows, ]
 y <- as.data.frame(y)
 y$m.ci <- or.ci(y[, 1], y[, 3])
 y$m.pvalue <- pvalue.latex(y[, 5])
 y <- y[, c("m.ci", "m.pvalue")]
 x <- data.frame(x, y)               
 x <- rbind(rep(NA, ncol(x)), x)
-freqs <- paste.colpercent(with(subset(cc.severe, notlisted), table(DDDsgr, CASE)))
+freqs <- paste.colpercent(with(cc.severe[notlisted & AGE < 75], table(DDDsgr4, CASE)))
 x <- data.frame(DDDs.average=rownames(freqs), freqs, x)
-table.dosegr.protonpump.notlisted <- x 
+table.dosegr.protonpump.notlisted.agelt75 <- x 
 
-colnames(table.dosegr.protonpump.notlisted)[2:3] <-
+colnames(table.dosegr.protonpump.notlisted.agelt75)[2:3] <-
     paste0(c("Controls (", "Cases ("),
-           as.integer(table(subset(cc.severe, notlisted)[["CASE"]])),
+           as.integer(table(cc.severe[notlisted & AGE < 75][["CASE"]])),
            rep(")", 2))
 
 #### opiate effect by time window ##################################

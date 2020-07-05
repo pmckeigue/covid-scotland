@@ -28,6 +28,15 @@ nocare.notlisted <- nocare & notlisted
 ##### tables for first paper  ######################
 cat("Tables for first paper ...")
 
+table.casegr <- univariate.tabulate(outcome="severe.casegr",
+                                    varnames=c("AGE", "sex", "care.home",
+                                               "scrip.any", "diag.any", listed.conditions),
+                                    data=cc.severe[CASE==1])
+rownames(table.casegr) <- replace.names(rownames(table.casegr))
+rownames(table.casegr)[1] <- "Age [median (IQR)]"
+
+
+##############################################
 table.severe.demog <- tabulate.freqs.regressions(varnames=demog,
                                                  data=cc.severe)
 
@@ -59,7 +68,7 @@ for(agegr in levels(cc.severe$agegr3)) {
     colnames(x) <- c("Controls", "Fatal cases")
     x <- paste.colpercent(x)
     # x <- x[1, , drop=FALSE]
-    rownames(x) <- c("No scrip or diagnosis", "Scrip or diagnosis")
+    rownames(x) <- c("No prescription or diagnosis", "Prescription or diagnosis")
     table.scripordiag.fatal <- rbind(table.scripordiag.fatal, x)
 }
 

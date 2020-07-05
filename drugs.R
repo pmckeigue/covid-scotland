@@ -1,14 +1,11 @@
 
-getdaysbeforetest <- function(scrips.in, specdates) {
-    ## merge SPECDATE and dispensing.days into scrips table and add columns daysbefore, intervalTWday
-    ## checked that minimum value is 16 days -- the 15-day cutoff has been applied to the scrips table
-    setkey(scrips.in, ANON_ID)
-    setkey(specdates, ANON_ID)
-    scrips <- specdates[scrips.in]
-    scrips$daysbefore <- as.integer(scrips$SPECDATE - scrips$dispensed_date)
-    scrips$intervalTWday <- ceiling((scrips$daysbefore - 15) / TW)
-    scrips$intervalTWday[scrips$intervalTWday > 3] <- 3
-    return(scrips)
+get.timewindow <- function(scrips.in) {
+    ## add columns daysbefore, intervalTWday, dispensing.days
+    ## the 15-day cutoff has been applied to the scrips table
+    scrips.in$intervalTWday <- ceiling((scrips.in$daysbefore - 15) / TW)
+    scrips.in$intervalTWday[scrips.in$intervalTWday > 2] <- 2
+    scrips.in$dispensing.days <- 240  # same for all individuals
+    return(scrips.in)
 }
 
 getdoseTWday.wide <- function(scrips.in, varname.prefix="dose.") {
@@ -31,7 +28,7 @@ getdoseTWday.wide <- function(scrips.in, varname.prefix="dose.") {
                                        fun.aggregate=sum)
     colnames(doseTWday.wide)[-1] <-
         paste0(varname.prefix,
-               c("interval1", "interval2", "interval3"))
+               c("interval1", "interval2"))
     return(doseTWday.wide)
 }
 
@@ -110,6 +107,7 @@ scrips.opioid <-
     readRDS(scrips.filename) %>%
     subset(bnf_paragraph_code=="0407020")
 
+    
 scrips.opioid$mode <- car::recode(scrips.opioid$formulation_code,
                                   "c('CAPS', 'LOZ', 'SACH', 'SOLN', 'TABS')='Oral';
                                     'PATCH'='Patch'; 'INJ'='Injection';")
@@ -282,8 +280,7 @@ TW <- 120 # time window in days
 
 ####### proton pump exposure   ##################
 
-scrips.protonpump <- getdaysbeforetest(scrips.in=scrips.protonpump,
-                                       specdates=select(.data=cc.all, ANON_ID, SPECDATE, dispensing.days))
+scrips.protonpump <- get.timewindow(scrips.in=scrips.protonpump)
 
 ## standardize by converting to DDDs
 scrips.protonpump$dose <- scrips.protonpump$item_strength * scrips.protonpump$quantity /
@@ -327,11 +324,9 @@ setkey(cc.all, ANON_ID)
 cc.all <- doseTWday.protonpump.wide[cc.all] 
 
 cc.all[, `:=`(DDD.interval1 = coalesce(DDD.interval1, 0),
-              DDD.interval2 = coalesce(DDD.interval2, 0),
-              DDD.interval3 = coalesce(DDD.interval3, 0))]
+              DDD.interval2 = coalesce(DDD.interval2, 0))]
            
-protonpump.exposure.nonrecent <- as.integer(cc.all$DDD.interval2 > 0 |
-                                        cc.all$DDD.interval3 > 0)
+protonpump.exposure.nonrecent <- as.integer(cc.all$DDD.interval2 > 0)
 protonpump.exposure.recent <- as.integer(cc.all$DDD.interval1 > 0)
 
 cc.all <- mutate(cc.all, protonpump.exposuregr = as.integer(DDDs.all > 0))
@@ -352,8 +347,7 @@ cc.all <- mutate(cc.all, protonpump.exposurecat = protonpump.exposure.cat)
 ## compound opiate exposure
 
 ## merge SPECDATE to get days before test and time window
-scrips.compound.opiates <- getdaysbeforetest(scrips.in=scrips.compound.opiates,
-                                       specdates=select(cc.all, ANON_ID, SPECDATE, dispensing.days))
+scrips.compound.opiates <- get.timewindow(scrips.in=scrips.compound.opiates)
 
 ## calculate oral dose as morphine equivalent
 scrips.compound.opiates$dose <- scrips.compound.opiates$item_strength *
@@ -388,9 +382,7 @@ table(cc.all$dosegr.compound.opiates)
 
 ####### opiate exposure   ##################
 
-## merge SPECDATE to get days before test and time window
-scrips.opiate <- getdaysbeforetest(scrips.in=scrips.opioid,
-                                       specdates=select(.data=cc.all, ANON_ID, SPECDATE, dispensing.days))
+scrips.opiate <- get.timewindow(scrips.in=scrips.opioid)
 
 ## calculate oral dose as morphine equivalent
 scrips.opiate$dose <- scrips.opiate$item_strength * scrips.opiate$quantity *
@@ -436,11 +428,9 @@ doseTWday.opiate.wide <- getdoseTWday.wide(scrips.opiate, varname.prefix="opiate
 cc.all <- merge(cc.all, doseTWday.opiate.wide, by="ANON_ID", all.x=TRUE)
 
 cc.all[, `:=`(opiateMME.interval1 = coalesce(opiateMME.interval1, 0),
-              opiateMME.interval2 = coalesce(opiateMME.interval2, 0),
-              opiateMME.interval3 = coalesce(opiateMME.interval3, 0))]
+              opiateMME.interval2 = coalesce(opiateMME.interval2, 0))]
            
-opiate.exposure.nonrecent <- as.integer(cc.all$opiateMME.interval2 > 0 |
-                                        cc.all$opiateMME.interval3 > 0)
+opiate.exposure.nonrecent <- as.integer(cc.all$opiateMME.interval2 > 0) 
 opiate.exposure.recent <- as.integer(cc.all$opiateMME.interval1 > 0)
 
 cc.all <- mutate(cc.all, opiate.exposuregr = as.integer(dose.opiate.daily > 0))

@@ -60,7 +60,9 @@ if(stepwise) {
     ## test.folds has one row per stratum, one column per fold containing indicator vars
     ## merge by stratum adds single column test.fold
     cv.data <- merge(cc.nonmissing, test.folds, by="stratum")
-    cv.data <- subset(cv.data, select=c("test.fold", "CASE", "stratum", full.varnames))
+    select.cols <- c("test.fold", "CASE", "stratum", full.varnames)
+    ## .. prefix evaluates select.cols in the parent environment 
+    cv.data <- cv.data[, ..select.cols]
     cat("cv.data has", nrow(cv.data), "rows\n")
     
 ###########################################

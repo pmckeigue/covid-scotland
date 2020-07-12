@@ -339,13 +339,9 @@ tabulate.bnfparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=2
     scrips.para.wide <- as.data.table(scrips.para.wide, key="ANON_ID")
     cc.bnf.para <- scrips.para.wide[data[, c("ANON_ID", "CASE", "stratum")]]
     ## now fix colnames and set missing to 0
-    bnfcols <- grep("^para.", colnames(cc.bnf.para))
-    for(j in bnfcols) {
-        cc.bnf.para[[j]][is.na(cc.bnf.para[[j]])] <- 0
-        cc.bnf.para[[j]][cc.bnf.para[[j]] > 1] <- 1
-        cc.bnf.para[[j]] <- as.factor(cc.bnf.para[[j]])
-    }
-    
+    bnfcols <- as.integer(grep("^para.", colnames(cc.bnf.para)))
+    cc.bnf.para[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
+
     bnf.para <- colnames(cc.bnf.para)[bnfcols]
     
     table.bnf.para <- univariate.tabulate(varnames=bnf.para, outcome="CASE", data=cc.bnf.para,
@@ -386,7 +382,6 @@ merge.bnfsubparas <- function(chnums, data) {
     colnames(scrips.subpara.wide)[-1] <- paste("subpara",
                                           as.integer(colnames(scrips.subpara.wide)[-1]),
                                           names.subparas, sep=".")
-    
     ## drop rare subparagraphcodes
     scrips.subpara.wide <- subset(scrips.subpara.wide, select=colSums(scrips.subpara.wide) > 20)
 
@@ -396,11 +391,6 @@ merge.bnfsubparas <- function(chnums, data) {
     bnfcols <- as.integer(grep("^subpara.", colnames(cc.bnf.subpara)))
     ## recode indicator variables
     cc.bnf.subpara[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
-#   for(j in bnfcols) {
-#        cc.bnf.subpara[[j]][is.na(cc.bnf.subpara[[j]])] <- 0
-#        cc.bnf.subpara[[j]][cc.bnf.subpara[[j]] > 1] <- 1
-#        cc.bnf.subpara[[j]] <- as.factor(cc.bnf.subpara[[j]])
-#    }
     return(cc.bnf.subpara)
 }
 
@@ -419,12 +409,8 @@ tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsu
     scrips.subpara.wide <- as.data.table(scrips.subpara.wide, key="ANON_ID")
     cc.bnf.subpara <- scrips.subpara.wide[data[, c("ANON_ID", "CASE", "stratum")]]
     ## now fix colnames and set missing to 0
-    bnfcols <- grep("^subpara.", colnames(cc.bnf.subpara))
-    for(j in bnfcols) {
-        cc.bnf.subpara[[j]][is.na(cc.bnf.subpara[[j]])] <- 0
-        cc.bnf.subpara[[j]][cc.bnf.subpara[[j]] > 1] <- 1
-        cc.bnf.subpara[[j]] <- as.factor(cc.bnf.subpara[[j]])
-    }
+    bnfcols <- as.integer(grep("^subpara.", colnames(cc.bnf.subpara)))
+    cc.bnf.subpara[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
 
     bnf.subpara <- colnames(cc.bnf.subpara)[bnfcols]
     table.bnf.subpara <- univariate.tabulate(varnames=bnf.subpara, outcome="CASE",
@@ -455,11 +441,13 @@ tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsu
     }
 }
 
-tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe, minrowsum=50) {
+tabulate.bnfchemicals <- function(chnum, subpara=NULL, outcome="CASE", data=cc.severe, minrowsum=50) {
     ## get drug names in wide format,one col per approved_name
     chnum.str <- sprintf("%02d", chnum)
-    scrips.chem <- readRDS(scrips.filename) %>%
-        subset(substr(bnf_paragraph_code, 1, 2)==chnum.str)
+    scrips.chem <- scrips[substr(bnf_paragraph_code, 1, 2)==chnum.str]
+    if(!is.null(subpara)) {
+        scrips.chem <- scrips.chem[bnf_paragraph_code == subpara]
+    }
     scrips.chem.wide <- data.table::dcast(scrips.chem,
                                          ANON_ID ~ approved_name, fun.aggregate=length,
                                          value.var="approved_name")
@@ -470,18 +458,15 @@ tabulate.bnfchemicals <- function(chnum, outcome="CASE", data=cc.severe, minrows
 
     scrips.chem.wide <- as.data.table(scrips.chem.wide, key="ANON_ID")
     cc.bnf.chem <- scrips.chem.wide[data[, c("ANON_ID", "CASE", "stratum")]]
-    ## now fix colnames and set missing to 0
-    bnfcols <- which(colnames(cc.bnf.chem) %in% colnames(scrips.chem.wide)[-1])
-    for(j in bnfcols) {
-        cc.bnf.chem[[j]][is.na(cc.bnf.chem[[j]])] <- 0
-        cc.bnf.chem[[j]][cc.bnf.chem[[j]] > 1] <- 1
-        cc.bnf.chem[[j]] <- as.factor(cc.bnf.chem[[j]])
-    }
+    ## fix colnames and recode indicator variables
+    bnfcols <- as.integer(which(colnames(cc.bnf.chem) %in% colnames(scrips.chem.wide)[-1]))
+    cc.bnf.chem[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
 
     ## approved names contain spaces that have to be replaced with . for use in formula
-    colnames(cc.bnf.chem) <- gsub(" ", "\\.", colnames(cc.bnf.chem))
+    colnames(cc.bnf.chem) <- gsub(" |-", "\\.", colnames(cc.bnf.chem))
     
     bnf.chem <- colnames(cc.bnf.chem)[bnfcols]
+
     table.bnf.chem <- univariate.tabulate(varnames=bnf.chem, outcome=outcome, data=cc.bnf.chem,
                                         drop.sparserows=TRUE, minrowsum=minrowsum)
     ## regressions fixed to use only rows retained by univariate.tabulate

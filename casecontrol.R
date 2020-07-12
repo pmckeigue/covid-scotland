@@ -42,7 +42,6 @@ library(rmarkdown)
 library(pander)
 library(ggplot2)
 library(doParallel)
-# library(reshape2)
 library(readxl)
 library(DescTools)
 library(icd.data)
@@ -78,7 +77,6 @@ recode.dmtype <- function(x) {
     return(r)
 }
 
-
 ##################################################################
      
 if(old) {
@@ -108,7 +106,7 @@ if(old) {
     sicsag <- as.data.table(readRDS("./data/CC_SICSAG_ANON_2020-06-18.rds"), key="ANON_ID")
     scrips.filename <- "./data/scrips.last240days.rds"
     scrips.firsttime <- FALSE
-    if(scrips.firsttime) {
+    if(scrips.firsttime) { 
         scrips <- readRDS( "./data/CC_PIS_x15_ANON_2020-06-18.rds")
         scrips[, daysbefore := as.integer(SPECIMENDATE - dispensed_date)]
         ## restrict to last 240 days before cutoff of (specimendate - 15) 
@@ -116,9 +114,14 @@ if(old) {
         ## save this file so that other reads from it will have this restriction applied 
         saveRDS(scrips, scrips.filename)
     }
-    scrips <- as.data.table(readRDS(scrips.filename)[, c("ANON_ID", "daysbefore",
-                                           "bnf_paragraph_code",
-                                           "bnf_paragraph_description")], key="ANON_ID")
+    scrips <-
+        as.data.table(readRDS(scrips.filename)[, c("ANON_ID",
+                                                   "dispensed_date",
+                                                   "approved_name",
+                                                   "bnf_item_code", 
+                                                   "bnf_paragraph_code",
+                                                   "bnf_paragraph_description",
+                                                   "daysbefore")], key="ANON_ID")
 }
 
 ################### short names for ICD chapters ########################
@@ -300,7 +303,6 @@ with(cc.all[CASE==1], table(icu, hdu, exclude=NULL))
 ## only 854 in critical care -- must be wrong
 cc.all$criticalcare <- cc.all$icu==1 | cc.all$hdu==1
 
-## what does a value of 2 represent? 
 ## Covid_CC_linkage_Part2_desktop.R:
 ## icu$icu <- ifelse(icu$covidICUorHDU ==1, 1, 0)
 ## icu$hdu <- ifelse(icu$covidICUorHDU ==3, 1, 0)
@@ -343,7 +345,6 @@ cc.all[CASE==1 & group=="Unclassified" & covid_cod==1, group := "D"]
 print(table(cc.all$CASE, cc.all$group, exclude=NULL))
 
 ## assign a logical variable for fatalcase, and a binary variable for fatal.casegroup
-
 cc.all$fatalcase <- with(cc.all, CASE==1 & group=="A" & (deathwithin28 | covid_ucod==1))
 cc.all <- mutate(cc.all, fatal.casegroup = 0)
 cc.all[CASE==1, fatal.casegroup := as.integer(fatalcase)]
@@ -443,19 +444,19 @@ SouthAsian.specificity <- 100 * SA.trueneg.correct / SA.trueneg
 sum.xtabulate <- sum(tn)
 
 ## recode SMR ethnicity to 4 categories: White, Black, South Asian, Other
-cc.all <- mutate(cc.all, ethnic4.smr = as.factor(car::recode(ethnic5.smr,
-                                                             "'Chinese'='Other'")))
+cc.all[, ethnic4.smr := as.factor(car::recode(ethnic5.smr,
+                                              "'Chinese'='Other'"))]
 cc.all[, ethnic4.smr := factor(ethnic4.smr,
                                levels=levels(ethnic4.smr)[c(4, 3, 1, 2)])]   
 
 ## recode ONOMAP ethnicity to 4 categories: White, South Asian, Chinese, Other
-cc.all <- mutate(cc.all, ethnic4.onomap = car::recode(ethnic5.onomap, "'Black'='Other'"))
+cc.all[, ethnic4.onomap := car::recode(ethnic5.onomap, "'Black'='Other'")]
 
 cc.all[, ethnic4.onomap := factor(ethnic4.onomap,
                                   levels=levels(ethnic4.onomap)[c(4, 3, 1, 2)])]
 
 ## recode to 3 categories: White, South Asian, Other
-cc.all <- mutate(cc.all, ethnic3.onomap = car::recode(ethnic4.onomap, "'Chinese'='Other'"))
+cc.all[, ethnic3.onomap := car::recode(ethnic4.onomap, "'Chinese'='Other'")]
 cc.all[, ethnic3.onomap := factor(ethnic3.onomap,
                                   levels=levels(ethnic3.onomap)[c(3, 2, 1)])]
 setkey(cc.all, ANON_ID)
@@ -505,12 +506,6 @@ cc.all[, diabetes.any := relevel(diabetes.any, ref="Not diabetic")]
 
 ############ save hospitalized non-severe for later use as training dataset #############
 
-## merge BNF subparas
-chnums = 1:13
-cc.hosp <- merge.bnfsubparas(chnums=chnums, data=cc.all[casegroup=="B"])
-saveRDS(cc.hosp, file="cchosp.rds")
-rm(cc.hosp)
-
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
@@ -519,51 +514,7 @@ print(tail(objmem))
 cat("Restricting to severe cases and matched controls\n")
 cc.severe <- cc.all[casegroup=="A"]
 
-############ with enough memory, this can be done on cc.all ###
-
-## merge drugs, one variable per chapter
-scrips.wide <- data.table::dcast(scrips, ANON_ID ~ chapternum, fun.aggregate=length, 
-                               value.var="chapternum")
-shortnames.cols <-  bnfchapters$shortname[match(as.integer(colnames(scrips.wide)[-1]),
-                                                as.integer(bnfchapters$chapternum))]
-colnames(scrips.wide)[-1] <- paste("BNF", colnames(scrips.wide)[-1], shortnames.cols,
-                                   sep="_")
-scrips.wide <- as.data.table(scrips.wide, key="ANON_ID")
-cc.severe <- scrips.wide[cc.severe]
-
-bnfcols <- as.integer(grep("^BNF", colnames(cc.severe)))
-## recode indicator variables
-cc.severe[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
-
-## merge BNF chapters, one variable per subpara
-cat("Merging BNF subparagraph codes ...")
-chnums = 1:13
-cc.severe <- merge.bnfsubparas(chnums=chnums, data=cc.severe)
-cat("done\n")
-
-subparacols <- grep("^subpara\\.", names(cc.severe))
-x <- apply(subset(cc.severe, select=subparacols), 2, as.character)
-x <- apply(x, 2, as.integer)
-cc.severe$numdrugs.subpara <- rowSums(x)
-cc.severe$numdrugsgr <- 3 * ceiling(cc.severe$numdrugs.subpara / 3)
-cc.severe$numdrugsgr <- as.factor(car::recode(cc.severe$numdrugsgr,
-                                              "3='1 to 3'; 6='4 to 6'; 9='7 to 9';
-                                              12='10 to 12'; 15:hi='>12'"))
-cc.severe[, numdrugsgr := factor(numdrugsgr,
-                                 levels=levels(numdrugsgr)[c(2, 3, 5, 6, 4, 1)])]
-
-cc.severe$numdrugs.notppi <- cc.severe$numdrugs.subpara - cc.severe$y.protonpump
-cc.severe$numdrugs.notppi.gr <- 3 * ceiling(cc.severe$numdrugs.notppi / 3)
-cc.severe$numdrugs.notppi.gr <- as.factor(car::recode(cc.severe$numdrugs.notppi.gr, "15:hi='>12'"))
-cc.severe[, numdrugs.notppi.gr := factor(numdrugs.notppi.gr,
-                                        levels=levels(numdrugs.notppi.gr)[c(2, 4:6, 3, 1)])]
-table(cc.severe$numdrugs.notppi.gr)
-
-cardiovasc.subparacols <- grep("^subpara\\.2", names(cc.severe))
-x <- apply(subset(cc.severe, select=cardiovasc.subparacols), 2, as.character)
-x <- apply(x, 2, as.integer)
-cc.severe$numdrugs.cardiovasc <- rowSums(x)
-cc.severe$numdrugs.notcardiovasc <- cc.severe$numdrugs.subpara - cc.severe$numdrugs.cardiovasc
+#####################################################################
 
 ## merge ICD diagnoses
 ## chapter is assigned as the position of the first element in icdchapters$start that x is greater than or equal to

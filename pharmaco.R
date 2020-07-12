@@ -88,32 +88,6 @@ print(subpara.coeffs)
 
 #############################################################################
 
-colnames.drugclasses.forstepwise <- colnames(cc.severe)[subparacols.keep]
-
-table.subpara.coeffs <- tabulate.freqs.regressions(colnames.drugclasses.forstepwise,
-                                                   data=subset(cc.severe, restrict))
-
-## stepwise drop procedure over subparacols.keep
-
-## replace original subparas with nonopiate and anyopiate (scrips for compound preparations assigned to opiate)
-#colnames.drugclasses.forstepwise <-
-#    grep("\\.407020\\.", colnames.drugclasses.forstepwise, invert=TRUE, value=TRUE)
-
-subparacols.forstepwisedrop <- match(colnames.drugclasses.forstepwise,
-                                     colnames(cc.severe)) ## reduces to 61 columns
-
-x <- subset(cc.severe, subset=restrict, select=subparacols.forstepwisedrop)
-x <- matrix(as.integer(as.matrix(x)), nrow=nrow(x))
-colnames(x) <- colnames(cc.severe)[subparacols.forstepwisedrop]
-y <- subset(cc.severe, restrict)[["CASE"]]
-stratum <- subset(cc.severe, restrict)[["stratum"]]
-covariates.subparas <- subset(cc.severe, restrict)[["care.home"]] 
-cat("Stepwise drop procedure over BNF subpara codes adjusted for care home status...")
-stepwise.drop.subparas <- stepwise.union.dropcols(x=x, y=y, covariates=covariates.subparas, stratum=stratum)
-cat("done\n")
-
-print(stepwise.drop.subparas)
-
 ################################################################
 
 ## tabulate dose-response effects by age group
@@ -127,7 +101,7 @@ coeff.rows <- 1:3
 withcovariates.formula <- as.formula(paste("CASE ~ dosegr.opiate +",
                                            opiate.covariates.string, "+ strata(stratum)"))
 
-table.dosegr.opiate <- NULL
+table.dosegr.opioid <- NULL
 for(agegr in levels(cc.severe$agegr2)) {
     x <- summary(clogit(formula=CASE ~ dosegr.opiate + strata(stratum), 
                         data=cc.severe[cc.severe$agegr2==agegr, ]))$coefficients
@@ -147,10 +121,10 @@ for(agegr in levels(cc.severe$agegr2)) {
     freqs <- paste.colpercent(with(cc.severe[cc.severe$agegr2==agegr, ], table(dosegr.opiate, CASE)))
     x <- data.frame(MME.average=rownames(freqs), freqs, x)
     rownames(x) <- paste0(agegr, ": ", rownames(x))
-    table.dosegr.opiate <- rbind(table.dosegr.opiate, x)
+    table.dosegr.opioid <- rbind(table.dosegr.opioid, x)
 }
 
-colnames(table.dosegr.opiate)[2:3] <- paste0(c("Controls (", "Cases ("),
+colnames(table.dosegr.opioid)[2:3] <- paste0(c("Controls (", "Cases ("),
                                              as.integer(table(cc.severe$CASE)),
                                              rep(")", 2))
 
@@ -170,9 +144,9 @@ x <- data.frame(x, y)
 x <- rbind(rep(NA, ncol(x)), x)
 freqs <- paste.colpercent(with(subset(cc.severe, notlisted), table(dosegr.opiate, CASE)))
 x <- data.frame(MME.average=rownames(freqs), freqs, x)
-table.dosegr.opiate.notlisted <- x 
+table.dosegr.opioid.notlisted <- x 
 
-colnames(table.dosegr.opiate.notlisted)[2:3] <-
+colnames(table.dosegr.opioid.notlisted)[2:3] <-
     paste0(c("Controls (", "Cases ("),
            as.integer(table(subset(cc.severe, notlisted)[["CASE"]])),
            rep(")", 2))
@@ -256,7 +230,7 @@ colnames(table.dosegr.protonpump.notlisted.agelt75)[2:3] <-
 
 ## excluding neoplasms
 
-table.timewindow.opiate <-
+table.timewindow.opioid <-
     tabulate.freqs.regressions(varnames="opiate.exposurecat",
                                data=cc.severe[cc.severe$neoplasm.any==0, ])[, 1:4]
  
@@ -269,7 +243,6 @@ table.timewindow.protonpump <-
 #######################################################################
 
 ######### tabulate ever-use effect with adjustment for prespecified covariates
-
 
 table.everuse.protonpump <- NULL
 withcovariates.formula <- as.formula(paste("CASE ~ protonpump +",
@@ -417,42 +390,6 @@ x$m.ci <- or.ci(y[, 1], y[, 3])
 colnames(table.protonpump)[1:2] <- colnames(x)[1:2]
     table.protonpump <- rbind(table.protonpump, x)
 
-
-############ effect of protonpump by numdrugs ####################
-
-table.numdrugs.protonpump <- paste.colpercent(with(cc.severe[cc.severe$CASE==0, ], 
-                                                   table(numdrugs.notppi.gr, protonpump)))
-
-colnames(table.numdrugs.protonpump) <- paste0("(",
-                                              table(cc.severe$CASE, cc.severe$protonpump)[1, ],
-                                              ")")
-
-colnames(table.numdrugs.protonpump) <- paste(c("Non-users", "Ever-users"),
-                                             colnames(table.numdrugs.protonpump)
-                                             )
-
-freqs <- NULL
-for(numdrugs in levels(cc.severe$numdrugs.notppi.gr)) {
-    x <-  with(cc.severe[cc.severe$numdrugs.notppi.gr==numdrugs, ],
-               table(protonpump, CASE))
-    freqs <- rbind(freqs, x)
-}
-
-
-table.protonpump.bynumdrugs <- NULL
-for(numdrugs in levels(cc.severe$numdrugs.notppi.gr)) {
-    x <- tabulate.freqs.regressions(varnames="protonpump",
-                                    data=cc.severe[cc.severe$numdrugs.notppi.gr==numdrugs, ])
-    rownames(x) <- numdrugs
-    colnames(x)[1:2] <- c("Controls", "Cases")
-    x <- as.data.frame(x)
-    table.protonpump.bynumdrugs <- rbind(table.protonpump.bynumdrugs, x)
-}
-table.protonpump.bynumdrugs <- table.protonpump.bynumdrugs[, 1:4]
-
-summary(clogit(formula=CASE ~ protonpump + numdrugs.notppi + strata(stratum),
-               data=cc.severe[nocare.notlisted & cc.severe$AGE < 60, ]))$coefficients
-
 #############################################################################
 
 ## tabulate fatal cases  by age group
@@ -473,11 +410,25 @@ table.fatal.protonpump <- rbind(table.fatal.protonpump, x)
 ## tabulate para or subpara codes in BNF chapters of interest
 ## restrict to age < 75 otherwise associations dominated by drugs used in frail elderly
 
-table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=subset(cc.severe, AGE < 75), minrowsum=50)
-table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=subset(cc.severe, AGE < 75), minrowsum=50)
-table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=subset(cc.severe, AGE < 75), minrowsum=50)
+table.bnfchapter1 <- tabulate.bnfparas(chnum=1, data=cc.severe[AGE < 75], minrowsum=50)
+table.bnfchapter2 <- tabulate.bnfsubparas(chnum=2, data=cc.severe[AGE < 75], minrowsum=50)
+table.bnfchapter4 <- tabulate.bnfsubparas(chnum=4, data=cc.severe[AGE < 75], minrowsum=50)
 ## chapter 10 has to be disaggregated to drug names as grouping of DMARDs is too broad
-table.bnfchapter10 <- tabulate.bnfchemicals(chnum=10, data=subset(cc.severe, AGE < 75), minrowsum=50)
+table.bnfchapter10 <- tabulate.bnfchemicals(chnum=10, data=cc.severe[AGE < 75], minrowsum=50)
+
+## antipsychotics and anti-nauseants grouped together
+table.bnfchapter4.antipsych <- tabulate.bnfchemicals(chnum=4, subpara="0402010", data=cc.severe[AGE < 75], minrowsum=20)
+
+table.bnfchapter4.nauseavertigo <- tabulate.bnfchemicals(chnum=4, subpara="0406000", data=cc.severe[AGE < 75], minrowsum=20)
+
+## need a better way of identifying those receiving palliative care
+table.bnfchapter4.nv.notneoplasm <- tabulate.bnfchemicals(chnum=4, subpara="0406000", data=cc.severe[AGE < 75 & neoplasm.any=="0"], minrowsum=20)
+
+table.bnf.antipsych <- rbind(table.bnfchapter4.antipsych, table.bnfchapter4.nauseavertigo)[, 1:4]
+
+table.laporte <- tabulate.freqs.regressions(varnames=subparas.laporte, data=cc.severe[AGE < 75])
+rownames(table.laporte) <- gsub("^subpara\\.", "", rownames(table.laporte))
+
 
 nocare.drugfreqs <-
     sapply(subset(cc.severe,
@@ -508,3 +459,10 @@ coeff.hydroxychlor.adjusted <- summary(clogit(formula=CASE ~ hydroxychloroquine 
                data=cc.severe))$coefficients[1, ]
 
 ##############################################################################
+
+coeffs.withlaporte <- summary(clogit(CASE ~ numdrugs.cardiovasc + numdrugs.notcardiovasc + numdrugs.laporte + strata(stratum), data=cc.severe))$coefficients
+
+print(coeffs.withlaporte)
+
+summary(clogit(CASE ~ numdrugs.cardiovasc + numdrugs.notcardiovasc + numdrugs.laporte + strata(stratum), data=cc.severe))$coefficients
+

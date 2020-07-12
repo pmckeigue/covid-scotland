@@ -32,8 +32,6 @@ getdoseTWday.wide <- function(scrips.in, varname.prefix="dose.") {
     return(doseTWday.wide)
 }
 
-## reading scrips
-
 scripvars <- c("ANON_ID", "dispensed_date", "bnf_paragraph_code",
                "formulation_code",
                "item_strength", "item_strength_uom", "item_code",
@@ -71,15 +69,16 @@ length(table(substr(scrips$bnf_paragraph_code, 1, 6)))  # chapter, section, para
 length(table(scrips$bnf_paragraph_code)) # 537 groups
 
 ## we need integer variables chapter, sectioncode, paracode for use with data.table::dcast
-scrips$chapternum <- as.integer(substr(scrips$bnf_paragraph_code, 1, 2))
-scrips$sectioncode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 4))
-scrips$paracode <- as.integer(substr(scrips$bnf_paragraph_code, 1, 6))
+scrips[, chapternum := as.integer(substr(bnf_paragraph_code, 1, 2))]
+scrips[, sectioncode := as.integer(substr(bnf_paragraph_code, 1, 4))]
+scrips[, paracode := as.integer(substr(bnf_paragraph_code, 1, 6))]
 
 ## recode scrips$bnf.chapter values > 14 or NA to 14
-scrips$chapternum[is.na(scrips$chapternum)] <- 14
-scrips$chapternum[scrips$chapternum > 14] <- 14
+scrips[is.na(chapternum), chapternum := 14]
+scrips[chapternum > 14, chapternum := 14] 
 
 if(!old) {
+    
 ## separate tables for prescriptions of proton pump, opioids, nonopioids
 
 scrips.protonpump <-
@@ -106,7 +105,6 @@ scrips.protonpump <- merge(scrips.protonpump, DDD.protonpump, by="approved_name"
 scrips.opioid <-
     readRDS(scrips.filename) %>%
     subset(bnf_paragraph_code=="0407020")
-
     
 scrips.opioid$mode <- car::recode(scrips.opioid$formulation_code,
                                   "c('CAPS', 'LOZ', 'SACH', 'SOLN', 'TABS')='Oral';
@@ -200,8 +198,8 @@ scrips.opioid[scrips.opioid$approved_name=="PARACETAMOL WITH TRAMADOL HYDROCHLOR
 ## transdermal fentanyl: assume patch strength 50 microgram/h changed every 3 days, frequency not given, equivalent to 180 mg/day morphine
 ## so conversion factor is 1 patch = 180 * 3
 
-scrips.opiates.names$factor.patch <- NA
-scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="BUPRENORPHINE"] <- 24 * 7
+    scrips.opiates.names$factor.patch <- NA
+    scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="BUPRENORPHINE"] <- 24 * 7
 scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="FENTANYL"] <- 180 * 3
 
     scrips.opioid <- merge(scrips.opioid,
@@ -222,12 +220,10 @@ scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="FENTANYL"
         as.data.frame(subset(nonopiates.orcompound,
                              subset=!(substr(chemicalcode, 8, 9) %in%
                                       c("A0", "F0", "M0", "N0", "Q0"))))
-    
     scrips.compound.opiates <-
         readRDS(scrips.filename) %>%
         subset(bnf_paragraph_code=="0407010") %>% 
         subset(substring(bnf_item_code, 1, 9) %in% compound.opiates$chemicalcode)
-
 
     scrips.nonopiates <-
         readRDS(scrips.filename) %>%
@@ -266,7 +262,7 @@ scrips.compound.opiates[bnf_item_description=="REMEDEINE_TAB",
                         item_strength :=20]
  
 mutate(scrips.compound.opiates, factor.oral = NA)
-scrips.compound.opiates[approved_name=="CO-CODAMOL", factor.oral := 0.1]
+    scrips.compound.opiates[approved_name=="CO-CODAMOL", factor.oral := 0.1]
 scrips.compound.opiates[approved_name=="CO-CODAMOL WITH BUCLIZINE HYDROCHLORIDE", factor.oral := 0.1]
 scrips.compound.opiates[approved_name=="CO-DYDRAMOL", factor.oral := 0.1]
 
@@ -278,6 +274,30 @@ cat("Merging with case-control table ...\n")
 
 TW <- 120 # time window in days
 
+subparas.laporte <-
+    c("subpara.103050.Proton pump inhibitors",
+      "subpara.102000.Antispasmodic and other drugs altering gut motility",       
+      "subpara.304010.Antihistamines",                                    
+      "subpara.401010.Hypnotics",                                  
+      "subpara.401020.Anxiolytics",                                
+      "subpara.402010.Antipsychotic drugs",                               
+      "subpara.402030.Drugs used for mania and hypomania",                         
+      "subpara.403010.Tricyclic and related antidepressant drugs",                 
+      "subpara.403030.Selective serotonin re-uptake inhibitors",              
+      "subpara.403040.Other antidepressant drugs"   ,              
+      "subpara.406000.Drugs used in nausea and vertigo",             
+      "subpara.407020.Opioid analgesics",            
+      "gabapentinoids", #"subpara.408010.Control of epilepsy",           
+      "subpara.409020.Antimuscarinic drugs used in parkinsonism",
+
+      ## mirabegron is not anticholinergic
+      ## trospium, darifenacin are claimed to be selective for the bladder
+                                        # "urinary.antispasmodics",
+      "subpara.704020.Drugs for urinary frequency enuresis and incontinence",      
+      "subpara.1001010.Non-steroidal anti-inflammatory drugs"                     
+      )
+
+    
 ####### proton pump exposure   ##################
 
 scrips.protonpump <- get.timewindow(scrips.in=scrips.protonpump)
@@ -311,8 +331,8 @@ cc.all[, `:=`(DDDs.all = coalesce(DDDs.all, 0),
               PANTOPRAZOLE = coalesce(PANTOPRAZOLE, 0),
               RABEPRAZOLE = coalesce(RABEPRAZOLE, 0))]
 
-cc.all$DDDsgr <- 0.5 * ceiling(2 * cc.all$DDDs.all)
-cc.all$DDDsgr <- as.factor(car::recode(cc.all$DDDsgr, "2:hi='2 or more'"))
+cc.all[, DDDsgr := 0.5 * ceiling(2 * DDDs.all)]
+cc.all[, DDDsgr := as.factor(car::recode(DDDsgr, "2:hi='2 or more'"))]
 
 ###############  average dose in each TW-day interval ######################## 
 
@@ -329,7 +349,7 @@ cc.all[, `:=`(DDD.interval1 = coalesce(DDD.interval1, 0),
 protonpump.exposure.nonrecent <- as.integer(cc.all$DDD.interval2 > 0)
 protonpump.exposure.recent <- as.integer(cc.all$DDD.interval1 > 0)
 
-cc.all <- mutate(cc.all, protonpump.exposuregr = as.integer(DDDs.all > 0))
+cc.all[, protonpump.exposuregr := as.integer(DDDs.all > 0)]
 cc.all[protonpump.exposure.nonrecent==1 & protonpump.exposure.recent==0, protonpump.exposuregr := 1]
 cc.all[protonpump.exposure.nonrecent==0 & protonpump.exposure.recent==1, protonpump.exposuregr := 2]
 cc.all[protonpump.exposure.nonrecent==1 & protonpump.exposure.recent==1, protonpump.exposuregr := 3]
@@ -340,7 +360,7 @@ protonpump.exposure.cat <- as.factor(car::recode(cc.all[["protonpump.exposuregr"
 protonpump.exposure.cat <- factor(protonpump.exposure.cat,
                                   levels=levels(protonpump.exposure.cat)[c(2, 4, 3, 1)])
 ## problem with changing the type of an existing column
-cc.all <- mutate(cc.all, protonpump.exposurecat = protonpump.exposure.cat)
+cc.all[, protonpump.exposurecat := protonpump.exposure.cat]
 
 ####################################################################
 
@@ -445,7 +465,7 @@ opiate.exposure.cat <- factor(opiate.exposure.cat,
                              levels=levels(opiate.exposure.cat)[c(2, 4, 3, 1)])
 
 ## data.table behaves strangely when type of an existing column is changed
-cc.all <- mutate(cc.all, opiate.exposurecat = opiate.exposure.cat)
+    cc.all <- mutate(cc.all, opiate.exposurecat = opiate.exposure.cat)
     
     ids.opioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40702])
     cc.all$opioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
@@ -465,33 +485,87 @@ cc.all <- mutate(cc.all, opiate.exposurecat = opiate.exposure.cat)
 ########### other drugs of interest coded as binary ####################
 
 ids.antiplatelet <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 209])
-cc.all$antiplatelet <- as.factor(as.integer(cc.all$ANON_ID %in% ids.antiplatelet))
+cc.all[, antiplatelet := as.factor(as.integer(ANON_ID %in% ids.antiplatelet))]
 
 ids.nsaid <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 100101])
-cc.all$nsaid <- as.factor(as.integer(cc.all$ANON_ID %in% ids.nsaid))
+cc.all[, nsaid := as.factor(as.integer(ANON_ID %in% ids.nsaid))]
 
 
 ids.antipsychotic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40201])
-cc.all$antipsychotic <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                      ids.antipsychotic))
+cc.all[, antipsychotic := as.factor(as.integer(ANON_ID %in%
+                                               ids.antipsychotic))]
 
 ids.osmotic.laxative <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 10604])
-cc.all$osmotic.laxative <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                ids.osmotic.laxative))
+cc.all[, osmotic.laxative := as.factor(as.integer(ANON_ID %in%
+                                                  ids.osmotic.laxative))]
 
 ids.anticoagulant.any <-
     unique(scrips$ANON_ID[scrips$bnf_paragraph_code == "0208010" |
                           scrips$bnf_paragraph_code == "0208020"])
-cc.all$anticoagulant.any <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                ids.anticoagulant.any))
+cc.all[, anticoagulant.any := as.factor(as.integer(ANON_ID %in%
+                                                   ids.anticoagulant.any))]
 
-ids.hydroxychloroquine <- readRDS(scrips.filename) %>%
-    subset(subset=approved_name=="HYDROXYCHLOROQUINE SULFATE", select=ANON_ID)
-ids.hydroxychloroquine <- unique(ids.hydroxychloroquine$ANON_ID)
-cc.all$hydroxychloroquine <- as.factor(as.integer(cc.all$ANON_ID %in% ids.hydroxychloroquine))
+ids.hydroxychloroquine <- unique(scrips[approved_name=="HYDROXYCHLOROQUINE SULFATE", ANON_ID])
+cc.all[, hydroxychloroquine := as.factor(as.integer(ANON_ID %in% ids.hydroxychloroquine))]
 
-ids.protonpump <- unique(scrips$ANON_ID[scrips$bnf_paragraph_code == "0103050"])
-cc.all$protonpump <- as.factor(as.integer(cc.all$ANON_ID %in% ids.protonpump))
-cc.all$y.protonpump <- as.integer(cc.all$protonpump =="1")
+ids.protonpump <- unique(scrips[bnf_paragraph_code == "0103050", ANON_ID])
+cc.all[, protonpump := as.factor(as.integer(ANON_ID %in% ids.protonpump))]
+cc.all[, y.protonpump := as.integer(protonpump =="1")]
+
+cc.all[, compound.opiate := as.factor(as.integer(ANON_ID %in%
+                                                 scrips.compound.opiates$ANON_ID))]
+
+ids.gabapentinoids <- unique(scrips[approved_name=="GABAPENTIN" |
+                                    approved_name=="PREGABALIN", ANON_ID])
+cc.all[, gabapentinoids := as.factor(as.integer(ANON_ID %in% ids.gabapentinoids))]
+
+ids.urinary.antispasmodics <- unique(scrips[bnf_paragraph_code=="0704020" & 
+                                    approved_name !="MIRABEGRON", ANON_ID])
+cc.all[, urinary.antispasmodics := as.factor(as.integer(ANON_ID %in% ids.urinary.antispasmodics))]
 
 ###############################################################
+
+## merge drugs, one variable per chapter
+scrips.wide <- data.table::dcast(scrips, ANON_ID ~ chapternum, fun.aggregate=length, 
+                               value.var="chapternum")
+shortnames.cols <-  bnfchapters$shortname[match(as.integer(colnames(scrips.wide)[-1]),
+                                                as.integer(bnfchapters$chapternum))]
+colnames(scrips.wide)[-1] <- paste("BNF", colnames(scrips.wide)[-1], shortnames.cols,
+                                   sep="_")
+scrips.wide <- as.data.table(scrips.wide, key="ANON_ID")
+cc.all <- scrips.wide[cc.all]
+
+bnfcols <- as.integer(grep("^BNF", colnames(cc.all)))
+## recode indicator variables
+cc.all[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
+
+## merge BNF chapters, one variable per subpara
+cat("Merging BNF subparagraph codes ...")
+chnums = 1:13
+cc.all <- merge.bnfsubparas(chnums=chnums, data=cc.all)
+cat("done\n")
+
+subparacols <- grep("^subpara\\.", names(cc.all))
+x <- cc.all[,  ..subparacols]
+for(j in 1:ncol(x)) set(x, j=j, value=as.integer(x[[j]]) - 1)
+head(sapply(x[, 1:5], class))
+cc.all[, numdrugs.subpara := rowSums(x)]
+cc.all[, numdrugsgr := 3 * ceiling(cc.all$numdrugs.subpara / 3)]
+cc.all[, numdrugsgr := as.factor(car::recode(cc.all$numdrugsgr,
+                                              "3='1 to 3'; 6='4 to 6'; 9='7 to 9';
+                                              12='10 to 12'; 15:hi='>12'"))]
+cc.all[, numdrugsgr := factor(numdrugsgr,
+                                 levels=levels(numdrugsgr)[c(2, 3, 5, 6, 4, 1)])]
+
+cardiovasc.subparacols <- grep("^subpara\\.2", names(cc.all))
+x <- cc.all[,  ..cardiovasc.subparacols]
+for(j in names(x)) set(x, j=j, value=as.integer(x[[j]]) - 1) 
+
+cc.all[, numdrugs.cardiovasc := rowSums(x)]
+cc.all[, numdrugs.notcardiovasc := numdrugs.subpara - numdrugs.cardiovasc]
+
+
+x <- cc.all[,  ..subparas.laporte]
+for(j in names(x)) set(x, j=j, value=as.integer(x[[j]]) - 1) 
+cc.all[, numdrugs.laporte := rowSums(x)]
+

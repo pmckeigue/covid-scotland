@@ -23,18 +23,23 @@ rstan.sampling <- function(model=rstan.model, data=stan.data, pars=pars,
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 qr <- TRUE
+regularized <- TRUE
+nu <- 1
+par.ratio <- 0.1
+global_df <- 1
+
 
 clogit.model <- stan_model(file="~/hsstan/inst/stan/hs_clogit.stan")
 
 ## restrict to fatal cases + matched controls, and complete data on covariates
 select.cols <- c("CASE", "stratum", "care.home", "diabetes.any",
-                 grep("^Ch\\.", colnames(cc.severe), value=TRUE))
-
+                 grep("^Ch\\.", colnames(cc.severe), value=TRUE)[1:3])
 
 cc.nonmissing <- na.omit(cc.severe[fatal.casegroup==1], cols=select.cols)
 cc.nonmissing <- cc.nonmissing[, ..select.cols]
 covariate.names <- select.cols[-(1:2)]
-str(cc.nonmissing)
+## convert all columns to numeric
+## FIXME: indicator variables for factors with more than 2 levels
 cc.nonmissing <- cc.nonmissing[, lapply(.SD, as.numeric), by=row.names(cc.nonmissing)][, -1]
 str(cc.nonmissing)
               
@@ -43,7 +48,6 @@ cc.drop <- cc.nonmissing[CASE==1, .(.N), by = .(stratum)][N != 1, ]
 cc.nonmissing <- cc.nonmissing[!(stratum %in% cc.drop$stratum)]
 cc.drop <- cc.nonmissing[, .(.N), by = .(stratum)][N < 2, ]
 cc.nonmissing <- cc.nonmissing[!(stratum %in% cc.drop$stratum)]
-              
 table(cc.nonmissing[, .(.N), by = .(stratum)][, N])
 
 ## renumber levels of stratum   
@@ -55,6 +59,7 @@ N <- length(y)
 X <- as.matrix(cc.nonmissing[, ..covariate.names])
 P <- ncol(X)
 U <- 1
+K <- P - U
 starts <- c(1, which(diff(as.integer(cc.nonmissing[, stratum])) > 0))
 stops <- c(starts[-1] - 1, N)
 S <- length(starts)
@@ -69,27 +74,50 @@ for(s in 1:S) {
     ycat[s] <- which(yind > 0)
 }
 
-   ## thin QR decomposition
-    if (P > N) qr <- FALSE
-    if (qr) {
-        qr.dec <- qr(X)
-        Q.qr <- qr.Q(qr.dec)
-        R.inv <- qr.solve(qr.dec, Q.qr) * sqrt(N - 1)
-        Q.qr <- Q.qr * sqrt(N - 1)
-    }
+############################################################################
 
-train.data <- list(N=N, P=P, U=U, S=S, 
-                   scale_u=10, ycat=ycat,
+hsstan <- function(x=NULL, covs.model=NULL,
+                   clogit=TRUE, 
+                   ycat=ycat, S=S, starts=starts, stops=stops, # extra data for clogit
+                   penalized=TRUE, family=NULL,
+                   iter=2000, warmup=floor(iter / 2),
+                   scale.u=2, regularized=TRUE, nu=ifelse(regularized, 1, 3),
+                   par.ratio=0.05, global.df=1, slab.scale=2, slab.df=4,
+                   qr=TRUE, seed=123, adapt.delta=NULL,
+                   keep.hs.pars=FALSE) {
+
+## parameter names not to include by default in the stanfit object
+hs.pars <- c("lambda", "tau", "z", "c2")
+if (keep.hs.pars)
+    hs.pars <- NA
+
+adapt.delta <- 0.95
+seed <- 12345
+scale.u <- 10
+
+## thin QR decomposition
+if (P > N) qr <- FALSE
+if (qr) {
+    qr.dec <- qr(X)
+    Q.qr <- qr.Q(qr.dec)
+    R.inv <- qr.solve(qr.dec, Q.qr) * sqrt(N - 1)
+    Q.qr <- Q.qr * sqrt(N - 1)
+}
+
+global.scale <- par.ratio / sqrt(S)
+
+data.input <- list(N=N, P=P, U=U, S=S, 
+                   scale_u=scale.u, ycat=ycat,
                    X=if (qr) Q.qr else X,
                    starts=starts, stops=stops,
-                   global_scale=0.5 / sqrt(S), 
+                   global_scale=global.scale, 
                    regularized=1, nu=1, 
                    par.ratio=0.05, global_df=1, slab_scale=2, slab_df=4) 
 
 cat("Sampling clogit model ... ")
-clogit.samples.mc <-
+samples <-
     rstan.sampling(model=clogit.model,
-                   data=train.data,
+                   data=data.input,
                    pars=c("tau", "c2", "beta_u", "beta_p"), 
                    adapt_delta=0.95,
                    iter=1000, warmup=500,
@@ -97,36 +125,43 @@ clogit.samples.mc <-
 cat("done\n")
 
 ## assign covariate names
-par.idx <- grep("^beta_[up]", names(clogit.samples))
+par.idx <- grep("^beta_[up]", names(samples))
 stopifnot(length(par.idx) == ncol(X))
 names(samples)[par.idx] <- covariate.names
 
 if (qr) { # invert QR transformation
-    pars <- grep("beta_", clogit.samples.mc@sim$pars_oi, value=TRUE)
+    pars <- grep("beta_", samples@sim$pars_oi, value=TRUE)
     stopifnot(pars[1] == "beta_u")
-    beta.tilde <- rstan::extract(clogit.samples.mc, pars=pars,
+    beta.tilde <- rstan::extract(samples, pars=pars,
                                  inc_warmup=TRUE, permuted=FALSE)
     B <- apply(beta.tilde, 1:2, FUN=function(z) R.inv %*% z)
     chains <- ncol(beta.tilde)
     for (chain in 1:chains) {
         for (p in 1:P)
-            clogit.samples.mc@sim$samples[[chain]][[par.idx[p]]] <- B[p, , chain]
+            samples@sim$samples[[chain]][[par.idx[p]]] <- B[p, , chain]
     }
 }
 
-print(summary(do.call(rbind, get_sampler_params(clogit.samples.mc)), digits = 2))
-mc.summary <- round(summary(clogit.samples.mc,
+## store the hierarchical shrinkage settings
+opts <- list(adapt.delta=adapt.delta, qr=qr, seed=seed, scale.u=scale.u)
+if (K > 0)
+    opts <- c(opts, regularized=regularized, nu=nu, par.ratio=par.ratio,
+              global.scale=global.scale, global.df=global.df,
+              slab.scale=slab.scale, slab.df=slab.df)
+
+## compute the posterior means of the regression coefficients
+betas <- list(unpenalized=colMeans(as.matrix(samples, pars="beta_u")),
+              penalized=tryCatch(colMeans(as.matrix(samples,
+                                                    pars="beta_p")),
+                                 error=function(e) NULL))
+obj <- list(stanfit=samples, betas=betas, call=call, data=x,
+            model.terms=model.terms, family=family, hsstan.settings=opts)
+class(obj) <- "hsstan"
+
+print(summary(do.call(rbind, get_sampler_params(samples)), digits = 2))
+mc.summary <- round(summary(samples,
                             probs=c(0.1, 0.9))$summary, 3)
 print(mc.summary)
-
-
-## within each stratum, normalize predicted values are a simplex that sums to 1.
-
-## we want to fit a model to these predicted values
-
-## in other words to fit a multinomial logistic model.
-
-## 
 
 ## for an online app, we want easy to use variables
 ## age, sex, care home+++

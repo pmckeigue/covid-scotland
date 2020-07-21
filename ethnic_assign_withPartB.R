@@ -135,32 +135,33 @@ collapseto9.ethnicsmr <- function(ethnic.smr) {
   return(ethnic9.smr)
 }
 
-#White, White Polish, WHite Irish, Cariabbean, African, Black, Chinese, Pakistani/Bangladeshi, Indian, Other Asian, Other
-collapseto13.ethnicsmr <- function(ethnic.smr) {
-  ethnic13.smr <- character(length(ethnic.smr))
-  ethnic13.smr[grep("^1[A-Z]$", ethnic.smr)] <- "White"
-  ethnic13.smr[grep("^1[C]$", ethnic.smr)] <- "White Irish"
-  ethnic13.smr[grep("^1[L]$", ethnic.smr)] <- "White Polish"
-  ethnic13.smr[grep("^2[A-Z]$", ethnic.smr)] <- "Other"
-  ethnic13.smr[grep("^3[BCFH]$", ethnic.smr)] <- "Pakistani/Bangladeshi"
-  ethnic13.smr[grep("^3[AG]$", ethnic.smr)] <- "Indian"
-  ethnic13.smr[grep("^3[DJ]$", ethnic.smr)] <- "Chinese"
-  ethnic13.smr[grep("^3[EZ]$", ethnic.smr)] <- "Other Asian"
-  ethnic13.smr[grep("^4[AE]$", ethnic.smr)] <- "Caribbean"
-  ethnic13.smr[grep("^4[BD]$", ethnic.smr)] <- "African"
-  ethnic13.smr[grep("^4[Y]$", ethnic.smr)] <- "Other African"
-  ethnic13.smr[grep("^4[C]$", ethnic.smr)] <- "Black"
-  #ethnic13.smr[grep("^4[F]$", ethnic.smr)] <- "Black" #4F not included in coding above
-  ethnic13.smr[grep("^5[C]$", ethnic.smr)] <- "Caribbean"
-  ethnic13.smr[grep("^5[D]$", ethnic.smr)] <- "Black"
-  ethnic13.smr[grep("^5[Y]$", ethnic.smr)] <- "Other Caribbean or Black"
-  #ethnic13.smr[grep("^4[Z]$", ethnic.smr)] <- "Other" #not included in coding above
-  ethnic13.smr[grep("^6[AZ]$", ethnic.smr)] <- "Other"
-  ethnic13.smr[grep("^9", ethnic.smr)] <- NA
-  ethnic13.smr[ethnic13.smr==""] <- NA
-  ethnic13.smr <- as.factor(ethnic13.smr)
-  ethnic13.smr <- factor(ethnic13.smr, levels=levels(ethnic13.smr)[c(11,12,13,1,7,3,2,9,4,10,5,8,6)])
-  return(ethnic13.smr)
+#White, White Polish, WHite Irish, Cariabbean, African, Other African, Black, Other Caribbean/Black, Chinese, Pakistani, Bangladeshi, Indian, Other Asian, Other
+collapseto14.ethnicsmr <- function(ethnic.smr) {
+  ethnic14.smr <- character(length(ethnic.smr))
+  ethnic14.smr[grep("^1[A-Z]$", ethnic.smr)] <- "White"
+  ethnic14.smr[grep("^1[C]$", ethnic.smr)] <- "White Irish"
+  ethnic14.smr[grep("^1[L]$", ethnic.smr)] <- "White Polish"
+  ethnic14.smr[grep("^2[A-Z]$", ethnic.smr)] <- "Other"
+  ethnic14.smr[grep("^3[BF]$", ethnic.smr)] <- "Pakistani"
+  ethnic14.smr[grep("^3[CH]$", ethnic.smr)] <- "Bangladeshi"
+  ethnic14.smr[grep("^3[AG]$", ethnic.smr)] <- "Indian"
+  ethnic14.smr[grep("^3[DJ]$", ethnic.smr)] <- "Chinese"
+  ethnic14.smr[grep("^3[EZ]$", ethnic.smr)] <- "Other Asian"
+  ethnic14.smr[grep("^4[AE]$", ethnic.smr)] <- "Caribbean"
+  ethnic14.smr[grep("^4[BD]$", ethnic.smr)] <- "African"
+  ethnic14.smr[grep("^4[Y]$", ethnic.smr)] <- "Other African"
+  ethnic14.smr[grep("^4[C]$", ethnic.smr)] <- "Black"
+  #ethnic14.smr[grep("^4[F]$", ethnic.smr)] <- "Black" #4F not included in coding above
+  ethnic14.smr[grep("^5[C]$", ethnic.smr)] <- "Caribbean"
+  ethnic14.smr[grep("^5[D]$", ethnic.smr)] <- "Black"
+  ethnic14.smr[grep("^5[Y]$", ethnic.smr)] <- "Other Caribbean or Black"
+  #ethnic14.smr[grep("^4[Z]$", ethnic.smr)] <- "Other" #not included in coding above
+  ethnic14.smr[grep("^6[AZ]$", ethnic.smr)] <- "Other"
+  ethnic14.smr[grep("^9", ethnic.smr)] <- NA
+  ethnic14.smr[ethnic14.smr==""] <- NA
+  ethnic14.smr <- as.factor(ethnic14.smr)
+  ethnic14.smr <- factor(ethnic14.smr, levels=levels(ethnic14.smr)[c(12,13,14,1,8,4,3,10,5,11,2,6,9,7)])
+  return(ethnic14.smr)
 }
 
 

@@ -48,8 +48,8 @@ collapseto5.ethnicsmr <- function(ethnic.smr) {
     ethnic5.smr[grep("^1[A-Z]$", ethnic.smr)] <- "White"
     ethnic5.smr[grep("^2[A-Z]$", ethnic.smr)] <- "Other"
     ethnic5.smr[grep("^3[ABCFGH]$", ethnic.smr)] <- "South Asian"
-    ethnic5.smr[grep("^3[EJ]$", ethnic.smr)] <- "Chinese"
-    ethnic5.smr[grep("^3[DZ]$", ethnic.smr)] <- "Other"
+    ethnic5.smr[grep("^3[DJ]$", ethnic.smr)] <- "Chinese"
+    ethnic5.smr[grep("^3[EZ]$", ethnic.smr)] <- "Other"
     ethnic5.smr[grep("^4[ABCDEY]$", ethnic.smr)] <- "Black"
     ethnic5.smr[grep("^5[ABCDY]$", ethnic.smr)] <- "Black"
     ethnic5.smr[grep("^6[AZ]$", ethnic.smr)] <- "Other"
@@ -125,6 +125,7 @@ collapseto9.ethnicsmr <- function(ethnic.smr) {
   #ethnic9.smr[grep("^4[F]$", ethnic.smr)] <- "Black" #4F not included in coding above
   ethnic9.smr[grep("^5[C]$", ethnic.smr)] <- "Caribbean"
   ethnic9.smr[grep("^5[ABDY]$", ethnic.smr)] <- "Black"
+  ethnic9.smr[grep("^5[Z]$", ethnic.smr)] <- "Other"
   #ethnic9.smr[grep("^4[Z]$", ethnic.smr)] <- "Other" #not included in coding above
   ethnic9.smr[grep("^6[AZ]$", ethnic.smr)] <- "Other"
   ethnic9.smr[grep("^9", ethnic.smr)] <- NA
@@ -133,6 +134,36 @@ collapseto9.ethnicsmr <- function(ethnic.smr) {
   ethnic9.smr <- factor(ethnic9.smr, levels=levels(ethnic9.smr)[c(8,9,3,1,2,4,7,5,6)])
   return(ethnic9.smr)
 }
+
+#White, White Polish, WHite Irish, Cariabbean, African, Black, Chinese, Pakistani/Bangladeshi, Indian, Other Asian, Other
+collapseto13.ethnicsmr <- function(ethnic.smr) {
+  ethnic13.smr <- character(length(ethnic.smr))
+  ethnic13.smr[grep("^1[A-Z]$", ethnic.smr)] <- "White"
+  ethnic13.smr[grep("^1[C]$", ethnic.smr)] <- "White Irish"
+  ethnic13.smr[grep("^1[L]$", ethnic.smr)] <- "White Polish"
+  ethnic13.smr[grep("^2[A-Z]$", ethnic.smr)] <- "Other"
+  ethnic13.smr[grep("^3[BCFH]$", ethnic.smr)] <- "Pakistani/Bangladeshi"
+  ethnic13.smr[grep("^3[AG]$", ethnic.smr)] <- "Indian"
+  ethnic13.smr[grep("^3[DJ]$", ethnic.smr)] <- "Chinese"
+  ethnic13.smr[grep("^3[EZ]$", ethnic.smr)] <- "Other Asian"
+  ethnic13.smr[grep("^4[AE]$", ethnic.smr)] <- "Caribbean"
+  ethnic13.smr[grep("^4[BD]$", ethnic.smr)] <- "African"
+  ethnic13.smr[grep("^4[Y]$", ethnic.smr)] <- "Other African"
+  ethnic13.smr[grep("^4[C]$", ethnic.smr)] <- "Black"
+  #ethnic13.smr[grep("^4[F]$", ethnic.smr)] <- "Black" #4F not included in coding above
+  ethnic13.smr[grep("^5[C]$", ethnic.smr)] <- "Caribbean"
+  ethnic13.smr[grep("^5[D]$", ethnic.smr)] <- "Black"
+  ethnic13.smr[grep("^5[Y]$", ethnic.smr)] <- "Other Caribbean or Black"
+  #ethnic13.smr[grep("^4[Z]$", ethnic.smr)] <- "Other" #not included in coding above
+  ethnic13.smr[grep("^6[AZ]$", ethnic.smr)] <- "Other"
+  ethnic13.smr[grep("^9", ethnic.smr)] <- NA
+  ethnic13.smr[ethnic13.smr==""] <- NA
+  ethnic13.smr <- as.factor(ethnic13.smr)
+  ethnic13.smr <- factor(ethnic13.smr, levels=levels(ethnic13.smr)[c(11,12,13,1,7,3,2,9,4,10,5,8,6)])
+  return(ethnic13.smr)
+}
+
+
 
 group.onomap2 <- function(OnolyticsType, GeographicalArea) {    
   OnolyticsType <- car::recode(OnolyticsType,

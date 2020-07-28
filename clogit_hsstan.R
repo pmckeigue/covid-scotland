@@ -4,21 +4,31 @@ library(hsstan)
 library(data.table)
 library(parallel)
 
-cc.severe <- as.data.table(readRDS("data/cc.severe.rds"))
-                           
-## restrict to fatal cases + matched controls, and complete data on covariates
-select.cols <- c("CASE", "stratum", "care.home", "diabetes.any",
-                 grep("^Ch\\.", colnames(cc.severe), value=TRUE))
-covariates <- select.cols[-(1:2)][1:8]
+devtools::load_all("../hsstan")
 
-cc.nonmissing <- na.omit(cc.severe[fatal.casegroup==1], cols=select.cols)
-cc.nonmissing <- cc.nonmissing[, ..select.cols]
-covariate.names <- select.cols[-(1:2)]
-## convert all columns to numeric
-cc.nonmissing <- cc.nonmissing[, lapply(.SD, as.numeric), by=row.names(cc.nonmissing)][, -1]
-cc.nonmissing[, (covariate.names) := lapply(.SD, scale), .SDcols=covariate.names] 
-str(cc.nonmissing)
- 
+newrun <- TRUE
+
+cc.severe <- as.data.table(readRDS("data/cc.severe.rds"))
+
+drugclasses <-  grep("^subpara\\.", colnames(cc.severe), value=TRUE)
+## restrict to subparas with at least 50 exposed
+keep.drugclasses <- logical(length(drugclasses))
+for(j in 1:length(keep.drugclasses)) {
+    x <- length(which(cc.severe[[drugclasses[j]]]=="1"))
+    if(x >= 50) {
+        keep.drugclasses[j] <- TRUE
+    }
+}
+drugclasses <- drugclasses[keep.drugclasses]
+
+## restrict to fatal cases + matched controls, and complete data on covariates
+select.cols <- c("CASE", "stratum", "care.home",
+                 grep("^Ch\\.", colnames(cc.severe), value=TRUE),
+                 drugclasses)
+
+cc.nonmissing <- na.omit(cc.severe[fatal.casegroup==1, ..select.cols], cols=select.cols)
+rm(cc.severe)
+
 ## drop strata with num cases not equal to 1, or < 2 observations 
 cc.drop <- cc.nonmissing[CASE==1, .(.N), by = .(stratum)][N != 1, ]
 cc.nonmissing <- cc.nonmissing[!(stratum %in% cc.drop$stratum)]
@@ -28,37 +38,67 @@ table(cc.nonmissing[, .(.N), by = .(stratum)][, N])
 ## renumber levels of stratum   
 cc.nonmissing[, stratum := as.integer(as.factor(as.integer(stratum)))]
 setkey(cc.nonmissing, stratum)
-cc.nonmissing <- as.data.frame(cc.nonmissing)
 
-covs.model <- as.formula(paste("CASE ~", paste(covariates, collapse="+")))  
+## clean up column names
 
-penalized <- covariates[-1:2]
-iter <- 1000
-warmup <- 500
+colnames(cc.nonmissing) <- gsub("(/|,| |-|\\(|\\))", "_", colnames(cc.nonmissing))
+
+print(colnames(cc.nonmissing))
+
+## rename covariates
+colnames(cc.nonmissing)[1:2] <- c("y", "stratum")
+covariate.names <- colnames(cc.nonmissing)[-(1:2)]
+
+## convert all columns to numeric
+cc.nonmissing <- cc.nonmissing[, lapply(.SD, as.numeric), by=row.names(cc.nonmissing)][, -1]
+
+## scale and centre all covariates
+cc.nonmissing[, (covariate.names) := lapply(.SD, scale), .SDcols=covariate.names] 
+
+covs.model <- as.formula(paste("y ~",
+                               paste(covariate.names[1], collapse=" + ")))
+
+penalized <- covariate.names[-1]
+iter <- 1200
+warmup <- 400
 regularized <- TRUE
 nu <- 1
 
 ############################################################################
+if(newrun) {
+    hs.clogit <- hsstan(x=cc.nonmissing, covs.model=covs.model,
+                        penalized=penalized, 
+                        family="clogit",
+                        iter=iter, warmup=warmup,
+                        scale.u=2, regularized=TRUE, nu=ifelse(regularized, 1, 3),
+                        par.ratio=0.05, global.df=1, slab.scale=2, slab.df=4,
+                        qr=TRUE, seed=123, adapt.delta=0.9,
+                        keep.hs.pars=FALSE)
+    
+    save(hs.clogit, file=paste0("hs.clogit_", length(covariate.names), "_covariates.RData"))
+} else {
+    load(file=paste0("hs.clogit_", length(covariate.names), "_covariates.RData"))
+} 
+rm(cc.nonmissing)
 
-hs.clogit <- hsstan(x=cc.nonmissing, covs.model=covs.model,
-                   penalized=penalized, family="cox",
-                   iter=iter, warmup=warmup,
-                   scale.u=2, regularized=TRUE, nu=ifelse(regularized, 1, 3),
-                   par.ratio=0.05, global.df=1, slab.scale=2, slab.df=4,
-                   qr=TRUE, seed=123, adapt.delta=0.9,
-                   keep.hs.pars=FALSE)
-
-save(hs.clogit, file=paste0("hs.clogit_", length(covariates), "_covariates.RData"))
 print(hs.clogit)
 sampler.stats(hs.clogit)
 
-invlogit <- function(x) 1/(1+exp(-x))
-hs.clogit$family <- list(family="cox", linkinv=invlogit)
+objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
+print(tail(objmem))
+gc()
 
-sel.vars <- projsel(hs.clogit, start.from="diabetes.any")
-print(sel.biom, digits=4)
+sel.vars <- projsel(hs.clogit, start.from=c("care.home"))
+gc()
 
-                                        #  
+print(sel.vars, digits=4)
+
+pdf("plot_projsel.pdf")
+ plot.projsel(sel.vars, covariates.from=FALSE)
+dev.off()
+
+
+                                     #  
 ## for an online app, we want easy to use variables
 ## age, sex, care home+++
 ## diagnoses of each listed condition++++

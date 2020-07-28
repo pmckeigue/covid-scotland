@@ -27,7 +27,7 @@ regularized <- TRUE
 covs.model <- as.formula(paste("y.clogit ~", paste(map.varnames, collapse="+")))  
 
 hs.clogit <- hsstan(x=diabetes, covs.model=covs.model,
-                   penalized=penalized, family="cox",
+                   penalized=penalized, family="clogit",
                    iter=1000, warmup=500,
                    scale.u=2, regularized=TRUE, nu=ifelse(regularized, 1, 3),
                    par.ratio=0.05, global.df=1, slab.scale=2, slab.df=4,

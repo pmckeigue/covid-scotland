@@ -93,11 +93,14 @@ if(old) {
     controls.status <- readRDS("./data/CC_CHI_CHECK_2020-05-15.rds")
 } else {
     cc.all <- as.data.table(readRDS("./data/CC_linked_ANON_2020-06-18.rds"), key="ANON_ID")
-    setnames(cc.all, "SPECIMENDATE", "SPECDATE")
+    # setnames(cc.all, "SPECIMENDATE", "SPECDATE")
     setnames(cc.all, "AgeYear", "AGE")
     
-    diagnoses <- as.data.table(readRDS("./data/CC_SMR01_ICD10_x25_ANON_2020-06-18.rds"),
+    #diagnoses <- as.data.table(readRDS("./data/CC_SMR01_ICD10_x25_ANON_2020-06-18.rds"),
+    diagnoses <- as.data.table(readRDS("./data/CC_SMR01_ICD10_x25_2020-06-18.rds"),
                                key="ANON_ID")
+    diagnoses <- cc.all[, .(ANON_ID, SPECIMENDATE)][diagnoses] 
+    
     procedures <- readRDS("./data/CC_SMR01_OPCS4_MAIN.x25_ANON_2020-06-18.rds")
     onomap <- as.data.table(readRDS("./data/ONOMAP_ANON_2020-06-18.rds"), key="ANON_ID")
     rapid <- readRDS("./data/CC_RAPID_ANON_2020-06-18.rds")
@@ -154,7 +157,6 @@ names(cc.all) <- gsub("imumune", "immune", names(cc.all))
 names(cc.all) <- gsub("^CAREHOME$", "care.home", names(cc.all))
 names(cc.all) <- gsub("^simd$", "SIMD.quintile", names(cc.all))
 names(cc.all) <- gsub("DATE_OF_DEATH", "Date.Death", names(cc.all))
-names(cc.all) <- gsub("SPECIMENDATE", "SPECDATE", names(cc.all))
 names(cc.all) <- gsub("^age$", "AGE", names(cc.all))
 names(cc.all) <- gsub("^AgeYear$", "AGE", names(cc.all))
 if(!old) {
@@ -164,10 +166,10 @@ cc.all$stratum <- as.integer(cc.all$stratum)
 
 ## merge SICSAG data and overwrite icu and hdu values incorrectly coded 0
 sicsag <- sicsag[covidICUorHDU==1 | covidICUorHDU==3] ## what are codes 4 and 5?
-sicsag <- cc.all[, .(ANON_ID, SPECDATE)][sicsag]
+sicsag <- cc.all[, .(ANON_ID, SPECIMENDATE)][sicsag]
 
 ## exclude entries to critical care more than 7 days before first positive test
-sicsag <- sicsag[AdmitUnit - SPECDATE >= -7]
+sicsag <- sicsag[AdmitUnit - SPECIMENDATE >= -7]
 
 ## get last date of entry in table 
 maxdate.sicsag <- max(sicsag$AdmitUnit)
@@ -182,9 +184,9 @@ cc.all[is.na(covidICUorHDU), covidICUorHDU := 0]
 print(with(cc.all, table(covidICUorHDU, icu==1 | hdu==1)))
 ## overwrite icu or hdu field where incorrectly coded as 0
 cc.all[covidICUorHDU==1, icu := 1]
-cc.all[covidICUorHDU==1, hdu := 1]
+cc.all[covidICUorHDU==3, hdu := 1]
 
-cc.all[, dispensing.days := as.integer(SPECDATE - as.Date("2019-06-01"))]
+cc.all[, dispensing.days := as.integer(SPECIMENDATE - as.Date("2019-06-01"))]
 
 ## HAI is based on the ECDC definition of nosocomial infection
 
@@ -202,7 +204,7 @@ save(ids.noscrip.agegt75, ids.nodiag.agegt75, file="anon_ids_notmatched.RData")
 ## exclude controls already dead on date of test of case they were matched to
 controls.deceased <- with(cc.all, CASE==0 &
                                   !is.na(Date.Death) &
-                                  Date.Death <= SPECDATE)
+                                  Date.Death <= SPECIMENDATE)
 cc.all <- subset(cc.all, !controls.deceased)                         
 
 if(old) {
@@ -285,12 +287,12 @@ if(old) {
     with(cc.all[CASE==1], table(ecoss, testpositive.case, exclude=NULL))
 }
 
-## all cases have nonmissing SPECDATE
-## controls should be assigned same SPECDATE as the case they were matched to
+## all cases have nonmissing SPECIMENDATE
+## controls should be assigned same SPECIMENDATE as the case they were matched to
 ## but deathwithin28 should be 0 for those who did not test positive
 cc.all[, deathwithin28 := testpositive.case &
              !is.na(Date.Death) & 
-             Date.Death - SPECDATE >= 0 & Date.Death - SPECDATE <= 28]
+             Date.Death - SPECIMENDATE >= 0 & Date.Death - SPECIMENDATE <= 28]
 
 ## Sharon's variable dead28 is assigned by this line
 ## Covid_CC_linkage_Part2_desktop.R:
@@ -302,10 +304,6 @@ with(cc.all[CASE==1], table(dead28, deathwithin28, exclude=NULL))
 with(cc.all[CASE==1], table(icu, hdu, exclude=NULL)) 
 ## only 854 in critical care -- must be wrong
 cc.all$criticalcare <- cc.all$icu==1 | cc.all$hdu==1
-
-## Covid_CC_linkage_Part2_desktop.R:
-## icu$icu <- ifelse(icu$covidICUorHDU ==1, 1, 0)
-## icu$hdu <- ifelse(icu$covidICUorHDU ==3, 1, 0)
 
 ## adm28 should be 0 for cases who did not test positive
 cc.all <- mutate(cc.all, adm28 = adm28 & testpositive.case)
@@ -429,10 +427,8 @@ if(!old) {
     cc.all <- onomap[cc.all]
 }
 
-cc.all <- mutate(cc.all,
-                 group.onomap = group.onomap(OnolyticsType, GeographicalArea))
-cc.all <- mutate(cc.all,
-                 ethnic5.onomap = collapseto5.onomap.group(group.onomap))
+cc.all[, group.onomap := group.onomap(OnolyticsType, GeographicalArea)]
+cc.all[, ethnic5.onomap := collapseto5.onomap.group(group.onomap)]
 
 ## tabulate ONOMAP ethnicity against SMR ethnicity
 table.ethnic <- table(cc.all$ethnic5.onomap, cc.all$ethnic5.smr, exclude=NULL)
@@ -548,12 +544,11 @@ icdcols <- as.integer(grep("^Ch.", colnames(cc.severe)))
 cc.severe[, (icdcols) := lapply(.SD, recode.indicator), .SDcols = icdcols]
 
 cc.severe$num.icdchapters <-
-    rowSums(matrix(as.integer(as.matrix(subset(cc.severe, select=icdcols))),
+    rowSums(matrix(as.integer(as.matrix(cc.severe[, ..icdcols])),
                    nrow=nrow(cc.severe)))
-cc.severe$num.icdchapters.gr <-
-    as.factor(car::recode(cc.severe$num.icdchapters,
+cc.severe[, num.icdchapters.gr := as.factor(car::recode(num.icdchapters,
                           "0='No discharge records'; 1:2='1-2 ICD-10 chapters';
-                           3:hi='3 or more chapters'"))
+                           3:hi='3 or more chapters'"))]
 cc.severe[, num.icdchapters.gr := relevel(num.icdchapters.gr, ref="No discharge records")]
 
 ###########################################
@@ -569,17 +564,16 @@ listed.conditions <- c("dm.type", "IHD.any", "heart.other.any", "oad.any",
 ############ extract predefined disease categories #################
 ## as these are coded as factors, lowest level will be 1
 
-cc.severe$listed.any <-
-    as.factor(as.integer(with(cc.severe,
-                              diabetes.any=="Diabetic" | IHD.any==1 |
-                              heart.other.any==1 |
-                              ckd.any==1 | oad.any==1 |
-                              neuro.any==1 | liver.any==1 | immune.any==1)))
+cc.severe[, listed.any := 
+    as.factor(as.integer(diabetes.any=="Diabetic" | IHD.any==1 |
+                         heart.other.any==1 |
+                         ckd.any==1 | oad.any==1 |
+                         neuro.any==1 | liver.any==1 | immune.any==1))]
 
-cc.severe$diag.other <- as.integer(cc.severe$listed.any==0 & cc.severe$diag.any==1)
-cc.severe$diag.other <- as.factor(car::recode(cc.severe$diag.other,
+cc.severe[, diag.other := as.integer(listed.any==0 & diag.any==1)]
+cc.severe[, diag.other := as.factor(car::recode(diag.other,
                                   "0='Listed condition or no admission';
-                                   1='No listed condition, but other admission diagnosis'"))
+                                   1='No listed condition, but other admission diagnosis'"))]
 
 ####################################################################
 

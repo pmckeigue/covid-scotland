@@ -1,4 +1,24 @@
 
+compare.timewindows <- function(scrips.subset, data, recent.cutoff=120) {
+    ids.recent <- unique(scrips.subset[daysbefore < recent.cutoff + 16, .(ANON_ID)]) 
+    ids.nonrecent <- unique(scrips.subset[daysbefore >= recent.cutoff + 16, .(ANON_ID)])
+    cc.test <- data[, .(ANON_ID, CASE, stratum)]
+    cc.test[, recent := ANON_ID %in% ids.recent$ANON_ID]
+    cc.test[, nonrecent := ANON_ID %in% ids.nonrecent$ANON_ID]
+    cc.test[, exposure.cat := as.integer(recent | nonrecent)]
+    cc.test[recent & !nonrecent, exposure.cat := 2]
+    cc.test[recent & nonrecent, exposure.cat := 3]
+    cc.test[, exposure.cat := as.factor(car::recode(exposure.cat, 
+                               "0='No prescriptions'; 1='Non-recent only';
+                                2='Recent only';
+                                3='Prescriptions in both time windows'"))]
+    cc.test[, exposure.cat := factor(exposure.cat,
+                                     levels=levels(exposure.cat)[c(2, 4, 3, 1)])]
+    freqs <- univariate.tabulate(varnames="exposure.cat", outcome="CASE", data=cc.test, drop.reflevel=FALSE)
+    coeffs <- univariate.clogit(varnames="exposure.cat", outcome="CASE", data=cc.test, add.reflevel=TRUE)
+    return(combine.tables2(freqs, coeffs))
+}
+
 get.timewindow <- function(scrips.in) {
     ## add columns daysbefore, intervalTWday, dispensing.days
     ## the 15-day cutoff has been applied to the scrips table
@@ -59,7 +79,7 @@ antihypertensive.classes <- c("vasodilator_ah6.bnf",
 
 ## for now, just keep id, paragraph code, paragraph_description
 
-scrips$bnf_paragraph_description <- as.factor(scrips$bnf_paragraph_description)
+scrips[, bnf_paragraph_description := as.factor(bnf_paragraph_description)]
 cat("scrips object uses", object.size(scrips) * 1E-6, "MB\n")
 
 ## we have 7 digits on scrips, giving resolution to subpara level only
@@ -78,9 +98,7 @@ scrips[is.na(chapternum), chapternum := 14]
 scrips[chapternum > 14, chapternum := 14] 
 
 if(!old) {
-    
-## separate tables for prescriptions of proton pump, opioids, nonopioids
-
+    ## separate tables for prescriptions of proton pump, opioids, nonopioids
 scrips.protonpump <-
     readRDS(scrips.filename) %>%
     subset(bnf_paragraph_code=="0103050")
@@ -278,16 +296,20 @@ subparas.laporte <-
     c("subpara.103050.Proton pump inhibitors",
       "subpara.102000.Antispasmodic and other drugs altering gut motility",       
       "subpara.304010.Antihistamines",                                    
+
       "subpara.401010.Hypnotics",                                  
       "subpara.401020.Anxiolytics",                                
       "subpara.402010.Antipsychotic drugs",                               
       "subpara.402030.Drugs used for mania and hypomania",                         
+
       "subpara.403010.Tricyclic and related antidepressant drugs",                 
       "subpara.403030.Selective serotonin re-uptake inhibitors",              
       "subpara.403040.Other antidepressant drugs"   ,              
+
       "subpara.406000.Drugs used in nausea and vertigo",             
       "subpara.407020.Opioid analgesics",            
-      "gabapentinoids", #"subpara.408010.Control of epilepsy",           
+      "gabapentinoids",
+      "antiepileptics.other", #"subpara.408010.Control of epilepsy",           
       "subpara.409020.Antimuscarinic drugs used in parkinsonism",
 
       ## mirabegron is not anticholinergic
@@ -296,6 +318,30 @@ subparas.laporte <-
       "subpara.704020.Drugs for urinary frequency enuresis and incontinence",      
       "subpara.1001010.Non-steroidal anti-inflammatory drugs"                     
       )
+
+    ## list of logical vectors to be used as argument to compare.timewindows()
+    subsets.laporte.scrips <- list(
+        ppi = with(scrips, bnf_paragraph_code == "0103050"),
+        antispasm.gi = with(scrips, bnf_paragraph_code == "0102000"),
+        antihist = with(scrips, bnf_paragraph_code == "0304010"),
+
+        hypno = with(scrips, bnf_paragraph_code == "0401010"),
+        anxio = with(scrips, bnf_paragraph_code == "0401020"),
+        antipsych = with(scrips, bnf_paragraph_code == "0402010"),
+        manic = with(scrips, bnf_paragraph_code == "0402030"),
+
+        tricyclic = with(scrips, bnf_paragraph_code == "0403010"),
+        ssri = with(scrips, bnf_paragraph_code == "0403030"),
+        antidepr.other = with(scrips, bnf_paragraph_code == "0403040"),
+
+        nausea = with(scrips, bnf_paragraph_code == "0406000"),
+        opioid = with(scrips, bnf_paragraph_code == "0407020"),
+        gaba = with(scrips, approved_name=="GABAPENTIN" | approved_name=="PREGABALIN"),
+        antiepilep.other = with(scrips, bnf_paragraph_code=="0408010" &
+                                      !(approved_name=="GABAPENTIN" | approved_name=="PREGABALIN")),
+        antispasm.ur = with(scrips, bnf_paragraph_code == "0406000"),
+        nsaid = with(scrips, bnf_paragraph_code == "0406000")
+    )
 
     
 ####### proton pump exposure   ##################
@@ -366,7 +412,7 @@ cc.all[, protonpump.exposurecat := protonpump.exposure.cat]
 
 ## compound opiate exposure
 
-## merge SPECDATE to get days before test and time window
+## merge SPECIMENDATE to get days before test and time window
 scrips.compound.opiates <- get.timewindow(scrips.in=scrips.compound.opiates)
 
 ## calculate oral dose as morphine equivalent
@@ -392,10 +438,9 @@ dose.compound.opiates <- as.data.table(dose.compound.opiates, key="ANON_ID")
 cc.all <- dose.compound.opiates[cc.all]
 
 cc.all[, dose.compound.opiates.daily := coalesce(dose.compound.opiates.daily, 0)]
-
-cc.all$dosegr.compound.opiates <- 5 * ceiling(cc.all$dose.compound.opiates.daily / 5)
-cc.all$dosegr.compound.opiates <- as.factor(car::recode(cc.all$dosegr.compound.opiates,
-                                              "5:10='1-10'; 15:hi='>10'"))
+cc.all[, dosegr.compound.opiates := 5 * ceiling(dose.compound.opiates.daily / 5)]
+cc.all[, dosegr.compound.opiates := as.factor(car::recode(dosegr.compound.opiates,
+                                              "5:10='1-10'; 15:hi='>10'"))]
 cc.all[, dosegr.compound.opiates := factor(dosegr.compound.opiates,
                                            levels=levels(dosegr.compound.opiates)[c(2:4, 1)])]
 table(cc.all$dosegr.compound.opiates)
@@ -438,9 +483,9 @@ cc.all[, dose.opiate.daily := dose.opiate.daily + dose.compound.opiates.daily]
 #####################################################
 
 ## group dose into categories
-cc.all$dosegr.opiate <- 10 * ceiling(cc.all$dose.opiate.daily / 10)
-cc.all$dosegr.opiate <- as.factor(car::recode(cc.all$dosegr.opiate,
-                                              "10:20='1-20'; 30:50='21-50'; 60:hi='>50'"))
+cc.all[, dosegr.opiate := 10 * ceiling(cc.all$dose.opiate.daily / 10)]
+cc.all[, dosegr.opiate := as.factor(car::recode(cc.all$dosegr.opiate,
+                                              "10:20='1-20'; 30:50='21-50'; 60:hi='>50'"))]
 cc.all[, dosegr.opiate := factor(dosegr.opiate,
                                  levels=levels(dosegr.opiate)[c(2:4, 1)])]
 
@@ -453,33 +498,30 @@ cc.all[, `:=`(opiateMME.interval1 = coalesce(opiateMME.interval1, 0),
 opiate.exposure.nonrecent <- as.integer(cc.all$opiateMME.interval2 > 0) 
 opiate.exposure.recent <- as.integer(cc.all$opiateMME.interval1 > 0)
 
-cc.all <- mutate(cc.all, opiate.exposuregr = as.integer(dose.opiate.daily > 0))
+cc.all[, opiate.exposuregr := as.integer(dose.opiate.daily > 0)]
 cc.all[opiate.exposure.nonrecent==1 & opiate.exposure.recent==0, opiate.exposuregr := 1]
 cc.all[opiate.exposure.nonrecent==0 & opiate.exposure.recent==1, opiate.exposuregr := 2]
 cc.all[opiate.exposure.nonrecent==1 & opiate.exposure.recent==1, opiate.exposuregr := 3]
-opiate.exposure.cat <- as.factor(car::recode(cc.all[["opiate.exposuregr"]],
+
+cc.all[, opiate.exposurecat := as.factor(car::recode(cc.all[["opiate.exposuregr"]],
                                "0='No prescriptions'; 1='Non-recent only';
                                 2='Recent only';
-                                3='Prescriptions in both time windows'"))
-opiate.exposure.cat <- factor(opiate.exposure.cat,
-                             levels=levels(opiate.exposure.cat)[c(2, 4, 3, 1)])
+                                3='Prescriptions in both time windows'"))]
+cc.all[, opiate.exposurecat := factor(opiate.exposurecat,
+                             levels=levels(opiate.exposurecat)[c(2, 4, 3, 1)])]
 
-## data.table behaves strangely when type of an existing column is changed
-    cc.all <- mutate(cc.all, opiate.exposurecat = opiate.exposure.cat)
-    
     ids.opioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40702])
-    cc.all$opioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                    ids.opioid.analgesic))
+    cc.all[, opioid.analgesic := as.factor(as.integer(ANON_ID %in%
+                                                    ids.opioid.analgesic))]
     
     ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40701])
-    cc.all$nonopioid.analgesic <- as.factor(as.integer(cc.all$ANON_ID %in%
-                                                       ids.nonopioid.analgesic))
+    cc.all[, nonopioid.analgesic := as.factor(as.integer(ANON_ID %in%
+                                                       ids.nonopioid.analgesic))]
     
     ## this variable must be class integer to be included in numdrugs
-    cc.all <- mutate(cc.all,
-                     anyopiate = as.integer(ANON_ID %in%
-                                            unique(scrips.compound.opiates$ANON_ID) |
-                                            ANON_ID %in% ids.opioid.analgesic))                 
+    cc.all[, anyopiate := as.integer(ANON_ID %in%
+                                     unique(scrips.compound.opiates$ANON_ID) |
+                                     ANON_ID %in% ids.opioid.analgesic)]                 
 }
 
 ########### other drugs of interest coded as binary ####################
@@ -500,8 +542,8 @@ cc.all[, osmotic.laxative := as.factor(as.integer(ANON_ID %in%
                                                   ids.osmotic.laxative))]
 
 ids.anticoagulant.any <-
-    unique(scrips$ANON_ID[scrips$bnf_paragraph_code == "0208010" |
-                          scrips$bnf_paragraph_code == "0208020"])
+    unique(scrips[bnf_paragraph_code == "0208010" |
+                  bnf_paragraph_code == "0208020", ANON_ID])
 cc.all[, anticoagulant.any := as.factor(as.integer(ANON_ID %in%
                                                    ids.anticoagulant.any))]
 
@@ -519,9 +561,17 @@ ids.gabapentinoids <- unique(scrips[approved_name=="GABAPENTIN" |
                                     approved_name=="PREGABALIN", ANON_ID])
 cc.all[, gabapentinoids := as.factor(as.integer(ANON_ID %in% ids.gabapentinoids))]
 
+ids.antiepileptics.other <- unique(scrips[bnf_paragraph_code=="0408010" &
+                                      !(approved_name=="GABAPENTIN" | approved_name=="PREGABALIN"),
+                                          ANON_ID])
+cc.all[, antiepileptics.other := as.factor(as.integer(ANON_ID %in% ids.antiepileptics.other))]
+
 ids.urinary.antispasmodics <- unique(scrips[bnf_paragraph_code=="0704020" & 
                                     approved_name !="MIRABEGRON", ANON_ID])
 cc.all[, urinary.antispasmodics := as.factor(as.integer(ANON_ID %in% ids.urinary.antispasmodics))]
+
+#################################################################
+
 
 ###############################################################
 
@@ -550,8 +600,8 @@ x <- cc.all[,  ..subparacols]
 for(j in 1:ncol(x)) set(x, j=j, value=as.integer(x[[j]]) - 1)
 head(sapply(x[, 1:5], class))
 cc.all[, numdrugs.subpara := rowSums(x)]
-cc.all[, numdrugsgr := 3 * ceiling(cc.all$numdrugs.subpara / 3)]
-cc.all[, numdrugsgr := as.factor(car::recode(cc.all$numdrugsgr,
+cc.all[, numdrugsgr := 3 * ceiling(numdrugs.subpara / 3)]
+cc.all[, numdrugsgr := as.factor(car::recode(numdrugsgr,
                                               "3='1 to 3'; 6='4 to 6'; 9='7 to 9';
                                               12='10 to 12'; 15:hi='>12'"))]
 cc.all[, numdrugsgr := factor(numdrugsgr,
@@ -560,12 +610,24 @@ cc.all[, numdrugsgr := factor(numdrugsgr,
 cardiovasc.subparacols <- grep("^subpara\\.2", names(cc.all))
 x <- cc.all[,  ..cardiovasc.subparacols]
 for(j in names(x)) set(x, j=j, value=as.integer(x[[j]]) - 1) 
-
 cc.all[, numdrugs.cardiovasc := rowSums(x)]
 cc.all[, numdrugs.notcardiovasc := numdrugs.subpara - numdrugs.cardiovasc]
 
+cc.all[, cv.numdrugsgr := 3 * ceiling(numdrugs.cardiovasc / 3)]
+cc.all[, cv.numdrugsgr := as.factor(car::recode(cv.numdrugsgr,
+                                              "3='1 to 3'; 6='4 to 6'; 7:hi='>6'"))]
+cc.all[, cv.numdrugsgr := factor(cv.numdrugsgr,
+                                 levels=levels(cv.numdrugsgr)[c(2:4, 1)])]
+
+cc.all[, notcv.numdrugsgr := 3 * ceiling(numdrugs.notcardiovasc / 3)]
+cc.all[, notcv.numdrugsgr := as.factor(car::recode(notcv.numdrugsgr,
+                                              "3='1 to 3'; 6='4 to 6'; 9='7 to 9';
+                                              12='10 to 12'; 15:hi='>12'"))]
+cc.all[, notcv.numdrugsgr := factor(notcv.numdrugsgr,
+                                    levels=levels(notcv.numdrugsgr)[c(2, 3, 5, 6, 4, 1)])]
+
+print(table(cc.all$notcv.numdrugsgr, cc.all$cv.numdrugsgr))
 
 x <- cc.all[,  ..subparas.laporte]
 for(j in names(x)) set(x, j=j, value=as.integer(x[[j]]) - 1) 
 cc.all[, numdrugs.laporte := rowSums(x)]
-

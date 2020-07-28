@@ -1,5 +1,50 @@
 ## helperfunctions for COVID analyses
 
+
+`clogistLoglike`  <-  function(n,m,x,beta) {
+    ## https://rdrr.io/cran/saws/src/R/clogistLoglike.R
+    ## for computational stability should use matrixStats::logSumExp()
+    ## m is vector of 0-1 indicators of failure
+    ## n is vector of 1s
+    M <- sum(m) 
+    N <- sum(n)
+    if (M==0)  return(0)
+    else if (M==N) return(0)
+    x <- as.matrix(x)
+    eta <-  x %*% beta
+    U <- exp(eta)
+    if (M==1) return(sum(eta*m) - log(sum(U*n)) )
+    if (M > N/2) {
+        ## for efficiency, keep loop part of calculation to minimum
+        ## by switching m and n-m, beta and -beta
+        m <- n - m
+        M <- N - M
+        U <- 1/U
+        eta <-  -eta
+    }
+    if (M==1) return(sum(eta*m) - log(sum(U*n)) )
+    B <- rep(1, N-M+1)
+    u <- rep(NA, N)
+    count <- 1
+    for (a in 1:length(n)){
+        u[count:(count + n[a] - 1)] <- U[a]
+        count <- count + n[a]
+    }
+    ## last 2 lines may be written more 
+    ## clearly (i.e. more like in Gail et al) BUT LESS EFFICIENTLY as:
+                                        #B <- matrix(0,M+1,N+1)
+                                        #B[1,] <- 1
+                                        #for (i in 1:M){
+                                        #for (j in i:(N-M+i)){
+                                        #B[i+1,j+1] <-  B[i+1,j]+u[j]*B[i,j]
+                                        #}
+                                        #} 
+                                        #sum(eta*m) - log(B[M+1,N+1])
+    for (i in 1:(M-1)) B <-  cumsum(B * u[i:(N-M+i)])
+    sum(eta * m) - log(sum(B * u[M:N]))
+}
+
+
 recode.indicator <- function(x) {
     x[is.na(x)] <- 0
     x[x > 1] <- 1
@@ -121,19 +166,9 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                      "lung.cancer",
                                      "other.cancer",
                                      "immune.any",
-                                     "alpha_adrenoreceptor6.bnf",
-                                     "ace6.bnf",
-                                     "angio6.bnf",
-                                     "renin_angiotensin6.bnf",
-                                     "thiazides6.bnf",
-                                     "calcium_channel6.bnf",
-                                     "antihypertensive.other",
-                                     "anticoagulants6.bnf",
-                                     "nsaids6.bnf",
-                                     "lipid_regulating6.bnf",
-                                     "statins6.bnf",
-                                     "hydroxychloroquine6.bnf"
-                                     ),
+                                     "gabapentinoids",
+                                     "antiepileptics.other"
+                                ),
                            longname=c("Age", "Males",
                                       "Death within 28 days of test",
                                       "Any prescription", "Any admission", "Care home",
@@ -165,17 +200,8 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                       "Lung cancer",
                                       "Other cancer",
                                       "Immune deficiency or suppression", 
-                                      "alpha-adrenoreceptor blocker",
-                                      "ACE inhibitor", "Angiotensin-II receptor blocker",
-                                      "ACE or A-IIR inhibitor",
-                                      "Thiazides",
-                                      "Calcium channel blocker",
-                                      "Other antihypertensive",
-                                      "Anticoagulants",
-                                      "Non-steroidal anti-inflammatory drugs",
-                                      "Lipid-regulating agents",
-                                      "Statins",
-                                      "Hydroxychloroquine"
+                                      "Gabapentinoids",
+                                      "Other drugs used for epilepsy"
                                       ))
 
 clean.header <- function(x) {
@@ -225,14 +251,14 @@ univariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE
 
 multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE) {
 
-    nonmissing <- nonmissing.obs(data, varnames)
-    data.selected <- subset(data, subset=nonmissing) %>%
+    # nonmissing <- nonmissing.obs(data, varnames)
+    data.selected <- na.omit(data, cols=varnames) %>%
         select(all_of(outcome), stratum, all_of(varnames))
     multivariate.formula <- as.formula(paste(outcome, "~ . + strata(stratum)"))
     
     multivariate.model <- clogit(formula=multivariate.formula, data=data.selected)
     ## using . to represent all other coeffs gives a coeffs matrix with stratum as first line
-    ## so we have to drop firstb line
+    ## so we have to drop first line
     multivariate.coeffs <- summary(multivariate.model)$coefficients[-1, , drop=FALSE]
     multivariate.table <- NULL
    
@@ -242,29 +268,29 @@ multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FAL
         ## is length(levels) -1 for factor variables
         numrows.i <- 1
         ## set number of rows in multivariate.coeffs for factor variable as num levels -1 
-        if(is.factor(data[nonmissing, ][[varnames[i]]])) {
-            numrows.i <- length(levels(data[nonmissing, ][[varnames[i]]])) - 1
+        if(is.factor(data.selected[[varnames[i]]])) {
+            numrows.i <- length(levels(data.selected[[varnames[i]]])) - 1
         }
        ## if variable is factor with > 2 levels and add.reflevel,
         ## add line for reference level
-        if(is.factor(data[nonmissing, ][[varnames[i]]]) &
-           length(levels(data[nonmissing, ][[varnames[i]]])) > 2 &
+        if(is.factor(data.selected[[varnames[i]]]) &
+           length(levels(data.selected[[varnames[i]]])) > 2 &
            add.reflevel) {
             ## add empty line to multivariate.table
             multivariate.table <- rbind(multivariate.table,
                                         rep(NA, ncol(multivariate.coeffs)))
             ## label this empty line as reference level of factor
             rownames(multivariate.table)[nrow(multivariate.table)] <-
-                levels(data[nonmissing, ][[varnames[i]]])[1]
+                levels(data.selected[[varnames[i]]])[1]
         }
         ## label rows of multivariate.coeffs that will be added
         ## this step is run irrespective of add.reflevel
         ## if variable is factor with >2 levels
-        if(is.factor(data[nonmissing, ][[varnames[i]]]) &
-           length(levels(data[nonmissing, ][[varnames[i]]])) > 2) {
+        if(is.factor(data.selected[[varnames[i]]]) &
+           length(levels(data.selected[[varnames[i]]])) > 2) {
             ## label rows with levels
             rownames(multivariate.coeffs)[1:numrows.i] <-
-                levels(data[nonmissing, ][[varnames[i]]])[-1]
+                levels(data.selected[[varnames[i]]])[-1]
         } else { # if numeric, or factor with 2 levels
             ## label single row with variable name
             rownames(multivariate.coeffs)[1] <- varnames[i]
@@ -441,16 +467,23 @@ tabulate.bnfsubparas <- function(chnum, outcome="CASE", data=cc.severe, minrowsu
     }
 }
 
-tabulate.bnfchemicals <- function(chnum, subpara=NULL, outcome="CASE", data=cc.severe, minrowsum=50) {
+tabulate.bnfchemicals <- function(chnum, subpara=NULL, subpara.exclude=NULL, outcome="CASE", data=cc.severe, minrowsum=50) {
     ## get drug names in wide format,one col per approved_name
     chnum.str <- sprintf("%02d", chnum)
     scrips.chem <- scrips[substr(bnf_paragraph_code, 1, 2)==chnum.str]
     if(!is.null(subpara)) {
         scrips.chem <- scrips.chem[bnf_paragraph_code == subpara]
     }
+    if(!is.null(subpara.exclude)) {
+        scrips.chem <- scrips.chem[bnf_paragraph_code != subpara.exclude]
+    }
     scrips.chem.wide <- data.table::dcast(scrips.chem,
                                          ANON_ID ~ approved_name, fun.aggregate=length,
                                          value.var="approved_name")
+
+    subpara.chem <- unique(scrips.chem[, .(approved_name, bnf_paragraph_code)])
+    setkey(subpara.chem, bnf_paragraph_code) 
+    setcolorder(scrips.chem.wide, subpara.chem[, approved_name])
     
     ## drop rare chemicalgraphcodes
     cols.keep <- c(TRUE, colSums(scrips.chem.wide)[-1] >= 20)
@@ -499,18 +532,14 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
                                               as.integer(colnames(diagnoses.ch.wide)[-1]))
     ## drop rare subchapters
     diagnoses.ch.wide <- subset(diagnoses.ch.wide, select=colSums(diagnoses.ch.wide) > 10) # drop=FALSE]
-    
+
+    diagnoses.ch.wide <- as.data.table(diagnoses.ch.wide, key="ANON_ID")
     if(ncol(diagnoses.ch.wide) > 1) {
-        cc.icd.ch <- merge(data[, c("ANON_ID", "CASE", "stratum")],
-                           diagnoses.ch.wide,
-                           by="ANON_ID", all.x=TRUE)
-        ## now fix colnames and set missing to 0
-        icdcols <- grep("^subCh.", colnames(cc.icd.ch))
-        for(j in icdcols) {
-            cc.icd.ch[[j]][is.na(cc.icd.ch[[j]])] <- 0
-            cc.icd.ch[[j]][cc.icd.ch[[j]] > 1] <- 1
-            cc.icd.ch[[j]] <- as.factor(cc.icd.ch[[j]])
-        }
+        cc.icd.ch <- diagnoses.ch.wide[data[, c("ANON_ID", "CASE", "stratum")]]
+
+        ## set missing to 0
+        icdcols <- as.integer(grep("^subCh.", colnames(cc.icd.ch)))
+        cc.icd.ch[, (icdcols) := lapply(.SD, recode.indicator), .SDcols = icdcols]
         
         icd.ch <- colnames(cc.icd.ch)[icdcols]
         ## FIXME: this function should be fixed to drop rows with small numbers

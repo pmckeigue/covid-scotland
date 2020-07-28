@@ -100,13 +100,19 @@ cc.severe$immune.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.immune.a
 
 ############# neoplasms ################
 
-ids.icd.neoplasm <- unique(diagnoses$ANON_ID[grep("^C[0-9]|^D[0-4]", diagnoses$ICD10)])
-ids.bnf.neoplasm <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 801])
-ids.neoplasm.any <- unique(c(ids.icd.neoplasm, ids.bnf.neoplasm))
+ids.icd.neoplasm <- unique(diagnoses[grepl("^C[0-9]|^D[0-4]", ICD10), ANON_ID])
 
-cc.severe <- mutate(cc.severe,
-                    neoplasm.any = as.factor(as.integer(ANON_ID %in% ids.neoplasm.any |
-                                             can.reg==1)))
+ids.icd.neoplasm.lastyear <-
+    unique(diagnoses[as.integer(SPECIMENDATE - DISCHARGE_DATE) + 25 > 365 &
+                     grepl("^C[0-9]|^D[0-4]", ICD10), ANON_ID])
+ids.bnf.neoplasm <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 801])
+
+ids.neoplasm.any <- unique(c(ids.icd.neoplasm, ids.bnf.neoplasm))
+ids.neoplasm.lastyear <- unique(c(ids.icd.neoplasm.lastyear, ids.bnf.neoplasm))
+                                
+cc.severe[, neoplasm.any := as.factor(as.integer(ANON_ID %in% ids.neoplasm.any |
+                                             can.reg==1))]
+cc.severe[, neoplasm.lastyear := as.factor(as.integer(ANON_ID %in% ids.neoplasm.lastyear))]
 
 ###### disorders of esophagus, stomach and duodenum ############################
 

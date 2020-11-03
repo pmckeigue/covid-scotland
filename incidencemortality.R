@@ -96,21 +96,25 @@ get.covidage <- function(popmodel, sex, logitrisk) {
     ## popmodel has columns sex, age, logit
     N <- length(sex)
     covidage <- numeric(N)
-    model.m <- subset(popmodel, sex="Males")
-    model.f <- subset(popmodel, sex="Females")
-    covidage[sex=="Males"] <- approx(x=model.m$logit,  y=model.m$age, xout=logitrisk)
-    covidage[sex=="Females"] <- approx(x=model.f$logit,  y=model.f$age, xout=logitrisk)
-    return(covidage$y)
+    model.m <- subset(popmodel, sex=="Males")
+    model.f <- subset(popmodel, sex=="Females")
+    covidage[sex=="Males"] <- with(model.m, approx(x=logit,  y=age, xout=logitrisk)$y)
+    covidage[sex=="Females"] <- with(model.f, approx(x=logit,  y=age, xout=logitrisk)$y)
+    covidage[logitrisk < min(popmodel$logit)] <- 0
+    covidage[logitrisk > max(popmodel$logit)] <- max(popmodel$age)
+    return(covidage)
 }
 
 getlogitrisk <- function(popmodel, sex, age) {
     ## get logit risk given sex and age, from population model
+    age.xout <- age
     N <- length(age)
     logitrisk <- numeric(N)
-    model.m <- subset(popmodel, sex="Males")
-    model.f <- subset(popmodel, sex="Females")
-    logitrisk[sex=="Males"] <- approx(x=model.m$age,  y=model.m$logit, xout=age)
-    logitrisk[sex=="Females"] <- approx(x=model.f$age,  y=model.f$logit, xout=age)
+    model.m <- subset(popmodel, sex=="Males")
+    model.f <- subset(popmodel, sex=="Females")
+    logitrisk[sex=="Males"] <- with(model.m, approx(x=model.m$age,  y=logit, xout=age.xout)$y)
+    logitrisk[sex=="Females"] <- with(model.f, approx(x=model.f$age,  y=logit,
+                                                      xout=age.xout)$y)
     return(logitrisk)
 }
 

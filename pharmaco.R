@@ -108,6 +108,7 @@ for(col in subparacols) {
     if(nrow(freqs.cc) > 1 & ncol(freqs.cc) > 1) {
         if(sum(freqs.cc[2, ]) >= 50) { # if at least 20 in row
             coeffs <- summary(clogit(formula=y ~ x + strata(stratum)))$coefficients
+            print(coeffs)
             if(coeffs[1, 5] < 0.001) {
                 subpara.coeffs <- rbind(subpara.coeffs,
                                         data.frame(subpara=colnames(cc.severe)[col],
@@ -492,8 +493,32 @@ coeff.hydroxychlor.adjusted <- summary(clogit(formula=CASE ~ hydroxychloroquine 
 
 table.laporte <- tabulate.freqs.regressions(varnames=c("SIMD.quintile", subparas.laporte),
                                             data=cc.severe[care.home=="Independent"])
-
 rownames(table.laporte) <- gsub("^subpara\\.", "", rownames(table.laporte))
+varnames=c("SIMD.quintile", subparas.laporte)
+cc.laporte <- cc.severe[care.home=="Independent"] %>%
+        select(CASE, stratum, all_of(varnames)) %>% na.omit()
+
+laporte.formula <- as.formula(CASE ~ . + strata(stratum))
+laporte.model <- clogit(formula=laporte.formula, data=cc.laporte)
+
+recode.as0 <- function(x) {
+    x[x=="1"] <- "0"
+    return(x)
+}
+
+cc.nodrugs <- copy(cc.laporte)
+cc.nodrugs[, (subparas.laporte) := lapply(.SD, recode.as0),
+           .SDcols=subparas.laporte]
+laporte.matrix <-  model.matrix(laporte.formula, cc.laporte)
+nodrugs.matrix <- model.matrix(laporte.formula, cc.nodrugs)
+keep.cols <- grep("stratum", colnames(laporte.matrix), invert=TRUE)[-1]
+laporte.matrix <- laporte.matrix[, keep.cols]
+nodrugs.matrix <- nodrugs.matrix[, keep.cols]
+coeffs.matrix <- matrix(laporte.model$coefficients[-1], ncol=1)
+lp.laporte  <- laporte.matrix %*% coeffs.matrix
+lp.nodrugs  <- nodrugs.matrix %*% coeffs.matrix
+mean.oddsratio <- mean(exp(lp.laporte - lp.nodrugs))
+aetiologic.fraction <- (mean.oddsratio - 1) / mean.oddsratio
 
 ###############################################################
 nocare.drugfreqs <-

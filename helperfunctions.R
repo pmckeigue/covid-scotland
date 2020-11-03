@@ -211,23 +211,36 @@ clean.header <- function(x) {
 }
 
 tabulate.freqs.regressions <- function(varnames, outcome="CASE", data) {
-    ## FIXME: first run should identify sparse variables to be dropped from varnames
+    ## table freqs should identify sparse variables to be dropped from varnames
     table.freqs <- univariate.tabulate(varnames=varnames, outcome=outcome, data=data,
-                                       drop.reflevel=FALSE, drop.sparserows=FALSE)
+                                       drop.reflevel=FALSE, drop.sparserows=FALSE,
+                                       minrowsum=10)
+
+    ## table freqs will drop rows that do not have at least one non-reference
+    ## row with total >= minrowsume
+    ## problem is to fix univariate.clogit so that it does not return an error
+    ## when clogit returns infinite rate ratio.   
     univariate.table <-
-        univariate.clogit(varnames=varnames, outcome=outcome, data=data, add.reflevel=TRUE)
+        univariate.clogit(varnames=varnames,
+                          outcome=outcome, data=data, add.reflevel=TRUE)
     multivariate.table <-
-        multivariate.clogit(varnames=varnames, outcome=outcome, data=data, add.reflevel=TRUE)
+        multivariate.clogit(varnames=varnames,
+                            outcome=outcome, data=data, add.reflevel=TRUE)
     table.aug <- combine.tables3(table.freqs, univariate.table, multivariate.table)
+    
     rownames(table.aug) <- replace.names(rownames(table.aug))
-   return(table.aug)
-}   
+    return(table.aug)
+}
+
+# tabulate.freqs.regressions(varnames=demog, data=cc.severe)
 
 univariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE) {
     univariate.table <- NULL
     for(i in 1:length(varnames)) {
         xvar <- data[[varnames[i]]]
-        if(length(table(xvar)) > 1) {
+        ## compute regression only if min count of 5 for one of 2 levels, or > 2 levels
+        xtab <- table(xvar)
+        if(length(xtab) > 2  | length(xtab) == 2 & min(xtab) >=5) {
             univariate.formula <-
                 as.formula(paste(outcome, "~ xvar + strata(stratum)"))
             x <- summary(clogit(formula=univariate.formula, data=data))$coefficients
@@ -651,7 +664,7 @@ or.ci <- function(coeff, se, ndigits=2) {
 }
 
 univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TRUE,
-                                drop.sparserows=FALSE, minrowsum=10) {
+                                drop.sparserows=FALSE, minrowsum=10, digits=0) {
     outcomevar <- data[[outcome]]
     table.varnames <- NULL
     for(i in 1:length(varnames)) {
@@ -669,7 +682,7 @@ univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TR
             x <- table(z, outcomevar)
             ## keep if at least one factor level has row sum >= minrowsum
             keep.x <- !any(rowSums(x) < minrowsum)
-            x <- paste.colpercent(x)
+            x <- paste.colpercent(x, digits=digits)
             ## rownames are labelled with levels(varname)
             ## if two levels OR drop.reference level, drop reference level
             ## if single row left, label rows with varname

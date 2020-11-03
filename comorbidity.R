@@ -105,6 +105,7 @@ ids.icd.neoplasm <- unique(diagnoses[grepl("^C[0-9]|^D[0-4]", ICD10), ANON_ID])
 ids.icd.neoplasm.lastyear <-
     unique(diagnoses[as.integer(SPECIMENDATE - DISCHARGE_DATE) + 25 > 365 &
                      grepl("^C[0-9]|^D[0-4]", ICD10), ANON_ID])
+
 ids.bnf.neoplasm <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 801])
 
 ids.neoplasm.any <- unique(c(ids.icd.neoplasm, ids.bnf.neoplasm))

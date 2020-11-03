@@ -2,7 +2,7 @@
 
 ########### variable lists for tabulating
 
-demog <- c("ethnic3.onomap", "SIMD.quintile", "care.home")
+# demog <- c("ethnic3.onomap", "SIMD.quintile", "care.home")
 
 demog.smr <- c("ethnic4.smr", "SIMD.quintile", "care.home")
 
@@ -14,10 +14,10 @@ varnames.listedpluscovs <- c("care.home", "scrip.any", "diag.any", listed.condit
 bnfcols <- grep("^BNF", colnames(cc.severe))
 bnf.chapternames <- colnames(cc.severe)[bnfcols]
 
-icdcols <- grep("^Ch.", colnames(cc.severe))
+icdcols <- grep("^Ch\\.", colnames(cc.severe))
 icd.chapternames <- colnames(cc.severe)[icdcols]
 
-full.varnames <- c(demog, listed.conditions,
+full.varnames <- c(demog.smr, listed.conditions,
                    "diag.any", icd.chapternames, "scrip.any", bnf.chapternames)
 
 ## logical vectors for subsetting
@@ -35,10 +35,8 @@ table.casegr <- univariate.tabulate(outcome="severe.casegr",
 rownames(table.casegr) <- replace.names(rownames(table.casegr))
 rownames(table.casegr)[1] <- "Age [median (IQR)]"
 
-
 ##############################################
-table.severe.demog <- tabulate.freqs.regressions(varnames=demog,
-                                                 data=cc.severe)
+# table.severe.demog <- tabulate.freqs.regressions(varnames=demog, data=cc.severe)
 
 table.scripordiag <- NULL
 for(agegr in levels(cc.severe$agegr20)) {
@@ -106,7 +104,7 @@ table.agegr.all <- tabulate.freqs.regressions(varnames=varnames.listedpluscovs,
                                               data=cc.severe)
 cat("demographic vars ... ")
 ## demographic vars
-table.demog.aug <- tabulate.freqs.regressions(varnames=demog, data=cc.severe)
+#table.demog.aug <- tabulate.freqs.regressions(varnames=demog, data=cc.severe)
 
 ## separate analysis using SMR ethnicity 
 table.ethnicsmr <- univariate.tabulate(varnames="ethnic4.smr", outcome="CASE",
@@ -143,20 +141,35 @@ cat("done\n")
 
 cat("Tabulating ICD subchapter diagnoses ...")
 ## tabulate subchapters in ICD chapters of interest
-table.icdchapter2 <- tabulate.icdchapter(chnum=2, data=cc.severe[notlisted, ])
-table.icdchapter7 <-  tabulate.icdchapter(chnum=7, data=cc.severe[notlisted, ])
-table.icdchapter11 <- tabulate.icdchapter(chnum=11, data=cc.severe[notlisted, ])
+table.icdchapter2 <-
+    tabulate.freqs.regressions(varnames=grep("^Ch_II:",
+                                             colnames(cc.severe), value=TRUE),
+                               data=cc.severe[notlisted, ])
 
-## table icdsubchapters shown in paper 1
-table.icdsubchapters <- NULL
-for(i in 1:20) {
-    table.icdsubchapters <-
-        rbind(table.icdsubchapters,
-              tabulate.icdchapter(chnum=i, data=cc.severe[notlisted, ], minrowsum=50))
-}
+table.icdchapter7 <-
+    tabulate.freqs.regressions(varnames=grep("^Ch_VII:",
+                                             colnames(cc.severe),
+                                             value=TRUE),
+                               data=cc.severe[notlisted, ])
 
-#table.icdsubchapters <- table.icdsubchapters[grep("ensuremath",
-#                                                  table.icdsubchapters$u.pvalue), ]
+table.icdchapter11 <-
+    tabulate.freqs.regressions(varnames=grep("^Ch_XI:",
+                                             colnames(cc.severe),
+                                             value=TRUE),
+                               data=cc.severe[notlisted, ])
+
+icd.subchapternames <- grep("^Ch_", names(cc.severe), value=TRUE)
+subchapters.freqs <- univariate.tabulate(varnames=icd.subchapternames, outcome="CASE",
+                                         data=cc.severe[notlisted],
+                                         drop.reflevel=FALSE, drop.sparserows=FALSE)
+keep.subchapters <- rowSums(matrix(as.integer(gsub(" .+", "", subchapters.freqs)),
+                                   ncol=2)) > 50
+subchapters.freqs <- subchapters.freqs[keep.subchapters, ]
+subchapters.clogit <- univariate.clogit(varnames=icd.subchapternames[keep.subchapters],
+                                        outcome="CASE",
+                                        data=cc.severe[notlisted], add.reflevel=TRUE)
+table.icdsubchapters <- combine.tables2(subchapters.freqs, subchapters.clogit)
+
 cat("done\n")
 
 #########################################################################
@@ -164,8 +177,6 @@ cat("done\n")
 ## drugs 
 table.drugs.aug <- tabulate.freqs.regressions(varnames=bnf.chapternames, 
                                               data=cc.severe[notlisted, ])
-
-#############################################################################
 
 ################################################################
 

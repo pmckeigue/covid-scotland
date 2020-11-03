@@ -61,7 +61,6 @@ drugvars <- c("bnf_paragraph_code", "bnf_paragraph_description",
               "item_code", "approved_name")
 
 ##############################################################
-
 if(FALSE) { # coding antihypertensives
 antihypertensive.classes <- c("vasodilator_ah6.bnf", 
                               "centrally_acting_ah6.bnf",  
@@ -74,7 +73,6 @@ antihypertensive.classes <- c("vasodilator_ah6.bnf",
                               "calcium_channel6.bnf")
 ## first three classes are rarely prescribed
 }
-
 #################### add fields to scrips ########################################
 
 ## for now, just keep id, paragraph code, paragraph_description
@@ -97,8 +95,7 @@ scrips[, paracode := as.integer(substr(bnf_paragraph_code, 1, 6))]
 scrips[is.na(chapternum), chapternum := 14]
 scrips[chapternum > 14, chapternum := 14] 
 
-if(!old) {
-    ## separate tables for prescriptions of proton pump, opioids, nonopioids
+## separate tables for prescriptions of proton pump, opioids, nonopioids
 scrips.protonpump <-
     readRDS(scrips.filename) %>%
     subset(bnf_paragraph_code=="0103050")
@@ -183,7 +180,6 @@ Nalbuphine hydrochloride
 "
 
 ## https://fpm.ac.uk/opioids-aware-structured-approach-opioid-prescribing/dose-equivalents-and-changing-opioids
-
 scrips.opiates.names$factor.oral <- NA
 scrips.opiates.names$factor.oral[scrips.opiates.names$approved_name=="CODEINE PHOSPHATE"] <- 0.1
 scrips.opiates.names$factor.oral[scrips.opiates.names$approved_name=="DIAMORPHINE HYDROCHLORIDE"] <- 3
@@ -216,44 +212,43 @@ scrips.opioid[scrips.opioid$approved_name=="PARACETAMOL WITH TRAMADOL HYDROCHLOR
 ## transdermal fentanyl: assume patch strength 50 microgram/h changed every 3 days, frequency not given, equivalent to 180 mg/day morphine
 ## so conversion factor is 1 patch = 180 * 3
 
-    scrips.opiates.names$factor.patch <- NA
-    scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="BUPRENORPHINE"] <- 24 * 7
+scrips.opiates.names$factor.patch <- NA
+scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="BUPRENORPHINE"] <- 24 * 7
 scrips.opiates.names$factor.patch[scrips.opiates.names$approved_name=="FENTANYL"] <- 180 * 3
 
-    scrips.opioid <- merge(scrips.opioid,
+scrips.opioid <- merge(scrips.opioid,
                        subset(scrips.opiates.names,
                               select=c("approved_name", "factor.oral", "factor.patch")),
                        by="approved_name", all.x=TRUE)
 
 ##### compound opiates  #######################################################
 
-    nonopiates.orcompound <-  subset(bnfchemicalcodes, subset=subparacode==407010)
-    nonopiates.orcompound <-
-        nonopiates.orcompound[!duplicated(nonopiates.orcompound$chemicalname), ]
-    compound.opiates <-
-        as.data.frame(subset(nonopiates.orcompound,
+nonopiates.orcompound <-  subset(bnfchemicalcodes, subset=subparacode==407010)
+nonopiates.orcompound <-
+    nonopiates.orcompound[!duplicated(nonopiates.orcompound$chemicalname), ]
+compound.opiates <-
+    as.data.frame(subset(nonopiates.orcompound,
                          subset=substr(chemicalcode, 8, 9) %in%
                              c("A0", "F0", "M0", "N0", "Q0")))
-    nonopiates <-
-        as.data.frame(subset(nonopiates.orcompound,
+nonopiates <-
+    as.data.frame(subset(nonopiates.orcompound,
                              subset=!(substr(chemicalcode, 8, 9) %in%
                                       c("A0", "F0", "M0", "N0", "Q0"))))
-    scrips.compound.opiates <-
-        readRDS(scrips.filename) %>%
-        subset(bnf_paragraph_code=="0407010") %>% 
-        subset(substring(bnf_item_code, 1, 9) %in% compound.opiates$chemicalcode)
+scrips.compound.opiates <- readRDS(scrips.filename) %>%
+    subset(bnf_paragraph_code=="0407010") %>% 
+    subset(substring(bnf_item_code, 1, 9) %in% compound.opiates$chemicalcode)
 
-    scrips.nonopiates <-
-        readRDS(scrips.filename) %>%
-        subset(bnf_paragraph_code=="0407010") %>% 
-        subset(!(substring(bnf_item_code, 1, 9) %in% compound.opiates$chemicalcode))
-    
-    scrips.compound.opiates <- as.data.table(scrips.compound.opiates)
-    scrips.compound.opiates <-
-        subset(scrips.compound.opiates,
+scrips.nonopiates <-
+    readRDS(scrips.filename) %>%
+    subset(bnf_paragraph_code=="0407010") %>% 
+    subset(!(substring(bnf_item_code, 1, 9) %in% compound.opiates$chemicalcode))
+
+scrips.compound.opiates <- as.data.table(scrips.compound.opiates)
+scrips.compound.opiates <-
+    subset(scrips.compound.opiates,
                subset=scrips.compound.opiates$approved_name %in%
                    names(table(scrips.compound.opiates$approved_name))[2:4])
-    
+
 item.desc <- subset(scrips.compound.opiates, approved_name=="CO-DYDRAMOL",
                     select="bnf_item_description") %>% table() %>% names()
      
@@ -320,7 +315,7 @@ subparas.laporte <-
       )
 
     ## list of logical vectors to be used as argument to compare.timewindows()
-    subsets.laporte.scrips <- list(
+subsets.laporte.scrips <- list(
         ppi = with(scrips, bnf_paragraph_code == "0103050"),
         antispasm.gi = with(scrips, bnf_paragraph_code == "0102000"),
         antihist = with(scrips, bnf_paragraph_code == "0304010"),
@@ -343,7 +338,6 @@ subparas.laporte <-
         nsaid = with(scrips, bnf_paragraph_code == "0406000")
     )
 
-    
 ####### proton pump exposure   ##################
 
 scrips.protonpump <- get.timewindow(scrips.in=scrips.protonpump)
@@ -391,7 +385,7 @@ cc.all <- doseTWday.protonpump.wide[cc.all]
 
 cc.all[, `:=`(DDD.interval1 = coalesce(DDD.interval1, 0),
               DDD.interval2 = coalesce(DDD.interval2, 0))]
-           
+
 protonpump.exposure.nonrecent <- as.integer(cc.all$DDD.interval2 > 0)
 protonpump.exposure.recent <- as.integer(cc.all$DDD.interval1 > 0)
 
@@ -508,21 +502,21 @@ cc.all[, opiate.exposurecat := as.factor(car::recode(cc.all[["opiate.exposuregr"
                                 2='Recent only';
                                 3='Prescriptions in both time windows'"))]
 cc.all[, opiate.exposurecat := factor(opiate.exposurecat,
-                             levels=levels(opiate.exposurecat)[c(2, 4, 3, 1)])]
+                                      levels=levels(opiate.exposurecat)[c(2, 4, 3, 1)])]
 
-    ids.opioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40702])
-    cc.all[, opioid.analgesic := as.factor(as.integer(ANON_ID %in%
-                                                    ids.opioid.analgesic))]
-    
-    ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40701])
-    cc.all[, nonopioid.analgesic := as.factor(as.integer(ANON_ID %in%
-                                                       ids.nonopioid.analgesic))]
-    
-    ## this variable must be class integer to be included in numdrugs
-    cc.all[, anyopiate := as.integer(ANON_ID %in%
-                                     unique(scrips.compound.opiates$ANON_ID) |
-                                     ANON_ID %in% ids.opioid.analgesic)]                 
-}
+ids.opioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40702])
+cc.all[, opioid.analgesic := as.factor(as.integer(ANON_ID %in%
+                                                      ids.opioid.analgesic))]
+
+ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40701])
+cc.all[, nonopioid.analgesic := as.factor(as.integer(ANON_ID %in%
+                                                         ids.nonopioid.analgesic))]
+
+## this variable must be class integer to be included in numdrugs
+cc.all[, anyopiate := as.integer(ANON_ID %in%
+                                 unique(scrips.compound.opiates$ANON_ID) |
+                                 ANON_ID %in% ids.opioid.analgesic)]                 
+
 
 ########### other drugs of interest coded as binary ####################
 
@@ -569,8 +563,6 @@ cc.all[, antiepileptics.other := as.factor(as.integer(ANON_ID %in% ids.antiepile
 ids.urinary.antispasmodics <- unique(scrips[bnf_paragraph_code=="0704020" & 
                                     approved_name !="MIRABEGRON", ANON_ID])
 cc.all[, urinary.antispasmodics := as.factor(as.integer(ANON_ID %in% ids.urinary.antispasmodics))]
-
-#################################################################
 
 
 ###############################################################

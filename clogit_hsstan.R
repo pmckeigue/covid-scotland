@@ -11,7 +11,7 @@ newrun <- TRUE
 cc.severe <- as.data.table(readRDS("data/cc.severe.rds"))
 
 drugclasses <-  grep("^subpara\\.", colnames(cc.severe), value=TRUE)
-## restrict to subparas with at least 50 exposed
+## restrict to BNF subparas with at least 50 exposed
 keep.drugclasses <- logical(length(drugclasses))
 for(j in 1:length(keep.drugclasses)) {
     x <- length(which(cc.severe[[drugclasses[j]]]=="1"))
@@ -21,10 +21,19 @@ for(j in 1:length(keep.drugclasses)) {
 }
 drugclasses <- drugclasses[keep.drugclasses]
 
+subchapters <- grep("^Ch_", colnames(cc.severe), value=TRUE)
+## restrict to ICD subchapters with at least 50 exposed
+keep.subchapters <- logical(length(subchapters))
+for(j in 1:length(keep.subchapters)) {
+    x <- length(which(cc.severe[[subchapters[j]]]=="1"))
+    if(x >= 50) {
+        keep.subchapters[j] <- TRUE
+    }
+}
+subchapters <- subchapters[keep.subchapters]
+
 ## restrict to fatal cases + matched controls, and complete data on covariates
-select.cols <- c("CASE", "stratum", "care.home",
-                 grep("^Ch\\.", colnames(cc.severe), value=TRUE),
-                 drugclasses)
+select.cols <- c("CASE", "stratum", "care.home", subchapters, drugclasses)
 
 cc.nonmissing <- na.omit(cc.severe[fatal.casegroup==1, ..select.cols], cols=select.cols)
 rm(cc.severe)
@@ -40,13 +49,16 @@ cc.nonmissing[, stratum := as.integer(as.factor(as.integer(stratum)))]
 setkey(cc.nonmissing, stratum)
 
 ## clean up column names
+## surrounding names with backticks returns error later when backticks are stripped out
+# colnames(cc.nonmissing) <- paste0("`", colnames(cc.nonmissing), "`")
 
-colnames(cc.nonmissing) <- gsub("(/|,| |-|\\(|\\))", "_", colnames(cc.nonmissing))
+colnames(cc.nonmissing) <- gsub("[ ,':()/]|\\-|\\[|\\]", "_", colnames(cc.nonmissing))
+#colnames(cc.nonmissing) <- gsub("-", "_", colnames(cc.nonmissing))
 
 print(colnames(cc.nonmissing))
 
 ## rename covariates
-colnames(cc.nonmissing)[1:2] <- c("y", "stratum")
+colnames(cc.nonmissing)[1:3] <- c("y", "stratum", "care.home")
 covariate.names <- colnames(cc.nonmissing)[-(1:2)]
 
 ## convert all columns to numeric
@@ -57,6 +69,7 @@ cc.nonmissing[, (covariate.names) := lapply(.SD, scale), .SDcols=covariate.names
 
 covs.model <- as.formula(paste("y ~",
                                paste(covariate.names[1], collapse=" + ")))
+## removes backticks
 
 penalized <- covariate.names[-1]
 iter <- 1200
@@ -92,11 +105,11 @@ sel.vars <- projsel(hs.clogit, start.from=c("care.home"))
 gc()
 
 print(sel.vars, digits=4)
+save(sel.vars, file=paste0("projsel_", length(covariate.names), "_covariates.RData"))
 
 pdf("plot_projsel.pdf")
  plot.projsel(sel.vars, covariates.from=FALSE)
 dev.off()
-
 
                                      #  
 ## for an online app, we want easy to use variables
@@ -104,7 +117,6 @@ dev.off()
 ## diagnoses of each listed condition++++
 ## up to 10 drug classes
 ## up to 10 extra hospital diagnoses
-## household size
 
 ## for a PHS algo, we can use any variables accessible to PHS
 

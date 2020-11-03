@@ -1,0 +1,348 @@
+---
+title: "Risk of COVID-19 in clinically extremely vulnerable individuals advised to shield during the epidemic: the REACT-SCOT case-control study" 
+author:
+  - name: Paul M McKeigue
+    affiliation: "HPS,Usher"
+  - name: David Caldwell 
+    affiliation: HPS
+  - name: Ciara Gribben
+    affiliation: HPS
+  - name: Jen Bishop
+    affiliation: HPS
+  - name: Matthew Armstrong
+    affiliation: HPS
+  - name: Joke Delvaux
+    affiliation: HPS
+  - name: Sharon Hutchinson 
+    affiliation: GCU
+  - name: David McAllister 
+    affiliation: Glasgow  
+  - name: Chris Robertson 
+    affiliation: Strathclyde
+  - name: Nazir Lone
+    affiliation: Usher
+  - name: Janet Murray
+    affiliation: HPS 
+  - name: Jim McMenamin  
+    affiliation: HPS
+  - name: Alison Smith-Palmer 
+    affiliation: HPS
+  - name: David Goldberg
+    affiliation: HPS
+  - name: Helen M Colhoun
+    affiliation: "HPS,IGMM,NHSFife"
+  - name: Public Health Scotland COVID  -19 Health Protection Study Group
+    affiliation: HPS
+
+address: 
+- code: IGMM
+  address: Institute of Genetics and Molecular Medicine, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland. HC - AXA Chair in Medical Informatics and Epidemiology
+- code: Usher
+  address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland. PM - Professor of Genetic Epidemiology and Statistical Genetics. NL - Clinical Senior Lecturer in Critical Care  
+- code: HPS
+  address: Health Protection Scotland (Public Health Scotland), Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+- code: Glasgow
+  address: Institute of Health and Wellbeing, University of Glasgow, 1 Lilybank Gardens, Glasgow G12 8RZ. DM - Senior Clinical Lecturer in Public Health 
+- code: Strathclyde
+  address: Department of Mathematics and Statistics, University of Strathclyde, 16 Richmond Street, Glasgow G1 1XQ. CR - Professor of Public Health Epidemiology
+- code: GCU
+  address: School of Health and Life Sciences, Glasgow Caledonian University. SH - Professor of Epidemiology and Population Health 
+- code: ISD
+  address: Information Services Division, NHS Scotland, UK
+
+
+header-includes:
+  \usepackage{newunicodechar}
+  \DeclareUnicodeCharacter{039B}{\ensuremath{\mit\Lambda}}
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{geometry}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \usepackage{array}
+  \usepackage{threeparttable}
+  \usepackage{longtable}
+  \usepackage{lscape}
+  \usepackage{pdfpages}
+  \usepackage[nolists, nomarkers]{endfloat}
+
+always_allow_html: true
+urlcolor: blue
+output:
+      bookdown::pdf_book:  
+        base_format: rticles::elsevier_article
+        keep_tex: true
+        fig_caption: yes
+
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+        
+bibliography: ./covid.bib
+csl: ./biomed-central.csl
+linenumbers: false
+linkcolor: cyan
+
+---
+
+Prepared for the Shielding Policy Evaluation team and the Clinical Leads for Shielding Group (CLAGS) 
+
+Correspondence: Professor Helen Colhoun 07791652665/ helen.colhoun@igmm.ed.ac.uk
+
+
+```{r functions, echo=FALSE}
+library(knitr)
+library(kableExtra)
+library(bookdown)
+
+options(knitr.kable.NA = '')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+source("helperfunctions.R")
+
+# rmarkdown::render("shielding.Rmd", output_file="shielding.pdf")
+
+```
+
+# Background  
+The SARS-CoV-2 pandemic reached Scotland in early 2020 with the first positive laboratory test being recorded on March 1st. Extreme social distancing measures were soon imposed, as in many other countries, with subsequent relaxation now that the effective reproduction number of cases is below 1. The overall policy is one of suppression and if monitoring indicates a second wave of COVID-19, more stringent measures are likely to be be re-imposed.
+
+Early in the epidemic it was realised that certain people would likely be extremely vulnerable to severe COVID-19 disease including those receiving certain immunosuppressant drugs or with other conditions.  Therefore Public Health Scotland  instituted a process of identifying such persons through their primary care physician and through searching of administrative databases  (see appendix for full protocol). Those considered eligible then received a letter detailing the need for self isolation and the support they would receive to achieve this. These letters were sent out over several weeks between xx-and xx. 
+
+An initial survey of ~12000 shielding eligible persons indicates that in general some degree of compliance was high but often partial and it varied across different socio-demographic groups.
+
+Here we take the original listing of ~ 180,228 persons deemed eligible for shielding at the outset of the epidemic. We examine the cumulative incidence of any evidence of COVID-19 and any serious COVID-19. using a case control design of all serious COVID-19 cases and age and sex matched controls in Scotland we examine the odds of disease associated with being shielding eligible. We explore whether there is any evidence that shielding reduced risks in these persons.
+
+Using data from the period in which shielding was then stopped ( 1 August 2020) and the next instruction issued to take extra  precautions we examine the number of cases that have occurred.  
+
+# Methods
+The design of the REACT-SCOT case-control study has been described in detail elsewhere [@mckeigue_rapid_2020-1].  
+
+## Ascertainment of eligibility for shielding 
+
+To identify  all those nationally deemed eligible for shielding we took the list generated by PHS at the outset of the epidemic (see https://hpspubsrepo.blob.core.windows.net/hps-website/nss/3008/documents/1_covid-19-search-criteria-highest-risk-patients.pdf  for details) .  
+
+In brief the following groups were identified
+
+* Solid organ transplant recipients
+
+* People with specific cancers
+
+* People with severe respiratory conditions: cystic fibrosis, severe asthma, severe chronic obstructive airway disease, on home oxygen, severe bronchiectasis, pulmonary hypertension)
+
+* People with rare diseases 
+
+* People on immunosuppression therapies
+
+* People who are pregnant with significant heart disease, congenital or acquired.
+
+* People on renal dialysis and who have had a splenectomy were also added ** to which group?
+
+* A 7th group for primary and secondary care clinicians to identify patients who should be advised to shield.
+
+ As noted in the search criteria document cited above patients were identified via searches of hospital discharge and prescribing records, as well as other sources including regional cancer chemotherapy databases, NHS Blood and Transplant and individual specialist clinician lists.
+
+The list contained the CHI number which enabled linkage to other datasets. it also contained# the reason for eligibility and the date on which the shielding letter was sent to the person concerned. 
+
+## COVID-19 case ascertainment and definition
+For the total Scottish population "Evidence of  any detected COVID-19" was obtained as having had a positive  nucleic acid test  for SARS-CoV-2 in  the national virology laboratory database,  or having had a hospital discharge code for COVID-19 in those with no positive test, or a death with COVID-19 mention anywhere on the death certificate even where testing had not been  positive.  The databases used were  the Electronic Communication of Surveillance in Scotland (ECOSS) database  that captures all virology testing in all NHS laboratories nationally,  the National Records of Scotland (NRS) death registrations data, the RAPID
+database which is a daily update of hospitalisation nationwide and Scottish Morbidity Records-01 which captures hospital discharges  and discharge diagnostic codes nationally.  
+
+Databases were queried from March 1st 2020  (date of the first diagnosed case of COVID-19 in Scotland) up to the `r format(max(cc.all$SPECIMENDATE), "%d %b %Y")` for test results and `r format(max(cc.all$DATE_OF_REGISTRATION, na.rm=TRUE), "%d %b %Y")` for death registrations.  
+
+All these databases use the  Community Health Index (CHI) identifier. The CHI number is a unique identifier for everyone in the population, and is used in all care systems in Scotland. The CHI database is the master database for the CHI number and  contains several fields including age, sex, residential postcode, and residential care home status. 
+
+Among all those with any evidence of detected COVID-19 we then defined severe disease as that requiring critical care or  fatal.   All admissions to intensive (ICU), high dependency (HDU) or combined ICU/HDU care (hereafter critical care unit-CCU) were obtained by linkage using the CHI number  to the Scottish Intensive Care Society and Audit Group (SICSAG) database. Fatal COVID-19 was defined  based on their being a mention of  COVID-19 anywhere  on the death certificate regardless of prior testing or not, OR death within 28 days of testing positive  (or of the admission date for those SMR01 ascertained cases) regardless of whether COVID-19 was mentioned on the death certificate or not. Note that these definitions of COVID-19 deaths are the official ones used by the  National Records of Scotland and Public Health Scotland, respectively.   
+
+## Ascertainment of controls
+For every case i.e. person with "any evidence of COVID-19" "as defined above, we selected 10 controls matched for sex, one year age band and attending the same GP practice  and alive on the same date of the index case , test, two weeks prior to index case admission or two weeks prior to death for cases ascertained through testing, SMR01 admission data, or NRS death data respectively.  The sampling frame for controls was the Community Health Care Index.
+
+## Demographic data
+For all those on the shielding list   and for all COVID-19 cases and controls i)socioeconomic status was evaluated using the postcode-based indicator the Scottish Index of Multiple Deprivation (SIMD) using the residential postcode in the CHI database [@fraser_scottish_2020]. Postcodes were allocated to which quintile of the socioeconomic distribution of Scottish residential datazones they belonged.  (ii) Ethnic group
+was captured by linkage to prior SMR01 and SMR00 and SMR04  records   in which the
+patients self assigns ethnicity according to the groups that are used in the
+national census. iii) Residential care home status for those with diabetes was available via the
+care home flag for postal address in the CHI database. 
+
+## Other morbidity and drug prescribing
+For all those on the shielding list   and for all COVID-19 cases and controls, so as to ascertain other comorbidities the  general hospital admissions data in the  Scottish Morbidity Record 01 (SMR01),  and  all discharge codes over the past five years and Anatomical Therapeutic Chemical codes [@who_anatomical_2016] from Prescribing Information Systems (PIS) data for the past three years were extracted and used to define co-morbid conditions and prior drug exposures .   
+
+We first extracted history of a specific list of conditions and drug classes that have been included as moderate risk conditions for COVID-19 by public health agencies hereafter termed "listed conditions" [@nhs_whos_2020]. These co-morbid conditions were assigned based on either a diagnostic code in any hospital discharge record, or a dispensed prescription in which that diagnostic code is the only indication (see Supplementary Materials for details).
+
+## Statistical methods
+\begin{itemize}
+
+\item First we tabulated the shielding list by age-group  sex and reason  for shielding.
+
+\item We then tabulated the \% ( and CI for the \%) of those on the shielding list with "Any evidence of COVID-19" as described above by age and sex   and reason for shielding as well as overall. 
+
+\item We also tabulated the \% of those on the shielding list with "Severe i.e. CCU treated or fatal COVID-19 " as described above, by age and sex   and reason for shielding as well as overall. 
+
+\item To compare risks in shielded persons before and after shielding was introduced For each shielded person we  marked up their longitudinal record  from Feb 7th with date of shielding letter, date of stop shielding letter (Aug 1st)  and any date of death with the record being censored at data of death. We then computed the number of cases of any evidence of COVID-19  per total  person days in pre shielded time, then shielded time , then post shielded time.  We repeated this for severe cases. 
+
+\item Among the shielding to understand whether there are other determinants of becoming a case, we compared the  \% with each of the  other listed conditions,  the \% with more than 1 listed condition, the number of prescribed ATC drug classes, the \% in  residential care home,  the  SIMD  distribution and ethnicity  distribution in those who became cases and those who did not.  
+
+\item To provide a comparator for the background population,  we used  the 2019 age band and sex - mid year estimates for the general population and the shielding status in cases to derive  the \% ( and 95\%CI) with any evidence of COVID-19 and severe COVID-19 in the same age and sex groups in the general population  (DAVID this is available from STUART). We then used logistic regression of the one year age band counts of cases and non cases in the shielded and general population to compute and OR associated with shielding.  
+
+\item The odds of "exposure "to eligibility for shielding in cases  versus  controls was also  quantified as the conditional odds ratio  from a conditional logistic regression.  We did this because it was easy to extend this regression was then extended to include SIMD, ethnicity, residential care home status,  the "listed "COVID-19 risk conditions. 
+
+\item Since the calculation in 4. above can be confounded by overall background trends in the Re to further evaluate if there is any evidence that shielding reduced risk, The odds of "exposure "to eligibility for shielding in cases  versus  controls  BY WEEK of epidemic was also quantified as the conditional odds ratio  from a conditional logistic regression.  
+
+\end{itemize}
+
+Analyses were conducted using the R statistical package .
+
+
+# Results
+
+Table \ref{tab:shieldgroups} shows the frequency of shielding categories. The 6 women pregnant with heart disese were allocated to the "clinician identified" category.  
+
+Table \ref{tab:letterdates} shows a breakdown by date of sending letter
+
+Table \ref{tab:afterletter} shows cases among shielded individuals classified by whether estimated date of infection was before or after the shielding letter. 
+
+Table \ref{tab:regression.allcases} shows the estimated rate ratios for any diagnosis of COVID-19
+
+Table \ref{tab:regression.severecases} shows the estimated rate ratios for severe COVID-19. 
+
+
+# Discussion
+
+## Summary of findings
+
+
+## Comparison with previous literature
+
+
+## Limitations and advantages 
+Some key advantages of our study are the population coverage, the range of
+outcomes assessed, the extensive prior risk factor and clinical history
+data. 
+
+## Policy Implications 
+
+
+
+
+# Declarations
+## Information governance
+
+
+## Conflicts of interest
+The authors declare no conflicts of interest.
+
+## Acknowledgements
+We thank all staff in critical care units who submitted data to the SICSAG
+database, the Scottish Morbidity Record Data Team, the staff of the National
+Register of Scotland, the Public Health Scotland Terminology Services, the HPS
+COVID-19 Laboratory & Testing cell and the NHS Scotland Diagnostic Virology
+Laboratories, and Nicola Rowan (HPS) for coordinating this collaboration. 
+
+## Funding 
+There was no specific funder for this study.
+
+## Public Health Scotland COVID-19 Health Protection Study Group
+Alice Whettlock$^1$, Allan McLeod$^1$, Andrew Gasiorowski$^1$, Andrew 
+Merrick$^1$, Andy McAuley$^1$, April Went$^1$, Calum Purdie$^1$, Colin
+Fischbacher$^1$, Colin Ramsay$^1$, David Bailey$^1$, David Henderson$^1$, Diogo
+Marques$^1$, Eisin McDonald$^1$, Genna Drennan$^1$, Graeme Gowans$^1$, Graeme
+Reid$^1$, Heather Murdoch$^1$, Jade Carruthers$^1$, Janet Fleming$^1$, Jade
+Carruthers$^1$, Joseph Jasperse$^1$, Josie Murray$^1$, Karen Heatlie$^1$,
+Lindsay Mathie$^1$, Lorraine Donaldson$^1$, Martin Paton$^1$, Martin Reid$^1$,
+Melissa Llano$^1$, Michelle Murphy-Hall$^1$, Paul Smith$^1$, Ros Hall$^1$, Ross
+Cameron$^1$, Susan Brownlie$^1$, Adam Gaffney$^2$, Aynsley Milne$^2$,
+Christopher Sullivan$^2$, Edward McArdle$^2$, Elaine Glass$^2$, Johanna
+Young$^2$, William Malcolm$^2$, Jodie McCoubrey $^2$
+
+1 Health Protection Scotland (Public Health Scotland), Meridian Court, 5
+Cadogan Street, Glasgow G2 6QE. 
+
+2 NHS National Services Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2
+6QE. 
+
+
+# References
+<div id="refs"></div>
+
+
+# Tables
+
+
+```{r shieldgroups, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.shieldgroups, 
+escape=FALSE, 
+             booktabs=TRUE,
+			 label="shieldgroups",
+             row.names=TRUE,
+             caption="Shielded categories") %>%
+    kable_styling(latex_options="hold_position") 
+
+```
+
+```{r letterdates, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.date.letter,
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="letterdates",
+             row.names=TRUE,
+             caption="Dates of sending letters") %>%
+    kable_styling(latex_options="hold_position") 
+
+```
+
+```{r afterletter, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.after.letter,
+escape=FALSE,
+             booktabs=TRUE,
+			 label="afterletter",
+             caption="Proportions of cases advised to shield who were diagnosed > 10 days after date of sending letter")
+
+```
+
+```{r regression.allcases, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.shielded.allcases,
+escape=FALSE,
+             booktabs=TRUE,
+			 label="regression.allcases",
+   col.names=c(clean.header(colnames(table.shielded.allcases)[1:2]),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
+            caption="Rate ratios for diagnosis associated with shielding categories, with and without adjustment for diagnosis > 10 days after sending letter") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Adjusted"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+   column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="2cm") %>%
+   column_spec(column=6, width="2.5cm") %>%
+    column_spec(column=7, width="2cm") %>%
+    kable_styling(latex_options="hold_position")
+
+```
+
+```{r regression.severecases, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.shielded.severecases,
+escape=FALSE,
+             booktabs=TRUE,
+			 label="regression.severecases",
+   col.names=c(clean.header(colnames(table.shielded.severecases)[1:2]),
+                         "Rate ratio (95\\% CI)", "$p$-value",
+                         "Rate ratio (95\\% CI)", "$p$-value"),
+
+             caption="Rate ratios for severe COVID-19 associated with shielding categories, with and without adjustment for diagnosis > 10 days after sending letter") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Adjusted"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+   column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="2cm") %>%
+   column_spec(column=6, width="2.5cm") %>%
+    column_spec(column=7, width="2cm") %>%
+    kable_styling(latex_options="hold_position")
+
+```

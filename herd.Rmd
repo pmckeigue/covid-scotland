@@ -1,0 +1,171 @@
+---
+title: 'Understanding the COVID-19 epidemic'
+author: Paul McKeigue
+
+header-includes: |
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \usepackage{array}
+  \usepackage{booktabs}
+  \usepackage{longtable}
+  \usepackage{lscape}
+output: 
+  pdf_document
+
+always_allow_html: true
+urlcolor: blue
+---
+
+
+```{r functions, echo=FALSE}
+library(knitr)
+library(kableExtra)
+library(bookdown)
+
+# rmarkdown::render("herd.Rmd", output_file="herd.pdf")
+
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+source("helperfunctions.R")
+
+```
+
+# The herd immunity threshold
+
+This 1927 [paper](https://royalsocietypublishing.org/doi/pdf/10.1098/rspa.1927.0118) from the Scottish biochemist William Kermack and Lt Col Anderson McKendrick of the Indian Medical Service is the first derivation of the standard forumula for the herd immunity threshold.   They were careful to state a key assumption in the abstract:
+
+> In the present communication discussion will be limited to the case in which all members of the community are initially equally susceptible to the disease,
+
+Expressed in modern notation, the equation that they derived for the herd immunity threshold  immunity threshold $H$ can be written in terms of the basic reproduction number $R_0$ as: 
+
+\[
+H = 1 - \frac{1}{R_0} 
+\]
+
+I'll try to give this a visual interpretation
+
+With all uninfected individuals initially equally susceptible, the distribution of susceptibility can be represented by a spike at 1 representing those who have not been infected.  
+
+As the epidemic proceeds, the distribution of susceptibility becomes a mixture of a spike at zero (the recovered individuals who are now immune) and a spike at 1 (the remaining susceptible individuals). At time $t$, the average susceptibility $S\left( t \right)$ is the centre of mass (the first moment) of this distribution.  
+
+As the average susceptibility $S\left( t \right)$ falls, the effective reproduction number $R_e$  falls proportionately.  
+
+\[
+R_e = S \left( t \right) R_0
+\]
+
+At the point where the average susceptibility $S\left( t \right)$ falls to $1 / R_0$, the effective reproduction number $R_e$ is 1 and the herd immunity threshold is reached.  
+
+If all individuals are equally susceptible, $S\left( t \right)$ falls to $1 / R_0 is simply the proportion of individuals who are still susceptible: this is $1 - H$ 
+
+If susceptiblity varies between individuals,  
+
+# The Imperial College model
+
+The basis for the imposition of a lockdown was the well-known paper by Ferguson et al posted on 16 March: 
+
+https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf
+
+>  In such scenarios, given an estimated $R_0$ of 2.4, we predict 81% of the GB and US populations would be infected over the course of the epidemic. 
+
+Using the standard formula, this value  of $R_0$ would give a herd immunity threshold of 58% so presumably the IC model was projecting an overshoot, as we would expect in a fast-spreading epidemic.  On this basis, assuming an infection fatality rate of about 1%, they predicted 500,000 deaths in Britain if no measures were taken to mitigate the epidemic.  
+
+# The epidemic curve
+Early in the COVID-19 epidemic it was noted that in each country where the epidemic took hold, the numbers of cases and deaths peaked a few weeks after the first few cases or deaths, irrespective of what control measures were taken.  
+
+The first such analysis was by Michael Levitt, a computational biochemist at Stanford
+
+Levitt 2020b) 1.The_Corona_Chronologies. Part I - China. Part II. Rest_of_World_Michael_Levitt,Stanford_r.pdf
+https://www.dropbox.com/s/ovlsfr53horcmsn/1.The_Corona_Chronologies.%20Part%20I%20-
+%20China.%20Part%20II.%20Rest_of_World_Michael_Levitt%2CStanford_r.pdf?dl=0
+(14-Mar-20 China and World analysis).
+
+Levitt [questioned](https://www.stanforddaily.com/2020/05/04/qa-nobel-laureate-says-covid-19-curve-could-be-naturally-self-flattening/) the conventional estimate of 60-80% for the herd immunity threshold
+
+> You don’t actually have to infect everybody, depending on how fast the virus grows. Some people say 80% [of the population needs to develop antibodies], some people say 60%. I personally think it’s less than 30%. And some people are saying we’re never going to get herd immunity. I don’t think so. 
+
+Levitt and colleagues have recently posted an [update](https://www.medrxiv.org/content/10.1101/2020.06.26.20140814v2.full.pdf). 
+
+A similar [analysis](https://www.timesofisrael.com/the-end-of-exponential-growth-the-decline-in-the-spread-of-coronavirus/) was published in a newspaper by Isaac Ben-Israel at Tel Aviv University, who has had a leading role in the Israeli military-industrial complex. 
+
+> A similar pattern – rapid increase in infections to a peak in the sixth week, and decline from the eighth week – is common everywhere, regardless of response policies
+
+As neither Levitt nor Ben-Israel had any track record in infectious disease modelling, their results were not taken seriously by most biomedical researchers.  
+
+# Studies of immunity: antibodies and T cell reactivity
+There are two kinds of acquired immune response: antibodies, which are circulating proteins that recognize and bind to antigens; and T cell responses, which recognize antigens only when they are presented on the surface of a cell. 
+
+Many viruses are efficiently mopped up by circulating antibodies, but this may not be the case for SARS-CoV-2.  This [paper](https://www.pnas.org/content/117/21/11727) examines how the virus is able to hide its proteins from the immune system while it is circulating. But once a virus infects a cell and starts using the cell's machinery to make viral proteins, it cannot escape surveillance.  The cytosolic system will chop up samples of these proteins into peptide fragments (epitopes) and present them on the surface of the cell to be recognized by T cells.
+
+
+# Effect of varying susceptibility on the herd immunity threshold
+<!---
+R Aguas, et al., Herd immunity thresholds for sars-cov-2 estimated from unfolding epidemics.
+medRxiv 2020.07.23.20160762 (2020)  First version 24 July
+
+MGM Gomes, et al., Individual variation in susceptibility or exposure to sars-cov-2 lowers the
+herd immunity threshold. medRxiv 2020.04.27.20081893 (2020). First version 21 May
+29
+
+but Swedish paper cites it dated 12 May and was uploaded on 19 May
+
+Gomes, M. G. M. & Montalbán, A. A SEIR model with variable susceptibility or
+296 exposure to infection. arXiv (2020)
+--->
+
+If individuals vary in their susceptibility
+
+Gabriela Gomes, a biomathematician at Strathclyde, showed in a preprint first uploaded on n that the standard equation is not even approximately correct for immunity induced by natural infection. 
+
+https://arxiv.org/pdf/2008.00098.pdf
+
+This preprint fits her models to real data
+
+https://www.medrxiv.org/content/10.1101/2020.07.23.20160762v1.full.pdf
+
+The standard formula is correct for herd immunity induced by vaccination, but not for herd immunity generated by natural infection, where $R_0$ should be replaced by
+
+\[
+H = 1 - \frac{1}{R_0^{\frac{\alpha}{1 + \alpha}}} 
+\]
+
+where $\alpha$ is a non-negative number that encodes the narrowness (precision) of the range over which susceptibility varies in the population.  If all individuals have exactly the same susceptiblity and connectivity, the A value of how narrow is the range over which susceptimuch the dthe "precision" (inverse variance)  of the distriuti(inverse variance) of the represents the .   of susceptibility which is scaled to have mean 1. DD
+
+Where susceptibility and infectiousness vary together, the equation is
+
+\[
+H = 1 - \frac{1}{R_0^{\frac{\alpha}{1 + \alpha}}} 
+\]
+
+This reduces to the standard formula only on the highly implausible assumption that $\alpha = \infty$ (implying that the distribution of susceptibility is a spike). 
+
+```{r percentiles, echo=FALSE}
+
+alpha <- 1
+k_t <- 1
+
+x <- seq(0, 0.99, by=0.01)
+S.x <- qgamma(x, shape=alpha, rate=alpha)
+
+S_t.x <- (alpha / (alpha + k_t))^alpha * qgamma(x, shape=alpha, rate=alpha + kt)
+
+plot(x, S)
+
+```
+# Implications of this result  
+The Imperial and LSHTM projections for SAGE in March were based on a herd immunity threshold H of 58% (R_0 = 2.5).  Allowing for overshoot of the threshold, assuming an IFR of about 1%, and dismissing the possibility of shielding based on risk stratification they projected 500k deaths unless a lockdown was imposed.
+
+
+Gomes's derivation shows that the value of H could be much less than 60% if we allow for susceptibility to infection or connectivity to vary between individuals.  She estimates H values of 10-20%, implying that we are already close to herd immunity (based on seroprevalence surveys and additional T cell immunity not detected by antibody tests).   Sunetra Gupta has made the same argument, but without the elegant maths to back it up. 
+
+
+This makes sense of what is now a consistent observation: in every country where the epidemic has taken hold, the number of deaths has peaked about 4 weeks after the first few deaths irrespective of whether there was a lockdown or not, even though the proportion infected is only about 10%.   It also ties in with recent work on pre-existing T cell responses based on cross-reactivity.  
+
+
+It's remarkable that such a simple and fundamental mathematical result should have remained undiscovered by all the people working on modelling of infectious disease over the last 40 years. 
+\newpage

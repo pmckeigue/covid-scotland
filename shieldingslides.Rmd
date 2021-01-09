@@ -1,0 +1,88 @@
+---
+title: "Relation of severe COVID-19 to exposure related factors in REACT-SCOT case-control study" 
+author: Helen Colhoun and Paul McKeigue 
+date: "`r gsub('^0', '', format(Sys.Date(), '%d %B %Y'))`"
+#header-includes:
+#  \usepackage{booktabs}
+output: 
+  beamer_presentation:
+#    reference_doc: ~/markdown.pptx
+    md_extensions: +raw_tex+tex_math_dollars-raw_tex
+    slide_level: 1
+    fig_caption: false
+    includes:
+      in_header: ~/beamer_header.tex
+    #   after_body: ~/beamer_afterbody.tex
+    keep_tex: yes
+urlcolor: blue 
+always_allow_html: yes
+---
+
+# Severe cases by risk category and date of presentation: ribbon plot
+```{r plotcasesbydate, echo=FALSE, warning=FALSE, message=FALSE, fig.width=4.5,fig.asp=0.75, fig.cap="Care home residents excluded"}
+
+options(knitr.kable.NA = '')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+theme_set(theme_gray(base_size = 12))
+
+p.byelig
+```
+
+# Rate ratios for severe COVID-19 by presentation date 
+```{r plotrateratio, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Care home residents excluded. Line thickness is proportional to precision of estimate. Arrows indicate dates that shielding advice letters were sent, with thickness proportional to number of letters sent on that date. Rate ratio per school-age child is adjusted for number of adults and SIMD deprivation score"}
+gridExtra::grid.arrange(p.rateratio + theme(axis.title.x = element_blank()),
+                        p.hosp.rateratio + theme(axis.title.x = element_blank()),
+                        p.children.rateratio, nrow=3)
+```
+
+# Prevalence of recent hospital exposure by presentation date 
+
+```{r plotexphosp, echo=FALSE, warning=FALSE, message=FALSE, fig.width=4.5, fig.asp=0.8, fig.cap=" Prevalence of recent hospital exposure in controls not resident in care homes, by risk category"}
+p.hosp
+
+```
+
+# Population attributable risk fraction for severe COVID-19 by presentation date 
+
+```{r plotfrac, echo=FALSE, warning=FALSE, message=FALSE, fig.width=4, fig.asp=0.7, fig.cap="Fraction of severe cases not resident in care homes attributable to recent hospital exposure"}
+p.fracattr
+
+```
+
+# Rate ratios for severe COVID-19 associated with risk groups and exposure factors
+
+```{r regressionseverecasesnocare, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(
+#           as.data.frame(lapply(
+               table.shielded.severecases.nocare[1:8, c(1:2, 5:6)], 
+                                        #               function(x) gsub("\\\\", "\\\\\\\\", x))),
+           format="latex", 
+             escape=FALSE,
+             booktabs=TRUE,
+             label="regressionseverecasesnocare",
+             caption="Rate ratios for severe COVID-19 in those not resident in care homes. ", 
+             col.names=c(clean.header(colnames(table.shielded.severecases.nocare)[1:2]),
+ #                        "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value")) %>%
+#    add_header_above(c(" "=3, "Univariate"=2, "Adjusted"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+#    column_spec(column=4, width="2.5cm") %>%
+#    column_spec(column=5, width="2cm") %>%
+#    column_spec(column=6, width="2.5cm") %>%
+#    column_spec(column=7, width="2cm") %>%
+    kableExtra::group_rows("Shielding eligibility category", 3, 8) %>%
+#    kableExtra::group_rows("School-age children in household", 10, 12) %>%
+#    kableExtra::group_rows("Adults in household", 13, 16) %>%
+#    kableExtra::group_rows("SIMD quintile", 18, 22) %>%
+#    kableExtra::group_rows("Occupation", 23, 26) %>%
+    kable_styling(latex_options=c("scale_down", "HOLD_position")) %>%
+    add_footnote(label=c("Percentages are column percentages for each variable",
+                         "PF, patient-facing"), notation="none")
+
+```
+

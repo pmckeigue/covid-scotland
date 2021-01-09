@@ -1,0 +1,45 @@
+---
+title: Authors' response to 3rd round of comments   on BMED-D-20-02413
+header-includes: |
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+output: 
+  pdf_document
+
+---
+
+# Reviewer 2: 
+
+> 1. The authors present data in the newly added tables 1 and 2 and in the supplementary tables which are not completely in accordance with current GDPR. Data enabling identification of individual should be made unavailable.  
+
+These tables were reviewed for statistical disclosure control not only by the authors but also by officials of Public Health Scotland, our national public health agency.  We guess that the reviewer's concerns relate to frequency tables containing small numbers. For instance Table 1 shows that one of 483 individuals in Scotland who entered critical care for COVID-19 and survived had been diagnosed with liver disease.  If an attacker already knew the identity of an individual who had been diagnosed with liver disease and had entered critical care for COVID-19 and survived, they would be able to infer a match of this individual to this cell, but this would not provide the attacker with any new information about this individual.  
+
+The individual concerned would be able to identify himself/herself as matching this cell in the table, but again this would not reveal any new information to that individual.  The question of self-identification in a table cell was discussed during the statistical disclosure control review and determined to be acceptable
+
+> 2. The authors should comment on the content of the added tables and how the characteristics of the cases may have affected the results. In particular, from Table 1 it may be interpreted that COVID-19/severely ill and in the end fatal cases above a certain age were not admitted to critical care, thus were potentially withheld critical treatment due to triage? The authors should add information in their manuscript whether there were  any phases of restricting access to hospitals and testing that would be relevant for reviewers or readers to know to interpret the results of the study. 
+
+For the REACT-SCOT study, we specified in advance a stringent definition of severe COVID-19 so that ascertainment of severe cases would not be affected by triage.  This was based on advice from a senior critical care specialist (Dr Lone, co-author of this study).  As our case definition  included all deaths certified with COVID-19 as underlying cause, triage of individuals who were assessed (on the basis of age and underlying conditions) as unlikely to benefit from critical care would have been ascertained through their death certificates. 
+
+> As the authors provide age stratified information in Table 1, age stratified analysis regarding polypharmacy could also be of relevance.  The authors should comment on and provide methodological adjustments how triage decisions could be separated from polypharmacy as being (another) risk factor for fatal outcomes?
+
+We have added a supplementary table showing associations of severe COVID-19 with polypharmacy by age group
+
+> 3. A comparison of the characteristics by residency is missing, meaning comparing characterstics in cases and controls not resident in care homes, and those resident in care homes.
+
+We have added a supplementary table showing associations of care home residency with drug prescribing in the control group.  
+
+> 4. The adequacy of the choice of population controls without having been tested positively for COVID-19 should be discussed by the authors.
+
+The design of this study is based on incidence density sampling in which matched controls were sampled from those who had not yet tested positive for COVID-19 on the day that the case was diagnosed. This ensures that the conditional odds ratios are interpretable as rate ratios. For each date that one or more cases were diagnosed, all those in the national population register who had tested positive up to that date were excluded from the sampling of controls. This is correct, on the assumption that those who have already tested positive are not at risk of severe disease.   
+
+> 5. The potential for underdiagnosis of CVD and other somatic disorders and unfavourable life-style in people with psychiatric disorders should be discussed as psychotropics were identified as risk factors.
+
+The rate ratio of 4.1 associated with antipsychotic agents is considerably larger than the rate ratios associated with heart disease and most of the other listed conditions. 
+
+> 6. Table 4 misses information on SSRIs (BNF 403030)
+
+As the caption states, this table was filtered to show only drug classes for which associations are significant at p<0.001.  We have added the rate ratio for SSRIs to the text
+
+> 7. The authors refer to methods that would be available with the registration of the study in the ENCEPP register, EUPAS35558, Page 5 of the manuscript: "ICD-10 diagnostic and BNF drug codes used to derive these conditions are available with the ENCEPP registration", but the protocol was not available at ENCEPP, but will be 'when the study ends'. These should be provided in the current mansucript as well.
+
+This is provided with the PLOS Medicine paper. 

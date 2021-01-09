@@ -1,0 +1,49 @@
+---
+title: "PMEDICINE-D-20-02483: covering letter"
+
+header-includes: |
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+output: pdf_document
+
+# rmarkdown::render("coverletter.Rmd")
+
+---
+
+# PMEDICINE-D-20-02483R2 Decision - [EMID:48eda5e01d53d77d]
+
+As advised by Pam Berkman we are resubmitting this accepted manuscript for technical editing
+We include the PDF, the LaTex source, three figures, and a STROBE checklist. 
+
+
+# Responses to comments from editors
+
+> 8 – Scottish ? national database? 
+
+Done
+
+> Abstract – please include p values (here and throughout) for quantifiable data and where 95% Cis are given. In addition, please add summary demographic information to the abstract and the study dates also need to be quoted. Please begin the "Conclusions" subsection of the abstract "In this study, we observed that ... were associated" or similar. 
+
+We have done this.  The inclusion of p values, the reformatting of 95% CIs with extra spaces, and the addition of demographic information and study dates have taken the length of the abstract over 500 words.  To allow the submission to proceed we have deleted a few sentences from the version pasted in the online submission.  The full version of the abstract is that in the PDF and the LaTeX source.   
+
+> Author Summary, please look at published examples, as your summary needs to be reformatted. It should be in bullet form with 3 headings. This text is subject to editorial change and should be distinct from the scientific abstract. Please see our author guidelines for more information: https://journals.plos.org/plosmedicine/s/revising-your-manuscript#loc-author-summary
+
+Done
+
+> Methods – the mention of the pre specified plan: Please provide a call out to where that can be accessed. 
+
+Done - we have given the URL of our github repository
+
+> Please remove “Declarations” on page 11 as these are pulled in automatically from EM in the metadata. 
+
+Done
+
+> Please use sections and paragraphs in reporting checklists as page number scan change in formatting and revisions. 
+
+> At line 400, is this study available as a preprint that can be cited, for example?
+
+Preprint link given
+
+> In the reference list, where you cite preprints please add "[preprint]".
+
+Done

@@ -1,0 +1,491 @@
+---
+title: "Risk of COVID-19 in clinically extremely vulnerable individuals advised to shield during the epidemic in Scotland" 
+author:
+  - name: Paul M McKeigue
+    affiliation: "HPS,Usher"
+  - name: David Caldwell 
+    affiliation: HPS
+  - name: Ciara Gribben
+    affiliation: HPS
+  - name: Jen Bishop
+    affiliation: HPS
+  - name: Matthew Armstrong
+    affiliation: HPS
+  - name: Joke Delvaux
+    affiliation: HPS
+  - name: Sharon Hutchinson 
+    affiliation: GCU
+  - name: David McAllister 
+    affiliation: Glasgow  
+  - name: Chris Robertson 
+    affiliation: Strathclyde
+  - name: Nazir Lone
+    affiliation: Usher
+  - name: Janet Murray
+    affiliation: HPS 
+  - name: Jim McMenamin  
+    affiliation: HPS
+  - name: Alison Smith-Palmer 
+    affiliation: HPS
+  - name: David Goldberg
+    affiliation: HPS
+  - name: Helen M Colhoun
+    email: helen.colhoun@igmm.ed.ac.uk (07791 652665)
+    affiliation: "HPS,IGMM,NHSFife"
+
+address: 
+- code: Usher
+  address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland. PM - Professor of Genetic Epidemiology and Statistical Genetics. NL - Clinical Senior Lecturer in Critical Care  
+- code: IGMM
+  address: Institute of Genetics and Molecular Medicine, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland. HC - AXA Chair in Medical Informatics and Epidemiology
+- code: HPS
+  address: Health Protection Scotland (Public Health Scotland), Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+- code: Glasgow
+  address: Institute of Health and Wellbeing, University of Glasgow, 1 Lilybank Gardens, Glasgow G12 8RZ. DM - Senior Clinical Lecturer in Public Health 
+- code: Strathclyde
+  address: Department of Mathematics and Statistics, University of Strathclyde, 16 Richmond Street, Glasgow G1 1XQ. CR - Professor of Public Health Epidemiology
+- code: GCU
+  address: School of Health and Life Sciences, Glasgow Caledonian University. SH - Professor of Epidemiology and Population Health 
+- code: ISD
+  address: Information Services Division, NHS Scotland, UK
+
+header-includes:
+  \usepackage{newunicodechar}
+  \DeclareUnicodeCharacter{039B}{\ensuremath{\mit\Lambda}}
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{geometry}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \usepackage{array}
+  \usepackage{threeparttable}
+  \usepackage{longtable}
+  \usepackage{lscape}
+  \usepackage{pdfpages}
+  \usepackage[nolists, nomarkers]{endfloat}
+always_allow_html: true
+urlcolor: blue
+output:
+  bookdown::pdf_book:  
+    base_format: rticles::elsevier_article
+    keep_tex: true
+    fig_caption: yes
+    number_sections: false
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+bibliography: ./covid.bib
+csl: ./biomed-central.csl
+linenumbers: false
+linkcolor: cyan
+
+---
+
+On behalf of Public Health Scotland COVID-19 Health Protection Study Group
+
+Prepared for the Shielding Policy Evaluation team and the Clinical Leads for Shielding Group  
+
+```{r functions, echo=FALSE}
+library(knitr)
+library(kableExtra)
+library(bookdown)
+
+options(knitr.kable.NA = '')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+source("helperfunctions.R")
+
+# rmarkdown::render("shielding.Rmd", output_file="shielding.pdf")
+
+dateformat <- function(x) { # format date and strip leading zero
+     gsub("^0", "", format(x, "%d %b %Y"))
+}
+
+format.estcipv <- function(x.ci, x.pval) {
+    x <- gsub(" \\(", " \\(95\\% CI ", as.character(x.ci))
+    x <- gsub(", ", " to ", x)
+    x <- gsub("\\)", paste0(", _p_=\\", x.pval, "\\)"), x)
+    x <- gsub("times", "\\\\times", x)
+    return(x)
+}
+
+```
+# Abstract
+
+• Objectives - to investigate the risk of COVID-19 in individuals designated as clinically extremely vulnerable, and the effectiveness of the advice to shield and support for shielding that was provided in the first wave of the epidemic in Scotland.    
+
+• Design - (1) cohort study of all individuals identified as eligible for shielding; (2) matched case-control study (REACT-SCOT) including all cases diagnosed with COVID-19 in Scotland
+
+• Setting - population of Scotland
+
+• Participants - `r nrow(shielded.full)` individuals identified as eligible for shielding, `r nrow(cc.all[CASE==1])` diagnosed cases and `r nrow(cc.all[CASE==0])` controls matched for age, sex and primary care practice. 
+
+• Interventions - Advice to shield and support for shielding was offered from 3 April 2020 to  1 August 2020. 
+
+• Main outcome measures - (1) any diagnosis of COVID-19 by nucleic acid test, hospital discharge record or death certificate; (2) diagnosed cases that required critical care or were fatal.  
+
+• Results - There were `r nrow(shielded.full[!is.na(casegr2)])` diagnosed cases in shielded individuals of which `r nrow(shielded.full[!is.na(casegr2) & casegr2=="Severe"])` were severe.   `r nrow(cc.all[shield.any==TRUE & CASE==1 & after.letter==1])` cases were diagnosed more than 14 days after the shielding letter had been sent.  In the case-control study, the rate ratios for severe disease in the six shielding eligibility categories ranged from `r format.estcipv(table.shielded.severecases.nocare["Rare diseases", 3], table.shielded.severecases.nocare["Rare diseases", 4])` for the rare disease category to `r format.estcipv(table.shielded.severecases.nocare["Solid organ transplant", 3], table.shielded.severecases.nocare["Solid organ transplant", 4])` in solid organ transplant recipients.  In those not resident in care homes the strongest risk factor for severe COVID-19 was recent hospital stay: rate ratio `r format.estcipv(table.shielded.severecases.nocare["recent hospital stay", 3], table.shielded.severecases.nocare["recent hospital stay", 4])`.  The rate ratio associated with eligibility for shielding was higher by a factor of  `r format.estcipv(table.shielded.severecases.nocare["interval2.shielding", 5], table.shielded.severecases.nocare["interval2.shielding", 6])` during the shielding period than before the shielding period.   
+
+• Conclusions - Advice to shield and offers of support were not effective in preventing severe COVID-19 in clinically extremely vulnerable individuals in a population where a general lockdown had already been imposed.  From the strong associations of severe COVID-19 with recent hospital stay in it appears that prevention transmission in health-care settings may be one of the most effective ways to shield these individuals. 
+
+• Trial registration - ENCEPP registration of case-control study. 
+
+
+# Background  
+The SARS-CoV-2 pandemic reached Scotland in early 2020 with the first positive laboratory test recorded on 1 March 2020. Population-wide interventions included advice that symptomatic individuals should self-isolate, banning of mass gatherings, closure of schools and finally a lockdown on 23 March 2020.  
+
+Early in the epidemic it was realised that certain people would likely be extremely vulnerable to severe COVID-19 disease including those receiving certain immunosuppressant drugs or with other conditions.  Therefore Public Health Scotland (PHS) instituted a process of identifying such persons through their primary care physician and through searching of administrative databases  (see appendix for full protocol). Those considered eligible then received a letter detailing the need for self isolation and the support they would receive to achieve this. These letters were sent out beginning on `r dateformat(batches$Date.Sent)[1]` until advice to shield and support for shielding were withdrawn on 1 August 2020.  In October 2020 additional advice was issued to "those at higher risk from coronavirus" to protect themselves when the protection level in their region is 3, 4 or 5, but no additional support was offered (https://www.gov.scot/publications/covid-shielding/)  
+
+An initial survey of ~12000 shielding eligible persons indicated that compliance was high but often partial and varied across socio-demographic groups. <!--- cite source from Joke Delvaux --->
+
+Here we take the cohort of  `r nrow(shielded.full)` persons who were deemed clinically extremely vulnerable and thus eligible for shielding at some time during this period. We examine the risk of diagnosed cases of COVID-19 and severe COVID-19.  In the REACT-SCOT study, an ongoing case-control study of all diagnosed cases of COVID-19 with age and sex matched controls, we examine the rate ratios for disease associated with eligibility for shielding and compare these rate ratios before and after advice to shield was issued to these groups. 
+
+# Methods
+## Ascertainment of eligibility for shielding 
+To identify  all those nationally deemed eligible for shielding we took the list generated by PHS at the outset of the epidemic [@health_protection_scotland_search_2020]:
+
+The following groups were identified as eligible for shielding: 
+
+* Solid organ transplant recipients
+
+* People with specific cancers
+
+* People with severe respiratory conditions: cystic fibrosis, severe asthma, severe chronic obstructive airway disease, on home oxygen, severe bronchiectasis, pulmonary hypertension)
+
+* People with rare diseases: inborn errors of metabolism that significantly increase the risk of infections (such as severe combined immunodeficiency, homozygous sickle cell disease (not trait), interstitial Lung Disease and sarcoidosis.  
+
+* People on immunosuppression therapies: lists were collected from dermatology, rheumatology, renal, gastroenterology and neurology specialists. Criteria were: 
+
+  - Corticosteroid equivalent to prednisolone 20 mg/day for 4 weeks or more.  
+  
+  - On a single agent that has high risk of causing immunosuppression e.g.  Cyclophosphamide, rituximab, Infliximab, Cladribine, Alemtuzumab. These medications are prescribed only in  secondary care. 
+  
+  - Corticosteroid equivalent to prednisolone \ensuremath{\ge} 5 mg/day for at least 4 weeks and other immunosuppressive therapy.  
+
+  - On two immunosuppressant medications and with a relevant co-morbid condition. 
+
+* People who were pregnant with significant heart disease, congenital or acquired.
+
+* Additional conditions.  Patients identified by primary and secondary care clinicians as requiring shielding advice were included in this group.  On 11 May 2020 the list was updated to include people on renal dialysis and those who have had a splenectomy. 
+
+As described elsewhere [@health_protection_scotland_search_2020],  patients were identified via searches of hospital discharge and prescribing records, as well as other sources including regional cancer chemotherapy databases, NHS blood and transplant registries and lists prepared by clinicians in relevant specialties.
+
+For this analysis only the shielding eligibility category and the date on which the shielding letter was sent were available.  Additional data on specific diagnoses and immunosuppressant drugs were supplied to Public Health Scotland but were not available for this analysis.  
+
+Letters were sent on Fridays, beginning on `r format(batches$Date.Sent[1], "%d %b %Y")`
+
+## COVID-19 case ascertainment and definition
+The design of the REACT-SCOT case-control study has been described in detail elsewhere [@mckeigue_rapid_2020-1].  For the total Scottish population cases with any evidence of COVID-19 were ascertained as those with a positive  nucleic acid test  for SARS-CoV-2 in  the national virology laboratory database, a hospital discharge code for COVID-19, or a death with mention of COVID-19 anywhere on the death certificate.  The presentation date was defined as the date of the first positive test for those ascertained through testing, as seven days before the admission date for those diagnosed only through hospital discharge records, and as fourteen days before the date of death for those diagnosed only through death certificates
+
+The databases used were the Electronic Communication of Surveillance in Scotland (ECOSS) database  that captures virology testing in all NHS laboratories nationally, the National Records of Scotland (NRS) death registrations data, the RAPID database which is a daily update of hospitalisation nationwide and the Scottish Morbidity Records-01 which capture hospital discharges  and discharge diagnostic codes nationally.  All these databases use the Community Health Index (CHI) number as identifier.  The master CHI database fields include age, sex, residential postcode, and residential care home status. Databases were queried from 1 March 2020  (date of the first diagnosed case of COVID-19 in Scotland) up to `r format(max(cc.all$SPECIMENDATE), "%d %b %Y")` for test results and `r format(max(cc.all$DATE_OF_REGISTRATION, na.rm=TRUE), "%d %b %Y")` for death registrations.  
+
+Among cases of COVID-19 we defined severe disease as that requiring critical care or  fatal.   Admissions to critical care units -- intensive care, high dependency or combined units -- were obtained by linkage to the Scottish Intensive Care Society and Audit Group (SICSAG) database. Fatal COVID-19 was defined as mention of COVID-19 anywhere on the death certificate or death within 28 days of testing positive or death within 28 days of admission for cases ascertained through discharge records.  These definitions of COVID-19 deaths match those used by the National Records of Scotland and Public Health Scotland respectively.   
+
+## Ascertainment of controls
+For every case defined above, we selected 10 controls matched for sex, one-year age band and attending the same GP practice  and alive on the presentation date of the index case.   The sampling frame for controls was the Community Health Care Index.
+
+## Demographic data
+For all those on the shielding list and for all COVID-19 cases and controls socioeconomic status was evaluated using the postcode-based indicator the Scottish Index of Multiple Deprivation (SIMD) using the residential postcode in the CHI database [@fraser_scottish_2020]. Postcodes were allocated to which quintile of the socioeconomic distribution of Scottish residential datazones they belonged. Ethnic group was captured by linkage to prior SMR01 and SMR00 and SMR04 records in which the patients self assigns ethnicity according to the groups that are used in the national census.
+
+## Other morbidity and drug prescribing
+For all COVID-19 cases and controls, the records were linked to  general hospital admissions data in the  Scottish Morbidity Record 01 (SMR01),  and  all discharge codes over the past five years and Anatomical Therapeutic Chemical codes [@who_anatomical_2016] from Prescribing Information Systems (PIS) data for the past three years were extracted and used to define co-morbid conditions and prior drug exposures.   
+
+We first extracted history of a specific list of conditions and drug classes that have been included as "moderate risk conditions" for COVID-19 by public health agencies [@nhs_whos_2020]. These co-morbid conditions were assigned based on either a diagnostic code in any hospital discharge record, or a dispensed prescription in which that diagnostic code is the only indication (see Supplementary Materials for details).
+
+We defined a variable termed "recent hospital stay" so as to include cases who were in hospital during the possible time interval for infection given the presentation date, but to exclude admissions caused by COVID-19.  We assume a minimum time of 4 days from exposure to testing positive, and a maximum time of 14 days from exposure to hospital admission in symptomatic cases. This variable was defined as: 
+
+1. any hospital inpatient stay during last 14 days before presentation date, with admission date at least 5 days before presentation date
+2. recent hospital discharge: a discharge date  <= 14 days before presentation date; 
+
+The Scottish NHS "probable or definite" healthcare associated COVID-19 inpatient infection as a positive test in someone who is an inpatient and was admitted at least 7 days earlier.  This is more stringent in excluding cases who test positive 5 to 7 days after admissions, but ignores cases who test positive after discharge.  
+
+Cases were grouped by presentation date into three advice intervals: (1) up to 17 April 2020; (14 days after the first letters were sent, (2) from 18 April 2020 to 15 August 2020 (14 days after advice and support for shielding were withdrawn; (3) from 16 August 2020 onwards.  
+
+## Statistical methods
+
+### Shielding eligibility cohort 
+
+We tabulated the shielding eligibility cohort as follows: 
+
+* shielding eligibility category x age group.
+
+* shielding eligibility category x outcome: no diagnosis, not severe, severe COVID-19. 
+
+* shielding eligibility category x date of sending letter
+
+* for severe cases, shielding eligibility category x advice interval
+
+### Case-control study
+
+* shielding eligibility category x moderate risk conditions
+
+* unadjusted and adjusted rate ratios for severe disease associated with each shielding eligibility category, with those not eligible as reference category. Interaction terms for shielding eligibility x advice interval, with advice interval 1 as reference category. 
+
+* unadjusted and adjusted rate ratios for severe disease associated with each shielding eligibility category in shielded individuals only, with severe respiratory disease as reference category. 
+\end{itemize}
+
+Rate ratios were estimated in the case-control study by conditional logistic regression. 
+
+# Results
+Table \ref{tab:shieldgroupsbyage} shows the frequency of shielding eligibility categories by age.  Solid organ transplant recipients and those on immunosuppressants were younger than those in the other categories.  The largest shielding eligibility category was those with severe respiratory disease.  The small number of women pregnant with heart disease were allocated to the "Additional conditions" category in subsequent analyses.  
+
+Table \ref{tab:shieldcasegroup} shows a breakdown of cases in each shielding eligibility category by  outcome. Severe respiratory disease and cancers accounted for most of the severe cases. 
+
+Table \ref{tab:shieldgroupsbyage} shows the frequency of designated risk conditions (ascertained from diabetes registry, hospital discharge records and dispensed prescriptions) in each shielding eligibility category. This shows that only 840 out of 2200 individuals on immunosuppressants were identified from prescriptions in primary care, as expected because many immunosuppressant drugs are prescribed only in hospital.  However 7816 out of 8062 individuals with severe respiratory disease were identified from hospital discharge records and dispensed prescriptions. 
+
+Table \ref{tab:letterdates} shows a breakdown by date of sending letter.  36% of severe cases had been diagnosed by the time the first letters were sent out on 3 April 2020.  Most of the solid organ transplant recipients, cancer patients and those with respiratory disease were identified in this first batch of letters.  Most of those with rare diseases or on immunosuppressants were identified in the second batch of letters sent out one week later. Sending of letters to those identified as in the "additional conditions" category continued for the next four weeks. 
+
+Table \ref{tab:afterletter} shows cases among shielded individuals classified by whether the date of diagnosis was more than 14 days after the date that the letter was sent.  The proportion of these post-advice cases was highest in the shielding eligibility categories whose letters were sent out inthe first batch: solid organ transplant recipients, cancer patiens and those with respiratory disease.  There are no other obvious associations with post-advice diagnosis. 
+
+Table \ref{tab:regressionseverecasesnocare} shows the estimated rate ratios for severe COVID-19 with care home residents excluded. The rate ratios associated with shielding eligibility categories are larger for severe disease than for any diagnosis, with a univariate rate ratio of  `r format.estcipv(table.shielded.severecases.nocare["Solid organ transplant", 3], table.shielded.severecases.nocare["Solid organ transplant", 4])` for solid organ transplant recipients.  There was also a strong association with socioeconomic status with a univariate rate ratio of  `r format.estcipv(table.shielded.severecases.nocare["5 - least deprived", 3], table.shielded.severecases.nocare["5 - least deprived", 4])` in the least deprived quintile of SIMD compared with the most deprived.  The adjusted rate ratios associated with number of adults in the household (1.12 per adult) and recent hospital stay (ratio 19.1) were also large.  The rate ratio for severe disease associated with the "letter sent" variable however was `r format.estcipv(table.shielded.severecases.nocare["Letter sent >= 14 days earlier", 3], table.shielded.severecases.nocare["Letter sent >= 14 days earlier", 4])`. 
+
+Figure 1 compares the time series of severe cases in the general Scottish population with that in those eligible for shielding.  Presentations of severe cases in the general population peaked at the end of March 2020 and fell rapidly after that.  In those eligible for shielding the daily number of presentations of severe cases began later and the fall was less rapid.  
+
+Figure 2 shows the same result in terms of rate ratios for severe COVID-19 associated with eligibility for shielding, computed over 20-day windows of presentation dates.  The rate ratio asociated with eligibility for shielding increased from about 1.8 in late March to about 2.2 in mid-April.   
+
+# Discussion
+## Summary of findings
+Shielding letters were sent out after the epidemic had peaked and after a general lockdown had been imposed. 
+
+In comparison of the risk in groups eligible for shielding to that in the general population, the highest rate ratio for severe disease was that for solid organ transplant recipients.  The absolute risks of severe disease during this first wave of the epidemic were low: even in solid organ transplant recipients the risk was less than 0.5%.
+
+In both ineligible and eligible individuals severe COVID-19 was strongly associated with  recent hospital stay, suggesting that nosocomial transmission was an important risk factor.  In those eligible for shielding, there was a weak association of severe disease with the number of adults in the household. 
+
+A possible explanation for the later peaking and slower fall of severe cases among those eligible for shielding compared with the general population, is that those eligible for shielding were exposed while attending health care facilities.  
+
+## Comparison with previous literature
+A previous report [@jani_comparison_2020] was based on the population of Greater Glasgow and Clyde health board. As no age-standardized rate ratios were reported it is difficult to compare our results with theirs.  
+
+
+## Strengths and limitations 
+Strengths of our study are the population coverage, the range of outcomes assessed, the extensive prior risk factor and clinical history data.  Limitations are that we do not have data on specific diagnoses and immunosuppressant drugs, numbers of children in the household were not available for this analysis, and we do not  have data on visits to health care facilities other than admissions to hospital.    
+
+## Policy Implications 
+
+Lessons that can be learned:
+
+* For shielding advice to the vulnerable to be effective, it should be provided early in an epidemic, before any population-wide measures are imposed. This necessitates maintaining up to date registries of the clinically extremely vulnerable that are accessible to public health agencies have access to them.  Capture of records of hospital prescribing, which include immunosuppressant and cytotoxic drugs, would facilitate this. 
+
+* The cases of severe disease in clinically extremely vulnerable individuals during the shielding period could be investigated further with a review of medical records to identify avoidable factors such as exposure to infection while attending health-care facilities.   
+
+Control of nosocomial infection should include specific measures to shield clinically extremely vulnerable individuals when they attend hospital.    
+
+To protect clinically extremely vulnerable individuals living with others, support could be provided for other household members either to isolate with the vulnerable individual, or to move into alternative acccommodation for the duration of the epidemic. However this study suggests that even those living alone were not adequately shielded.  
+
+# Declarations
+## Information governance
+This study was conducted under approvals from the [Public Benefit and Privacy Panel for Health and Social Care](https://www.informationgovernance.scot.nhs.uk/pbpphsc/) that allow Public Health Scotland staff to link datasets.  Datasets were de-identified before analysis.  
+
+## Data availability
+The component datasets used here are available via the Public Benefits Privacy Panel for Health at https://www.informationgovernance.scot.nhs.uk/pbpphsc/ for researchers who meet the criteria for access to confidential data. All source code used for derivation of variables, statistical analysis and generation of this manuscript is available on  https://github.com/pmckeigue/covid-scotland_public  
+
+## Funding 
+No specific funding was received for this study.
+
+## Conflicts of interest
+The authors declare no conflicts of interest.
+
+## Acknowledgements
+We thank all staff in critical care units who submitted data to the SICSAG
+database, the Scottish Morbidity Record Data Team, the staff of the National
+Register of Scotland, the Public Health Scotland Terminology Services, the HPS
+COVID-19 Laboratory & Testing cell and the NHS Scotland Diagnostic Virology
+Laboratories, and Nicola Rowan (HPS) for coordinating this collaboration. 
+
+## Public Health Scotland COVID-19 Health Protection Study Group
+Alice Whettlock$^1$, Allan McLeod$^1$, Andrew Gasiorowski$^1$, Andrew 
+Merrick$^1$, Andy McAuley$^1$, April Went$^1$, Calum Purdie$^1$, Colin
+Fischbacher$^1$, Colin Ramsay$^1$, David Bailey$^1$, David Henderson$^1$, Diogo
+Marques$^1$, Eisin McDonald$^1$, Genna Drennan$^1$, Graeme Gowans$^1$, Graeme
+Reid$^1$, Heather Murdoch$^1$, Jade Carruthers$^1$, Janet Fleming$^1$, Jade
+Carruthers$^1$, Joseph Jasperse$^1$, Josie Murray$^1$, Karen Heatlie$^1$,
+Lindsay Mathie$^1$, Lorraine Donaldson$^1$, Martin Paton$^1$, Martin Reid$^1$,
+Melissa Llano$^1$, Michelle Murphy-Hall$^1$, Paul Smith$^1$, Ros Hall$^1$, Ross
+Cameron$^1$, Susan Brownlie$^1$, Adam Gaffney$^2$, Aynsley Milne$^2$,
+Christopher Sullivan$^2$, Edward McArdle$^2$, Elaine Glass$^2$, Johanna
+Young$^2$, William Malcolm$^2$, Jodie McCoubrey $^2$
+
+1 Health Protection Scotland (Public Health Scotland), Meridian Court, 5
+Cadogan Street, Glasgow G2 6QE. 
+
+2 NHS National Services Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2
+6QE. 
+
+coeffs.timewindow <- coeffs.timewindow[date.midpoint < as.Date("2020-07-01")]
+
+p.rateratio <-
+    ggplot(data=coeffs.timewindow, aes(x=date.midpoint, y=coeff)) +
+    geom_line(size=0.01 * coeffs.timewindow[, se.coeff]^-2) +
+    scale_y_continuous(breaks=log(c(1, 1.5, 2, 2.5, 3)),
+                       labels=c(1, 1.5, 2, 2.5, 3)) + 
+    xlab("Presentation date: mid-point of 20-day window") + ylab("Rate ratio (log scale)") +
+    ggtitle("Rate ratio for severe COVID-19 associated with eligibility for shielding")
+
+# References
+<div id="refs"></div>
+
+
+```{r plotcasesbydate, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Severe cases by presentation date"}
+
+gridExtra::grid.arrange(p.all, p.elig, nrow=2)
+
+```
+
+
+```{r plotrateratio, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Rate ratio for severe COVID-19 associated with elegibility for shielding, by 20-day window of presentation dates.  Line thickness is proportional to precision of estimate."}
+
+p.rateratio
+
+```
+
+\newpage
+
+```{r shieldgroupsbyage, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+knitr::kable(table.shieldgroups.byage, 
+escape=FALSE, 
+             booktabs=TRUE,
+			 label="shieldgroupsbyage",
+             row.names=TRUE,
+caption="Shielding eligibility categories by age (row percentages)") %>%
+        kableExtra::group_rows("shielding eligibility category", 1, 7) %>%
+    kable_styling(latex_options="hold_position") 
+
+```
+
+```{r shieldcasegroup, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.shield.casegr, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="shieldcasegroup",
+             row.names=TRUE,
+             caption="Cases in shielding eligibility cohort by outcome") %>%
+    kableExtra::group_rows("shielding eligibility category", 2, 7) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2.2cm") %>%
+    column_spec(column=3, width="2.2cm") %>%
+    column_spec(column=4, width="2.2cm") %>%
+    column_spec(column=5, width="2.2cm") %>%
+    column_spec(column=6, width="2.2cm") %>%
+    column_spec(column=7, width="2.2cm") %>%
+    kable_styling(latex_options="hold_position") 
+
+```
+
+```{r shieldgroupconditions, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.shieldgroups.conditions, 
+escape=FALSE, 
+             booktabs=TRUE,
+			 label="shieldgroupsconditions",
+             row.names=TRUE,
+caption="Shielding eligibility categories in cases and controls by presence of listed conditions") %>%
+    kableExtra::group_rows("Shielding eligibility category", 1, 7) %>%
+    kable_styling(latex_options="hold_position") 
+
+```
+
+```{r letterdates, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.date.letter,
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="letterdates",
+             row.names=TRUE,
+             caption="Dates of sending letters, excluding care home residents") %>%
+    kableExtra::group_rows("Cumulative numbers of cases who had tested positive on or before date", 1, 2, bold=TRUE) %>%
+     kableExtra::group_rows("Numbers of cases and controls sent shielding letters on date", 3, 8, bold=TRUE) %>%
+       
+    kable_styling(latex_options="hold_position") 
+
+```
+
+```{r afterletter, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.shieldedcases.interval,
+             escape=FALSE,
+             booktabs=TRUE,
+             col.names=c("up to 17 April", "18 April to 15 August", "after 15 August"),
+			 label="afterletter",
+             caption="Severe cases by shielding eligibility category and advice interval") %>%
+    kableExtra::group_rows("shielding eligibility category", 2, 7)
+
+```
+
+```{r regressionallcasesnocare, echo=FALSE, warning=FALSE, message=FALSE}
+if(FALSE) {
+    knitr::kable(table.shielded.allcases.nocare,
+                 escape=FALSE,
+                 booktabs=TRUE,
+                 label="regressionallcasesnocare",
+                 caption="Rate ratios for diagnosis associated with shielding eligibility categories excluding care home residents, with and without adjustment for infection after letter",
+                 col.names=c(clean.header(colnames(table.shielded.allcases.nocare)[1:2]),
+                             "Rate ratio (95\\% CI)", "h$p$-value",
+                             "Rate ratio (95\\% CI)", "$p$-value")) %>%
+        add_header_above(c(" "=3, "Univariate"=2, "Adjusted"=2)) %>%
+        column_spec(column=1, width="3cm") %>%
+        column_spec(column=2, width="2cm") %>%
+        column_spec(column=3, width="2cm") %>%
+        column_spec(column=4, width="2.5cm") %>%
+        column_spec(column=5, width="2cm") %>%
+        column_spec(column=6, width="2.5cm") %>%
+        column_spec(column=7, width="2cm") %>%
+        kableExtra::group_rows("Shielding eligibility category", 1, 7) %>%
+            kableExtra::group_rows("SIMD quintile", 8, 12) %>%
+            kable_styling(latex_options="hold_position")
+}
+
+```
+
+```{r regressionseverecasesnocare, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.shielded.severecases.nocare,
+             escape=FALSE,
+             booktabs=TRUE,
+             label="regressionseverecasesnocare",
+             caption="Rate ratios for severe COVID-19 associated with shielding eligibility categories (with no shielding advice as reference category) in those not resident in care homes.  Effects of advice intervals 2 and 3 on the rate ratio associated with any shielding eligibility category are represented by indicator variables", 
+             col.names=c(clean.header(colnames(table.shielded.severecases.nocare)[1:2]),
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value")) %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Adjusted"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+    column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="2cm") %>%
+    column_spec(column=6, width="2.5cm") %>%
+    column_spec(column=7, width="2cm") %>%
+    kableExtra::group_rows("Shielding eligibility category", 2, 7) %>%
+    kableExtra::group_rows("Household composition", 9, 13) %>%
+    kable_styling(latex_options="hold_position")
+
+```
+
+
+```{r shieldedonlyregressionseverecasesnocare, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.shieldedonly.severecases.nocare,
+             escape=FALSE,
+             booktabs=TRUE,
+             label="shieldedonlyregressionseverecasesnocare",
+             caption="Rate ratios for severe COVID-19 associated with shielding eligibility categories (with severe respiratory disease as reference category) in clinically extremely vulnerable individuals not resident in care homes", 
+             col.names=c(clean.header(colnames(table.shielded.severecases.nocare)[1:2]),
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value")) %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Adjusted"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+    column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="2cm") %>%
+    column_spec(column=6, width="2.5cm") %>%
+    column_spec(column=7, width="2cm") %>%
+    kableExtra::group_rows("Shielding eligibility category", 1, 6) %>%
+    kableExtra::group_rows("Household composition", 7, 11) %>%
+    kable_styling(latex_options="hold_position")
+
+```
+
+

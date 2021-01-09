@@ -1,0 +1,152 @@
+---
+title: Authors' response to reviewers' comments on BMED-D-20-02413
+header-includes: |
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+output: 
+  pdf_document
+
+---
+
+# Reviewer #1: 
+
+> 1.1 The main limitation is the inability to assess the causal effect of polypharmacy on the risk of severe COVID-19. In particular, the observed association between polypharmacy (and several drug classes) and severe COVID-19 could be explained by the underlying disease/clinical frailty. 
+
+The assessment of evidence for causality in observational studies is at the core of epidemiologic methods (Bradford Hill criteria).   We have added or rewritten several paragraphs (highlighted) in the Methods and  Discussion sections  to note that it is well recognized that in pharmacoepidemiologic studies based on electronic health records control for confounding based on adjustment for recorded covariates is often inadequate, and that special methods such as self-controlled (time window) analyses have been developed to overcome this.   
+
+We have used time window analyses, together with other approaches such as restriction (to those without listed conditions), dose-response analyses, and examining whether associations of disease with pharmacologically similar drugs are consistent across different indications for these drugs (specifically psychosis and nausea/vomiting). 
+
+Despite this, we are appropriately cautious: the Conclusion states only that "consistency, ... dose-response and time window effects support causal explanations for at least some of these associations.  The Abstract states only that "These associations are not easily explained by co-morbidity." 
+
+> 1.2 The manuscript is confused about diseases used as exclusion criteria and covariates used to adjust the analyses. Did the author use a comorbidity score to adjust the estimates?
+
+We have rewritten a paragraph (highlighted) in the Methods section to make clear the rationale for using restriction (to those without listed conditions) rather than adjustment for covariates (or co-morbidity score) to control for confounding.  
+
+> 1.3 I suggest that a better description of the covariates used to adjust the estimates of interest should be given. 
+
+We have fixed the caption of each table that shows regression coefficients to list the covariates.  The matched case-control design ensures that all effect estimates are controlled for age, sex and primary care practice.  
+
+> 1.4 a table showing the distribution of covariates between cases and controls should be added at least in the supplementary material.
+
+Tables showing these distributions, for all individuals combined and stratified by age group are given in the initial paper on risk stratification which is now in press at PLoS Medicine (copy edited proofs returned, expected to appear very shortly).  We have added a sentence to the Methods section to direct the reader to this.  
+
+> 1.5. I didn't understand the sentence "in individuals without conditions designated as conferring high risk". 
+
+This sentence seems clear and unambiguous to us, as the "conditions designated as conferring high risk" have been defined earlier. We shall seek the editors' guidance on this.    
+
+> 1.6. In the Results section, authors stated "We also excluded those diagnosed with listed conditions". The authors should clearly specify all the inclusion/exclusion criteria in the Methods section.
+
+The list of designated conditions, with  links to the algorithms for assigning the presence of each condition and the R code that implements these algorithms, is given in the PLoS Medicine paper now in press.  We have not repeated material that is already published and available by open access, but we shall be guided by the editors on this. 
+
+> 1.7 Did the strategy that was used for testing for coronavirus change during the data collection?
+
+Anyone who entered hospital with a suspected diagnosis of COVID-19 would have been tested during this period.   As explained in the PLoS Medicine paper now in press, the restriction of the case  definition for severe COVID-19 to those who entered critical care within 28 days of a positive test or had COVID-19 as underlying cause on their death certificate ensures that we ascertain all severe or fatal cases, whatever triage procedures may have been used to limit admission to hospital.  
+
+> 1.8 Why the authors chose a 240-day period to assess drug prescriptions?
+
+Because of limits on the computational resources available during this emergency, the extract of prescription data was limited to prescriptions encashed from 1 July 2019.  240 days was chosen to give the same look-back period for all cases and controls without left-censoring.  We have added a few sentences sentence to the Methods to document this (highlighted)  
+
+> 1.9 A possible explanation of the higher risk associated with the use of antipsychotic drugs is that patients treated with these medicaments could take few precautions to minimize the risk of infection. 
+
+We show that elevated risk of severe COVID-19 is associated not only with antipsychotic agents but with dopamine antagonists used for nausea and vomiting that, as LaPorte and Healy pointed out, are pharmacologically similar to these antipsychotic agents.   We note in the Discussion  that this is evidence for causality rather than confounding by indication.  If the association with drugs in this class were attributable to confounding by indication, we would not expect to see similar associations with the outcome for drugs in the same class that are used for entirely different indications.  
+
+# Reviewer #2: 
+
+> 2.1 the rationale for choices and defintions are spread thoughout the manuscript, e.g. in the statistical section of the method section, result or even in the discussion section. 
+
+See response to point 2.5 below. 
+
+> 2.2 The authors provide no table of characteristics of the study population or other descriptive elements to get to know the study population, completeness of data or to evaluate the matching. 
+
+See response to point 2.5 below. 
+
+> 2.3 Although the study was registered at ENCEPP reporting according to STROBE or PE-RECORD could help clarifying many of the issues. Referring to another non peer-reviewed article or even the ENCEPP subnmission during the review process is not sufficient and helpful, but increases workload of the reviewer.  
+
+We have provided a STROBE checklist for case-control studies with the initial paper on risk stratification that is now in press in PLoS Medicine.  With this paper we have provided a PE-RECORD checklist for the additional paragraphs relevant to pharmacoepidemiologic studies.  
+
+> 2.4 The title is not aligned with the objectives. 
+
+The association of severe COVID-19 with psychotropic drugs is a key result that we wish to highlight in the title because it is important to clinical practice and to public health.  Testing this association was not a specific objective when the study was designed, though this association was predefined as a hypothesis by the Laport-Healy list of "medications compromising COVID".   
+
+> 2.5 Results: Includes no basic information on how many died or were in critical care, sex and age distribution, etc..  Why does the result section start out with mentioning non-cardiovascular drugs when the topic is polypharmacy and psychotropic drugs?
+
+Tables giving numbers of deaths, numbers in critical care, and a breakdown by sex and age are given in the earlier article on risk factors.  This article is in press in PLoS Medicine and will be published shortly.  We prefer not to burden this paper with material already published and freely available elsewhere, but we shall be guided by the editors on this. 
+
+The steps in the analysis are clearly described in the Results section: (1) investigate association with polypharmacy; (2) partition polypharmacy variable into cardiovascular and non-cardiovascular components; (3) hypothesis-free tabulation of associations with non-cardiovascular drugs; (4) test the specific hypothesis of a list of "medications compromising COVID" predefined by others before the start of the study. 
+
+As each of these steps was determined by the results obtained in the previous step, we think that it would confuse the reader and would misrepresent how the study was done to describe them in the Methods section as if they had been specified in advance.  We think it is more straightforward and honest to describe how, in this study of a pandemic of a new disease, we adapted the protocol as appropriate to test the hypotheses generated during the study.  
+
+> 2.6. Resident care versus non-resident care not mentioned in the methods as a particular focus or covariate.  
+
+We have added a paragraph to the Methods (highlighted) to explain the rationale for stratifying by care home residence and for excluding care home residents from subsequent analyses. 
+
+> 2.7 Other parts of the results section should be put into the methods section, also the focus on the list  of drug classes of medications compromising COVID. Definition of polypharmacy or inappropriate medication/polypharmacy not provided.  
+
+We have moved material into the Methods section where possible, but we think it is still necessary to explain in the Results section how the results at each step determined the next analysis.  
+
+> 2.8 How can the authors make sure that the drugs were not proxies for underlying conditions rather than directly related to worse outcomes of COVID-19, confounding by indication? 
+
+See response to Reviewer 1 (point 1.1) above on the assessment of causality.
+
+> 2.9 How can the authors conclude based on their findings that overprescribing of these (which ?) was present?
+
+We do not make any judgement about whether overprescribing was present, but only refer to national guidelines in which prescribing of these drug classes is used as an indicator of overprescribing.  
+
+> 2.10 Objectives: Not aligned with title or objectives of the abstract. How did the authors assess causal effects of potential associations?
+
+See response to Reviewer 1 (point 1.1) above on the assessment of causality.
+
+> 2.11 Polypharmacy may have a 'inappropriate annotation' but may also simply mean that many drugs used at the same time, and are eventually required in case of multimorbidity beyond CVD. In the method section the authors treat cardiovascular drugs separately, though this may not automatically result in the remainder drugs to be considered inappropriate by definition. Thus defintion of inappropriate is missing here as well.   
+
+We have simply followed an earlier study (cited) in partitioning polypharmacy into cardiovascular and non-cardiovascular components as a proxy for appropriate and inappropriate prescribing. We are not in a position to define what is appropriate or inappropriate prescribing. 
+
+> 2.12 What was the rationale of investigating doses of selected drugs?  
+
+A dose-response relationship is one of the standard (Bradford Hill) criteria for assessing causality of an association between exposure and disease.  For opioids there is a reference method of standardizing doses of different drugs as Milligrammes Morphine Equivalent.  For proton pump inhibitors, which do not have appreciable off-target effects, the Defined Daily Dose can be used to standardize equivalent doses.  For the other classes of drug under study it is not possible to assign equivalent doses, as they have multiple off-target effects for instance anticholinergic effects.  
+
+> 2.13 Statistical analysis: Very enlightening section regarding the objectives and design choices. Although it may appear redundant, the information for design choices are needed to be provided in the preceding parts of the method section as well or mainly.  
+
+We have added a sentence (highlighted) to the Methods section to note that the matched case-control design (rather than a cohort consisting of the total population) was chosen to keep computational requirements within the limits of the resources available.
+
+> 2.14 Results: Again the result section is missing informaion on the study population, fatal, non-fatal cases and provides reasons for design choices, e.g. exclusion/inclusion of care home residence, stratification, or specific statistical analyses; thus it appears that these choices were made retrospectively kind of 'on the go' rather than planned in the design stage of the study.   
+
+The rewritten paragraphs (highlighted) in the Statistical Methods subsection describe how these choices were made.  In studying a pandemic of a new disease, it is not feasible or appropriate to define in advance a rigid protocol for the analysis; for instance the 20-fold rate ratio associated with care home residence, not anticipated at the outset, necessitated  exclusion of care home residents from analyses that would otherwise be confounded by this very large effect size.  
+
+We emphasize that the core hypothesis under test: the list of "medications compromising COVID" was proposed by others before the study started. 
+
+> 2.15 Discussion: The discussion starts out with numbers/results not highlighted in the result section, proceeds with (finally) defining overprescribing and discussing extensively the hypothesis free (and on the other hand not so hypothesis free) approach and causality (as alluded in the objectives).  
+
+We have checked that all quantitative results in the Discussion are mentioned in the text of the the Results section. 
+
+We do not "define" overprescribing -- we only cite the National Prescribing Quality Initiative, which uses the levels of prescribing of proton pump inhibitors, opioids and gabapentinoids as indicators of overprescribing.
+
+> 2.16 Though causality may be supported by appropriate methods applied in epidemiological studies and should be discussed, the mentioning of it in the objectives is beyond the scope of the possibilities of the presented study design. 
+
+See response to Reviewer #1 (point 1.1) on the assessment of causality in observational pharmacoepidemiological studies.  
+
+
+# Reviewer #3
+
+> 3.1 covariates of the multivariate analysis should be clearly reported
+
+See above -- all these results have been reported in the PLoS Medicine paper which is expected to be published shortly, and is available meanwhile as a preprint on medRxiv.  
+
+> 3.2 The values of renal function could mediate the relationship of some drugs and mortality
+
+We do not have measurements of renal function in this dataset, but by excluding older individuals and excluding those diagnosed with chronic kidney disease we are able to minimize effects that would be observed only in those with impaired renal function.    
+
+> 3.3 Also body composition, eg. weight and height,  could be important
+
+As noted in the Discussion section, a limitation of the study is that we do not have access to weight and height measurements, which would be recorded only in primary care records.  
+
+
+# Editorial Policies
+
+> Where a mandatory Declarations section is not relevant to your study design or article type, please write "Not applicable" in these sections.
+
+Done
+
+> For the 'Availability of data and materials' section, please provide information about where the data supporting your findings can be found.  We encourage authors to deposit their datasets in publicly available repositories (where available and appropriate), or to be presented within the manuscript and/or additional supporting files.Please note that identifying/confidential patient data should not be shared.  Authors who do not wish to share their data must confirm this under this sub-heading and also provide their reasons.  For further guidance on how to format this section, please refer to BioMed Central's editorial policies page (see links below).
+
+We have provided a link to the Public Benefit and Privacy Panel for Health and Social Care, to which requests for access to the data may be submitted.  
+

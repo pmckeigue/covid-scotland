@@ -1,0 +1,58 @@
+---
+title: "beamer kable" 
+author: PM 
+output: 
+  beamer_presentation:
+    slide_level: 1
+    includes:
+      in_header: /mnt/phs/beamer_header.tex
+    keep_tex: yes
+---
+
+# Title slide
+
+
+# Table with kable
+
+```{r kable, echo=FALSE, warning=FALSE, message=FALSE}
+
+library(knitr)
+library(kableExtra)
+
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+
+knitr::kable(mtcars[1:4, 1:4], 
+             escape=FALSE,
+             booktabs=TRUE,
+	label="regressionseverecasesnocare",
+	caption="Rate ratios for severe COVID-19 in those not resident in care homes" 
+	) %>% 
+    add_header_above(c(" "=2, "Univariate"=2))
+
+```
+# more stuff
+
+           format="latex", 
+             escape=FALSE,
+             booktabs=TRUE,
+             label="regressionseverecasesnocare",
+             caption="Rate ratios for severe COVID-19 in those not resident in care homes. ", 
+             col.names=c(clean.header(colnames(table.shielded.severecases.nocare)[1:2]),
+ #                        "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value")) %>%
+#    add_header_above(c(" "=3, "Univariate"=2, "Adjusted"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+#    column_spec(column=4, width="2.5cm") %>%
+#    column_spec(column=5, width="2cm") %>%
+#    column_spec(column=6, width="2.5cm") %>%
+#    column_spec(column=7, width="2cm") %>%
+    kableExtra::group_rows("Shielding eligibility category", 3, 8) %>%
+#    kableExtra::group_rows("School-age children in household", 10, 12) %>%
+#    kableExtra::group_rows("Adults in household", 13, 16) %>%
+#    kableExtra::group_rows("SIMD quintile", 18, 22) %>%
+#    kableExtra::group_rows("Occupation", 23, 26) %>%
+    kable_styling(latex_options=c("scale_down", "HOLD_position")) %>%
+    add_footnote(label=c("Percentages are column percentages for each variable",
+                         "PF, patient-facing"), notation="none")

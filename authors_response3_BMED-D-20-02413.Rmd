@@ -1,0 +1,60 @@
+---
+title: Authors' response to 3rd round of comments on BMED-D-20-02413
+header-includes: |
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+output: 
+  pdf_document
+
+---
+
+# Reviewer 2: 
+
+> 1. The authors present data in the newly added tables 1 and 2 and in the supplementary tables which are not completely in accordance with current GDPR. Data enabling identification of individual should be made unavailable.  
+
+These tables were reviewed for statistical disclosure control by officials of Public Health Scotland, our national public health agency.  We guess that the reviewer's concerns relate to frequency tables containing small numbers. For instance Table 1 shows that one of 483 individuals in Scotland who entered critical care for COVID-19 and survived had been diagnosed with liver disease.  **This does not enable identification of an individual**. If an attacker already knew the identity of an individual who had been diagnosed with liver disease and had entered critical care for COVID-19 and survived, they would be able to infer a match of this individual to this cell, but this would not provide the attacker with any new information about this individual.  
+
+The individual concerned would be able to identify himself/herself as matching this cell in the table, but again this would not reveal any new information to that individual.  The question of self-identification in a table cell was discussed during the statistical disclosure control review and determined to be acceptable
+
+> 2. The authors should comment on the content of the added tables and how the characteristics of the cases may have affected the results. In particular, from Table 1 it may be interpreted that COVID-19/severely ill and in the end fatal cases above a certain age were not admitted to critical care, thus were potentially withheld critical treatment due to triage? The authors should add information in their manuscript whether there were  any phases of restricting access to hospitals and testing that would be relevant for reviewers or readers to know to interpret the results of the study. 
+
+The definition of severe COVID-19 used for this study ensures that case ascertainment is not affected by triage of those assessed as unlikely (on the basis of age and underlying conditions) to benefit from critical care.  As our case definition included all deaths certified with COVID-19 as underlying cause, these cases would have been ascertained through their death certificates. 
+
+We have added a sentence (highlighted) to the first paragraph of the Methods section to make this point clear. 
+
+> As the authors provide age stratified information in Table 1, age stratified analysis regarding polypharmacy could also be of relevance.  The authors should comment on and provide methodological adjustments how triage decisions could be separated from polypharmacy as being (another) risk factor for fatal outcomes?
+
+We have added a supplementary table showing associations of severe COVID-19 with polypharmacy by age group
+
+> 3. A comparison of the characteristics by residency is missing, meaning comparing characterstics in cases and controls not resident in care homes, and those resident in care homes.
+
+We have added a supplementary table showing associations of care home residency with drug prescribing in the control group.  
+
+> 4. The adequacy of the choice of population controls without having been tested positively for COVID-19 should be discussed by the authors.
+
+This study was based on incidence density sampling in which matched controls were sampled from those who had not yet tested positive for COVID-19 on the day that the case was diagnosed. With this design, the conditional odds ratios are interpretable as rate ratios (ratios of hazard rates) in the population at risk.  (Greenland S, Thomas DC. On the need for the rare disease assumption in case-control studies. American Journal of Epidemiology 1982;116:547–553,  https://doi.org/10.1093/oxfordjournals.aje.a113439)
+
+For each date that one or more cases were diagnosed, all those in the national population register who had tested positive up to that date were excluded from the sampling of controls.  This defines the population at risk of severe COVID-19 as all those who have not yet tested positive.  For clinicians and public health officials this is the relevant definition of the population at risk, as population-wide screening of immunity status has not been conducted. 
+
+We have added a sentence (highlighted) to the second paragraph of the Methods section to explain this technical point. 
+
+> 5. The potential for underdiagnosis of CVD and other somatic disorders and unfavourable life-style in people with psychiatric disorders should be discussed as psychotropics were identified as risk factors.
+
+We have added the following sentence (highlighted) to the Discussion
+
+As the rate ratio of 4.1 associated with use of antipsychotic agents is larger than the rate ratios of about 2 associated with common risk conditons such as Type 2 diabetes and heart disease that we have previously reported from  this case-control study, it is unlikely that underdiagnosis of these risk conditions in users of antipsychotic agents can explain this association.     
+
+> 6. Table 4 misses information on SSRIs (BNF 403030)
+
+The rate ratio associated with SSRIs is given in Table 5, which includes all the drug classes listed by Laporte and Healy.  
+
+SSRIs do not appear in Table 4 because (as the caption states) this table was restricted to those without listed conditions and filtered to show only drug classes for which associations are significant at p<0.001. 
+
+> 7. The authors refer to methods that would be available with the registration of the study in the ENCEPP register, EUPAS35558, Page 5 of the manuscript: "ICD-10 diagnostic and BNF drug codes used to derive these conditions are available with the ENCEPP registration", but the protocol was not available at ENCEPP, but will be 'when the study ends'. These should be provided in the current mansucript as well.
+
+The ICD-10 and BNF drug codes are available as a linked attachment on the ENCEPP registration page.  The link is at Section 19 "Other relevant documents": 
+
+http://www.encepp.eu/encepp/openAttachment/documents.otherDocument-0/35565
+
+This link has been added to the manuscript under "Availability of data and materials", and the ENCEPP registration has been updated to cite the PLOS Medicine paper as the source for the full study protocol. 
+

@@ -1,5 +1,31 @@
 ## pharmacoepi paper
 
+
+## list of logical vectors to be used as argument to compare.timewindows()
+subsets.laporte.scrips <- list(
+    ppi = with(scrips, bnf_paragraph_code == "0103050"),
+    antispasm.gi = with(scrips, bnf_paragraph_code == "0102000"),
+    antihist = with(scrips, bnf_paragraph_code == "0304010"),
+    
+    hypno = with(scrips, bnf_paragraph_code == "0401010"),
+    anxio = with(scrips, bnf_paragraph_code == "0401020"),
+    antipsych = with(scrips, bnf_paragraph_code == "0402010"),
+    manic = with(scrips, bnf_paragraph_code == "0402030"),
+    
+    tricyclic = with(scrips, bnf_paragraph_code == "0403010"),
+    ssri = with(scrips, bnf_paragraph_code == "0403030"),
+    antidepr.other = with(scrips, bnf_paragraph_code == "0403040"),
+    
+    nausea = with(scrips, bnf_paragraph_code == "0406000"),
+    opioid = with(scrips, bnf_paragraph_code == "0407020"),
+    gaba = with(scrips, approved_name=="GABAPENTIN" | approved_name=="PREGABALIN"),
+    antiepilep.other = with(scrips, bnf_paragraph_code=="0408010" &
+                                    !(approved_name=="GABAPENTIN" | approved_name=="PREGABALIN")),
+    antispasm.ur = with(scrips, bnf_paragraph_code == "0406000"),
+    nsaid = with(scrips, bnf_paragraph_code == "0406000")
+)
+
+
 ########################################################
 ## tabulate rate ratios for each num drug group by listed.any
 ## this shows that the polypharmacy association is only in those without listed conditions
@@ -32,30 +58,29 @@ colnames(table.notcv.numdrugsgr.care.home)[2:3] <- paste0(c("Controls (", "Cases
 ## in those notresident in care homes, tabulate by listed.any
 
 table.notcv.numdrugsgr.listed.any <- NULL
-for(cat in levels(cc.severe$listed.any)) {
-    x <- tabulate.freqs.regressions(varnames="notcv.numdrugsgr",
-                                    data=cc.severe[nocare][listed.any==cat])[, 1:4]
+for(cat in levels(cc.severe[care.home=="Independent"]$listed.any)) {
+    x <- tabulate.freqs.regressions(varnames="notcv.numdrugsgr",   data=cc.severe[care.home=="Independent" & listed.any==cat])[, 1:4]
     colnames(x)[1:2] <- c("controls", "cases")
     table.notcv.numdrugsgr.listed.any <- rbind(table.notcv.numdrugsgr.listed.any, x)
 }
 table.notcv.numdrugsgr.listed.any <- data.frame(notcv.numdrugsgr=rep(levels(cc.severe$notcv.numdrugsgr), 2),
-                                     table.notcv.numdrugsgr.listed.any)
+                                                table.notcv.numdrugsgr.listed.any)
 colnames(table.notcv.numdrugsgr.listed.any)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe[nocare]$CASE)), rep(")", 2))
 
 
 ########################################################################
-## in those without listed conditions, by age group
+## in those not resident in care homes, tabulate by age group
 
 table.numdrugsgr.agegr2 <- NULL
 for(cat in levels(cc.severe$agegr2)) {
     x <- tabulate.freqs.regressions(varnames="numdrugsgr",
-                                    data=subset(cc.severe, notlisted & agegr2==cat))[, 1:4]
+                       data=cc.severe[care.home=="Independent" & agegr2==cat])[, 1:4]
     colnames(x)[1:2] <- c("controls", "cases")
     table.numdrugsgr.agegr2 <- rbind(table.numdrugsgr.agegr2, x)
 }
 table.numdrugsgr.agegr2 <- data.frame(numdrugsgr=rep(levels(cc.severe$numdrugsgr), 2),
-                                     table.numdrugsgr.agegr2)
-colnames(table.numdrugsgr.agegr2)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe[notlisted, CASE])), rep(")", 2))
+                                      table.numdrugsgr.agegr2)
+colnames(table.numdrugsgr.agegr2)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe[nocare, CASE])), rep(")", 2))
 
 ########################################################################
 
@@ -541,6 +566,8 @@ print(coeffs.withlaporte)
 summary(clogit(CASE ~ numdrugs.cardiovasc + numdrugs.notcardiovasc + numdrugs.laporte + strata(stratum), data=cc.severe))$coefficients
 
 table.timewindows <- NULL
+
+## subsets.laporte.scrips is a list of 16 logical vectors each of length 3763801
 keep <- rep(FALSE, length(subsets.laporte.scrips))
 for(i in 1:length(subsets.laporte.scrips)) {
     compare <- compare.timewindows(scrips[subsets.laporte.scrips[[i]]], data=cc.severe, recent.cutoff=120)
@@ -554,5 +581,38 @@ for(i in 1:length(subsets.laporte.scrips)) {
 table.timewindows <- 
 data.frame(twin=rep(c("Non-recent only", "Recent only"), nrow(table.timewindows) / 2), 
  table.timewindows)
-
 drugclasses.timewindows <- subparas.laporte[keep]
+
+##########################################
+## table with care home as response variable, drugs as covariates
+
+cc.severe[, care.home.int := as.integer(care.home) -1]
+
+new.carehometable <- FALSE
+
+if(new.carehometable) {
+    sfreqs <- lapply(cc.severe[CASE==0 & care.home.int==1, ..subparacols], table)
+
+    ## keep.carehome is logical vector of rows to keep
+    keep.carehome <- unlist(lapply(sfreqs,
+                                    function(x) ifelse(length(x)==2 & x[2] > 50, TRUE, FALSE)))
+    subparacols.carehome <- subparacols[keep.carehome]
+    table.drugs.carehome <-
+        tabulate.freqs.regressions(varnames=names(cc.severe)[subparacols.carehome],
+                                   outcome="care.home.int",
+                                   data=cc.severe[CASE==0 & AGE >= 75])
+    
+    save(table.drugs.carehome, file="table.drugs.carehome.RData")
+} else {
+    load(file="table.drugs.carehome.RData")
+}
+
+table.drugs.carehome <- table.drugs.carehome[grep("ensuremath",
+                                                  table.drugs.carehome$u.pval), 1:4]
+rownames(table.drugs.carehome) <- gsub("subpara\\.", "", rownames(table.drugs.carehome))
+table.drugs.carehome <- table.drugs.carehome[grep("^1[123][0-9]+{5}",
+                                                  rownames(table.drugs.carehome),
+                                                  invert=TRUE), ]
+                                                                  
+ssri <- tabulate.freqs.regressions(varnames="subpara.403030.Selective serotonin re-uptake inhibitors",
+                           data=cc.severe)[, 1:4]

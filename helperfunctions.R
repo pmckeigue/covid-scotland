@@ -1,5 +1,78 @@
 ## helperfunctions for COVID analyses
 
+icdToInt <- function(x) {
+    N <- length(x)
+    int3 <- integer(N)
+    lastchar <- substr(x, 3, 3)
+    lastchar.asc <- DescTools::CharToAsc(lastchar)
+    lastchar.digit <- lastchar.asc >= 48 & lastchar.asc <= 57
+    int1 <- as.integer(DescTools::CharToAsc(substr(x, 1, 1)))
+    int2 <- as.integer(substr(x, 2, 2))
+    int3[lastchar.digit] <- as.integer(lastchar[lastchar.digit]) + 10
+                                        # integer range 10 to 19
+    int3[!lastchar.digit] <- lastchar.asc[!lastchar.digit]
+                                        # integer range 65 to 90
+    1000 * int1 + 100 * int2 + int3
+}
+
+RDStodt <- function(rds.filename, keyname=NULL) {
+    ## read RDS file 
+    ## convert numeric to int, character with < 20 unique values to factor
+    dt <- as.data.table(readRDS(rds.filename))
+    numeric.cols <- names(which(unlist(sapply(dt, is.numeric))))
+    if(length(numeric.cols) > 0) {
+        integer.cols <- names(which(unlist(sapply(dt[, ..numeric.cols],
+                                                  function(x) is.numeric(x) &
+                                                              isTRUE(all.equal(x, floor(x)))))))
+        dt[, (integer.cols) := lapply(.SD, as.integer), .SDcols = integer.cols]
+    }
+
+    factor.cols <- names(which(unlist(sapply(dt,
+                                             function(x) is.character(x) &
+                                                         length(unique(x)) <= 20))))
+    if(length(factor.cols) > 0) {
+        dt[, (factor.cols) := lapply(.SD, as.factor), .SDcols = factor.cols]
+    }
+    if(!is.null(keyname)) {
+        setkeyv(dt, keyname)
+    }
+    return(dt)
+}
+
+split.strata <- function(data) { # splits data into person-time intervals that map to weeks of calendar time
+    ## final split is done by coxph itself. 
+    ## (calendar) startweek is used to generate time-updated variable for use as stratifier
+    ## data columns must include startday, startweek, tstop, event
+    ## loop over startdays
+    cutpoints0 <- c(7, 14, 21, 28)
+    startdays <- unique(data$startday)
+    data.split <- NULL # data frame
+    for(day in startdays) {
+        data.split.day <- survSplit(formula=Surv(time=tstop, event=event) ~ .,
+                                    data=data[startday==day],
+                                    cut=cutpoints0 - day %% 7, # cuts the time argument
+                                    zero=0, # already set zero at firstdate
+                                    end="tstop",
+                                    event="event")
+        data.split <- rbind(data.split, data.split.day)
+    }
+    data.split <- as.data.table(data.split)
+    data.split[, week:= startweek + floor((1 + tstart) / 7)]
+    return(data.split)
+}
+
+dateformat <- function(x) { # format date and strip leading zero
+     gsub("^0", "", format(x, "%d %B %Y"))
+}
+
+format.estcipv <- function(x.ci, x.pval) {
+    x <- gsub(" \\(", " \\(95\\% CI ", as.character(x.ci))
+    x <- gsub(", ", " to ", x)
+    x <- gsub("\\)", paste0(", _p_=\\", x.pval, "\\)"), x)
+    x <- gsub("times", "\\\\times", x)
+    return(x)
+}
+
 
 `clogistLoglike`  <-  function(n,m,x,beta) {
     ## https://rdrr.io/cran/saws/src/R/clogistLoglike.R
@@ -43,7 +116,6 @@
     for (i in 1:(M-1)) B <-  cumsum(B * u[i:(N-M+i)])
     sum(eta * m) - log(sum(B * u[M:N]))
 }
-
 
 recode.indicator <- function(x) {
     x[is.na(x)] <- 0
@@ -167,7 +239,18 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                      "other.cancer",
                                      "immune.any",
                                      "gabapentinoids",
-                                     "antiepileptics.other"
+                                     "antiepileptics.other",
+                                     "hh.over18",
+                                     "adultsgt2",
+                                     "hosp.recent",
+                                     "after.letter",
+                                     "interval2.shielding",
+                                     "interval3.shielding",
+                                     "qSIMD.integer",
+                                     "preschool.any",
+                                     "is.hcw",
+                                     "Sgene.dropout",
+                                     "av2channels"
                                 ),
                            longname=c("Age", "Males",
                                       "Death within 28 days of test",
@@ -201,7 +284,18 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                       "Other cancer",
                                       "Immune deficiency or suppression", 
                                       "Gabapentinoids",
-                                      "Other drugs used for epilepsy"
+                                      "Other drugs used for epilepsy",
+                                      "Number of adults in household",
+                                      ">2 adults in household",
+                                      "Recent hospital visit/stay",
+                                      "Letter sent >= 14 days earlier",
+                                      "Shielding-eligible and interval 2",
+                                      "Shielding-eligible and interval 3",
+                                      "SIMD quintile (integer)",
+                                      "At least one child under 5",
+                                      "Health-care worker",
+                                      "S gene dropout",
+                                      "Mean Ct of ORF1ab and N genes"
                                       ))
 
 clean.header <- function(x) {
@@ -210,51 +304,67 @@ clean.header <- function(x) {
     return(x)
 }
 
-tabulate.freqs.regressions <- function(varnames, outcome="CASE", data) {
+tabulate.freqs.regressions <- function(varnames, outcome="CASE", data,
+                                       model="clogit", stratumvar="stratum") {
     ## table freqs should identify sparse variables to be dropped from varnames
     table.freqs <- univariate.tabulate(varnames=varnames, outcome=outcome, data=data,
                                        drop.reflevel=FALSE, drop.sparserows=FALSE,
-                                       minrowsum=10)
-
+                                       drop.emptyrows=TRUE, minrowsum=10)
     ## table freqs will drop rows that do not have at least one non-reference
-    ## row with total >= minrowsume
+    ## row with total >= minrowsum
     ## problem is to fix univariate.clogit so that it does not return an error
     ## when clogit returns infinite rate ratio.   
     univariate.table <-
         univariate.clogit(varnames=varnames,
-                          outcome=outcome, data=data, add.reflevel=TRUE)
+                          outcome=outcome, data=data, add.reflevel=TRUE, model=model,
+                          stratumvar=stratumvar)
     multivariate.table <-
         multivariate.clogit(varnames=varnames,
-                            outcome=outcome, data=data, add.reflevel=TRUE)
+                            outcome=outcome, data=data, add.reflevel=TRUE, model=model,
+                            stratumvar=stratumvar)
     table.aug <- combine.tables3(table.freqs, univariate.table, multivariate.table)
-    
     rownames(table.aug) <- replace.names(rownames(table.aug))
     return(table.aug)
 }
 
-# tabulate.freqs.regressions(varnames=demog, data=cc.severe)
-
-univariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE) {
+univariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE,
+                              model="clogit", stratumvar="stratum") {
     univariate.table <- NULL
     for(i in 1:length(varnames)) {
         xvar <- data[[varnames[i]]]
+        numrows.i <- ifelse(is.factor(xvar),
+                            length(levels(as.factor(as.integer(xvar)))) - 1, 1)
         ## compute regression only if min count of 5 for one of 2 levels, or > 2 levels
         xtab <- table(xvar)
         if(length(xtab) > 2  | length(xtab) == 2 & min(xtab) >=5) {
-            univariate.formula <-
-                as.formula(paste(outcome, "~ xvar + strata(stratum)"))
-            x <- summary(clogit(formula=univariate.formula, data=data))$coefficients
+            if(model=="clogit") { # conditional logistic regression using stratumvar
+                univariate.formula <-
+                    as.formula(paste0(outcome, " ~ xvar + strata(", stratumvar, ")"))
+                x <- summary(clogit(formula=univariate.formula, data=data))$coefficients
+            } else if(model=="logistic") {
+                ## unconditional logistic regression: stratumvar must be a factor
+                univariate.formula <-
+                    as.formula(paste(outcome, "~ xvar + ", stratumvar))
+                x <- summary(glm(formula=univariate.formula, data=data,
+                                 family="binomial"))$coefficients[2:(1 + numrows.i), , drop=FALSE]
+            } else { # Cox regression using data in counting process format stratifying by stratumvar
+                ## data must have cols tstart, tstop, event
+                univariate.formula <-
+                    as.formula(paste0("Surv(time=tstart, time2=tstop, event=event) ~ xvar + strata(", stratumvar, ")"))
+                x <- summary(coxph(formula=univariate.formula, data=data))$coefficients
+            }
+            
             x.colnames <- colnames(x)
-        } else {
-            x <- rep(NA, 5) ##FIXME: will not work for > 2 levels
+        } else { # do not run regression if only 2 levels and min count < 5
+            x <- matrix(rep(NA, 5), nrow=1)  ##FIXME: will not work for > 2 levels
         }
         if(!is.factor(xvar)) {
             rownames(x) <- varnames[i]
         } else {
-            if(length(levels(xvar[i])) > 2 & add.reflevel) {
-            x <- rbind(rep(NA, ncol(x)), x) # extra line for reference level
-            rownames(x)[1] <- with(data, levels(xvar)[1])
-            colnames(x) <- x.colnames
+            if(length(levels(xvar)) > 2 & add.reflevel) {
+                x <- rbind(rep(NA, ncol(x)), x) # extra line for reference level
+                rownames(x)[1] <- with(data, levels(xvar)[1])
+                colnames(x) <- x.colnames
             }
         }
         univariate.table <- rbind(univariate.table, x)
@@ -262,48 +372,67 @@ univariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE
     return(univariate.table)
 }
 
-multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE) {
+multivariate.clogit <- function(varnames, outcome="CASE", data, add.reflevel=FALSE,
+                                model="clogit", stratumvar="stratum") {
 
-    # nonmissing <- nonmissing.obs(data, varnames)
-    data.selected <- na.omit(data, cols=varnames) %>%
-        select(all_of(outcome), stratum, all_of(varnames))
-    multivariate.formula <- as.formula(paste(outcome, "~ . + strata(stratum)"))
-    
-    multivariate.model <- clogit(formula=multivariate.formula, data=data.selected)
-    ## using . to represent all other coeffs gives a coeffs matrix with stratum as first line
-    ## so we have to drop first line
-    multivariate.coeffs <- summary(multivariate.model)$coefficients[-1, , drop=FALSE]
+    colnames <- c(outcome, stratumvar, varnames)
+    if(model=="cox") {
+        colnames <- c("tstart", "tstop", colnames)
+    }
+    data.selected <- na.omit(data[, ..colnames])
+
+    ## -stratum ensures that stratum is not included in the model as a covariate
+    if(model=="clogit") {
+        ## remove stratum from list of covariates
+        multivariate.formula <- as.formula(paste0(outcome, "~ . -", stratumvar,
+                                                  " + strata(", stratumvar, ")"))
+        multivariate.coeffs <- summary(clogit(formula=multivariate.formula,
+                                              data=data.selected))$coefficients
+    } else if(model=="logistic") { # logistic regression model
+        multivariate.formula <- as.formula(paste(outcome, "~ ."))
+        multivariate.coeffs <- summary(glm(formula=multivariate.formula,
+                                           data=data.selected,
+                                           family="binomial"))$coefficients[-1, , drop=FALSE]
+        keep.rows <- grep(paste0("^", stratumvar), rownames(multivariate.coeffs), invert=TRUE)
+        multivariate.coeffs <- multivariate.coeffs[keep.rows, , drop=FALSE]
+    } else { # Cox regression using data in counting process format stratifying by stratumvar
+        ## data must have cols tstart, tstop, event
+        multivariate.formula <- as.formula(paste0("Surv(time=tstart, time2=tstop, event=event) ~ . -",
+                                                  stratumvar,
+                                                  " + strata(", stratumvar, ")"))
+        print(multivariate.formula)
+        multivariate.coeffs <- summary(coxph(formula=multivariate.formula, data=data.selected))$coefficients
+    }
+ 
+
     multivariate.table <- NULL
-   
     for(i in 1:length(varnames)) {
-         ## numrows.i is number of rows in multivariate.coeffs for varnames[i]
+        ## numrows.i is number of rows in multivariate.coeffs for varnames[i]
         ## numrows.i is 1 for numeric variables
         ## is length(levels) -1 for factor variables
-        numrows.i <- 1
-        ## set number of rows in multivariate.coeffs for factor variable as num levels -1 
-        if(is.factor(data.selected[[varnames[i]]])) {
-            numrows.i <- length(levels(data.selected[[varnames[i]]])) - 1
-        }
-       ## if variable is factor with > 2 levels and add.reflevel,
-        ## add line for reference level
-        if(is.factor(data.selected[[varnames[i]]]) &
-           length(levels(data.selected[[varnames[i]]])) > 2 &
+        xvar <- data.selected[[varnames[i]]]
+        numrows.i <- ifelse(is.factor(xvar),
+                            length(levels(as.factor(as.integer(xvar)))) - 1, 1)
+        ## if variable is factor with > 2 levels and add.reflevel,
+        ## add extra line to multivariate.table for reference level
+        if(is.factor(xvar) & length(levels(xvar)) > 2 &
            add.reflevel) {
             ## add empty line to multivariate.table
             multivariate.table <- rbind(multivariate.table,
                                         rep(NA, ncol(multivariate.coeffs)))
             ## label this empty line as reference level of factor
             rownames(multivariate.table)[nrow(multivariate.table)] <-
-                levels(data.selected[[varnames[i]]])[1]
+                levels(xvar)[1]
         }
         ## label rows of multivariate.coeffs that will be added
         ## this step is run irrespective of add.reflevel
         ## if variable is factor with >2 levels
-        if(is.factor(data.selected[[varnames[i]]]) &
-           length(levels(data.selected[[varnames[i]]])) > 2) {
+        if(is.factor(xvar) & length(levels(xvar)) > 2) {
             ## label rows with levels
-            rownames(multivariate.coeffs)[1:numrows.i] <-
-                levels(data.selected[[varnames[i]]])[-1]
+            ## FIXME: should drop levels with 0 observations
+            keep.levels <- which(as.integer(table(xvar)) > 0)
+            numrows.kept <- length(keep.levels) - 1
+            rownames(multivariate.coeffs)[1:numrows.kept] <- levels(xvar)[keep.levels][-1]
         } else { # if numeric, or factor with 2 levels
             ## label single row with variable name
             rownames(multivariate.coeffs)[1] <- varnames[i]
@@ -422,7 +551,8 @@ merge.bnfsubparas <- function(chnums, data) {
                                           as.integer(colnames(scrips.subpara.wide)[-1]),
                                           names.subparas, sep=".")
     ## drop rare subparagraphcodes
-    scrips.subpara.wide <- subset(scrips.subpara.wide, select=colSums(scrips.subpara.wide) > 20)
+    scrips.subpara.wide <- subset(scrips.subpara.wide,
+                                  select=colSums(scrips.subpara.wide) > 20)
 
     setkey(scrips.subpara.wide, ANON_ID)
     cc.bnf.subpara <- scrips.subpara.wide[data]
@@ -587,27 +717,44 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
     }
 }
 
-combine.tables3 <- function(ftable, utable, mtable)  {# returns single table from freqs, univariate, multivariate 
-    
-    u.ci <- or.ci(utable[, 1], utable[, 3])
 
-    pvalue.na <- is.na(utable[, 5])
+format.pvalue <- function(z, pvalue) {
+    pvalue.na <- is.na(pvalue)
     ## convert to character so that extreme p-values can be represented in scientific notation
-    u.pvalue <- as.character(signif(utable[, 5], 1))
+    pvalue <- as.character(signif(pvalue, 1))
+    ## calculate exact p-values where R outputs 0
+    pvalue[!pvalue.na & pvalue == "0"] <- pnorm.extreme(z[!pvalue.na & pvalue == "0"])
+    pvalue <- as.character(pvalue.latex(pvalue))
+    return(pvalue)
+}
+
+combine.tables3 <- function(ftable, utable, mtable)  {# returns single table from freqs, univariate, multivariate 
+
+
+    ## redo this to use the format.pvalue function
+    se.colnum <- ncol(utable) - 2
+    z.colnum <- ncol(utable) - 1
+    pval.colnum <- ncol(utable)
     
-    u.pvalue[!pvalue.na & u.pvalue == "0"] <- pnorm.extreme(utable[, 4][!pvalue.na &
+    u.ci <- or.ci(utable[, 1], utable[, se.colnum])
+
+    pvalue.na <- is.na(utable[, pval.colnum])
+    ## convert to character so that extreme p-values can be represented in scientific notation
+    u.pvalue <- as.character(signif(utable[, pval.colnum], 1))
+    
+    u.pvalue[!pvalue.na & u.pvalue == "0"] <- pnorm.extreme(utable[, z.colnum][!pvalue.na &
                                                                         u.pvalue == "0"])
     u.pvalue <- as.character(pvalue.latex(u.pvalue))
     
-    mult.ci <- or.ci(mtable[, 1], mtable[, 3])
-    mult.pvalue <- signif(mtable[, 5], 1)
+    mult.ci <- or.ci(mtable[, 1], mtable[, se.colnum])
+    mult.pvalue <- signif(mtable[, pval.colnum], 1)
     
-    pvalue.na <- is.na(mtable[, 5])
+    pvalue.na <- is.na(mtable[, pval.colnum])
     ## convert to character so that extreme p-values can be represented in scientific notation
-    mult.pvalue <- as.character(signif(mtable[, 5], 1))
+    mult.pvalue <- as.character(signif(mtable[, pval.colnum], 1))
     
     mult.pvalue[!pvalue.na & mult.pvalue == "0"] <-
-        pnorm.extreme(mtable[, 4][!pvalue.na & mult.pvalue == "0"])
+        pnorm.extreme(mtable[, z.colnum][!pvalue.na & mult.pvalue == "0"])
     mult.pvalue <- as.character(pvalue.latex(mult.pvalue))
      
     table.aug <- data.frame(ftable,
@@ -632,7 +779,7 @@ pvalue.latex <- function(x, n=1, nexp=1) {
     ## this function has to be able to handle x whether numeric or character 
     pvalue <- sapply(x, function(z) { # sapply returns a vector applying FUN to each element of x
 
-        if (is.na(z)) {
+        if (is.na(z) | is.nan(z)) {
             return(NA)
         } else if(as.numeric(z) >= 0.001) {
             ## return character string to one sig fig, not in scientific notation
@@ -663,8 +810,14 @@ or.ci <- function(coeff, se, ndigits=2) {
   return(x)
 }
 
+paste.vectortomatrix <- function(x, y) {
+    matrix(paste(x, y), nrow=nrow(x), dimnames=dimnames(x))
+}
+
 univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TRUE,
-                                drop.sparserows=FALSE, minrowsum=10, digits=0) {
+                                drop.sparserows=FALSE, drop.emptyrows=FALSE,
+                                minrowsum=10, digits=0,
+                                colpercent=TRUE) {
     outcomevar <- data[[outcome]]
     table.varnames <- NULL
     for(i in 1:length(varnames)) {
@@ -673,16 +826,27 @@ univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TR
         z <- data[[varnames[i]]] 
         if(is.numeric(z)) { # median (IQR) for numeric variables 
             x <- tapply(z, outcomevar,
-                        function(x) return(paste0(median(x, na.rm=TRUE),
-                                                  " (", quantile(x, probs=0.25, na.rm=TRUE),
-                                                  "-", quantile(x, probs=0.75, na.rm=TRUE), ")")))
+                        function(x) {
+                            xq <- quantile(x, probs=c(0.5, 0.25, 0.75), na.rm=TRUE)
+                            dec <- max(1, -log10(abs(xq[1])))
+                            xq <- round(xq, dec)
+                            return(paste0(xq[1], "(", xq[2], "-", xq[3], ")"))
+                        }
+                        )
             x <- matrix(x, nrow=1)
             rownames(x) <- varnames[i]
         } else { # freqs for factor variables
             x <- table(z, outcomevar)
             ## keep if at least one factor level has row sum >= minrowsum
             keep.x <- !any(rowSums(x) < minrowsum)
-            x <- paste.colpercent(x, digits=digits)
+            if(drop.emptyrows) {
+                x <- x[rowSums(x) > 0, ]
+            } 
+            if(colpercent) {
+                x <- paste.colpercent(x, digits=digits)
+            } else {
+                x <- paste.rowpercent(x, digits=digits)
+            }
             ## rownames are labelled with levels(varname)
             ## if two levels OR drop.reference level, drop reference level
             ## if single row left, label rows with varname
@@ -817,6 +981,18 @@ paste.colpercent <- function(x, digits=0, escape.pct=TRUE) { # paste column perc
     return(z)
 }
 
+paste.rowpercent <- function(x, digits=0, escape.pct=TRUE) { # paste row percentages into freq table and return a matrix
+    x.rowpct <- paste0("(", round(100 * prop.table(x, 1), digits))
+    if(escape.pct) {
+        x.rowpct <- paste0(x.rowpct, "\\%)")
+    } else {
+        x.rowpct <- paste0(x.rowpct, "%)")
+    }
+    z <- matrix(paste(x, x.rowpct), nrow=nrow(x),
+                dimnames=dimnames(x))
+    return(z)
+}
+
 testfolds.bystratum <- function(stratum, y, nfold) {
     ## keep only strata that contain a single case 
     table.strata <- tapply(y, stratum, sum) == 1
@@ -829,7 +1005,6 @@ testfolds.bystratum <- function(stratum, y, nfold) {
                              test.fold=1 + sample(1:N, size=N) %% nfold)
     return(test.folds)
 }
-
 
 MakeEthnicOnomap <- function(onolytic, geographic){
   ## Take vectors onolytic and geographic to recode ethnicity and return this as a vector

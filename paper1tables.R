@@ -2,7 +2,9 @@
 
 ########### variable lists for tabulating
 
-# demog <- c("ethnic3.onomap", "SIMD.quintile", "care.home")
+if(old) {
+    demog <- c("ethnic3.onomap", "SIMD.quintile", "care.home")
+}
 
 demog.smr <- c("ethnic4.smr", "SIMD.quintile", "care.home")
 
@@ -16,9 +18,15 @@ bnf.chapternames <- colnames(cc.severe)[bnfcols]
 
 icdcols <- grep("^Ch\\.", colnames(cc.severe))
 icd.chapternames <- colnames(cc.severe)[icdcols]
+## drop factors without at least 2 levels represented in cc.severe 
+num.values <- unlist(lapply(cc.severe[, ..icd.chapternames], function(x) length(table(x))))
+icd.chapternames <- icd.chapternames[num.values > 1]
 
 full.varnames <- c(demog.smr, listed.conditions,
                    "diag.any", icd.chapternames, "scrip.any", bnf.chapternames)
+## drop factors without at least 2 levels represented in cc.severe 
+num.values <- unlist(lapply(cc.severe[, ..full.varnames], function(x) length(table(x))))
+full.varnames <- full.varnames[num.values > 1]
 
 ## logical vectors for subsetting
 nocare <- cc.severe$care.home=="Independent"
@@ -104,7 +112,10 @@ table.agegr.all <- tabulate.freqs.regressions(varnames=varnames.listedpluscovs,
                                               data=cc.severe)
 cat("demographic vars ... ")
 ## demographic vars
-#table.demog.aug <- tabulate.freqs.regressions(varnames=demog, data=cc.severe)
+
+if(old) {
+    table.demog.aug <- tabulate.freqs.regressions(varnames=demog, data=cc.severe)
+}
 
 ## separate analysis using SMR ethnicity 
 table.ethnicsmr <- univariate.tabulate(varnames="ethnic4.smr", outcome="CASE",
@@ -126,10 +137,12 @@ table.listed.conditions.ge60 <-
     tabulate.freqs.regressions(varnames=listed.conditions,
                                data=cc.severe[cc.severe$AGE >= 60 ])
 
-## full multivariate model variables -- for this use dm.type rather than diabetes.any 
+## full multivariate model variables -- for this use dm.type rather than diabetes.any
+
+summary(cc.severe[, ..full.varnames])
+
 multivariate.all <-
-    multivariate.clogit(varnames=full.varnames,
-                        data=cc.severe, add.reflevel=TRUE)
+    multivariate.clogit(varnames=full.varnames, data=cc.severe, add.reflevel=TRUE)
 
 ################# restrict to those without listed conditions #############
 cat("restricting to those without listed conditions ...")

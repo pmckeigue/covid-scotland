@@ -1,0 +1,539 @@
+---
+title: "Relation of SARS-CoV-2 variant B.1.1.7 to transmission-related factors and to severity of COVID-19 in Scotland: REACT-SCOT case-only linkage study [follow-up to `r dateformat(min(maxdate.death, lastdate.rapid))`]"
+author:
+  - name: Paul M McKeigue\textsuperscript{\getAff{Usher}}
+    affiliation: HPS
+  - name: David McAllister\textsuperscript{\getAff{Glasgow}}  
+    affiliation: Glasgow 
+  - name: Jen Bishop
+    affiliation: HPS
+  - name: Sharon Hutchinson\textsuperscript{\getAff{GCU}}  
+    affiliation: HPS
+  - name: Nazir Lone
+    affiliation: Usher
+  - name: Jim McMenamin 
+    affiliation: HPS
+  - name: David Goldberg
+    affiliation: HPS
+  - name: Chris Robertson\textsuperscript{\getAff{Strathclyde}}  
+    affiliation: HPS
+  - name: Helen M Colhoun\textsuperscript{\getAff{IGMM}}
+    email: helen.colhoun@igmm.ed.ac.uk (07791 652665)
+    affiliation: HPS
+
+address: 
+- code: Usher
+  address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland. PM - Professor of Genetic Epidemiology and Statistical Genetics. NL - Clinical Senior Lecturer in Critical Care  
+- code: HPS
+  address: Public Health Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+- code: Glasgow
+  address: Institute of Health and Wellbeing, University of Glasgow, 1 Lilybank Gardens, Glasgow G12 8RZ. DM - Senior Clinical Lecturer in Public Health 
+- code: Strathclyde
+  address: Department of Mathematics and Statistics, University of Strathclyde, 16 Richmond Street, Glasgow G1 1XQ. CR - Professor of Public Health Epidemiology
+- code: GCU
+  address: School of Health and Life Sciences, Glasgow Caledonian University. SH - Professor of Epidemiology and Population Health 
+- code: IGMM
+  address: Institute of Genetics and Molecular Medicine, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland. HC - AXA Chair in Medical Informatics and Epidemiology
+
+header-includes:
+  \usepackage{newunicodechar}
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{geometry}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \floatplacement{figure}{H}
+  \usepackage{array}
+  \usepackage{threeparttable}
+  \usepackage{longtable}
+  \usepackage{lscape}
+  \usepackage{pdfpages}
+output:
+  rticles::nejm_article:
+    includes:
+      in_header: ./preamble.tex
+    latex_engine: lualatex
+    keep_tex: true
+    fig_caption: yes
+#    number_sections: false
+    md_extensions: -autolink_bare_uris
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+bibliography: ./covid.bib
+csl: ./biomed-central.csl
+always_allow_html: true
+urlcolor: blue
+linenumbers: false
+linkcolor: cyan
+
+---
+
+On behalf of Public Health Scotland COVID-19 Health Protection Study Group
+
+
+```{r functions, echo=FALSE}
+
+library(knitr)
+library(kableExtra)
+library(survminer)
+
+options(knitr.kable.NA = '.')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(fig.width=6, fig.pos = "H", out.extra = "")
+source("helperfunctions.R")
+
+# rmarkdown::render("ct.Rmd", output_file="ct.pdf")
+
+cases.dropout <- with(cases.all, table(severe.case, Sgene.dropout))
+cases.dropout <- paste.colpercent(cases.dropout, digits=2)
+
+tests.byct <- with(cc.all[SPECIMENDATE >= as.Date("2020-09-01")],
+                   table(flag_lighthouse_labs_testing, ecoss.result))
+                     
+```
+
+ \newpage
+
+# Abstract
+* _Objectives_ - To investigate the transmission of the SARS-CoV-2 variant B.1.1.7 and its relation to the severity of COVID-19 in Scotland.  
+* _Design_ - case-only study (REACT-SCOT). 
+* _Setting_ - population of Scotland from  1 September 2020 to `r dateformat(min(maxdate.death, lastdate.rapid))`.  
+* _Participants_ -  All `r nrow(cc.all[CASE==1])` individuals in Scotland who tested positive for SARS-CoV-2 with the ThermoFisher TaqPath assay.  
+* _Main outcome measures_ - death, entry to critical care or hospitalisation within 28 days of first testing positive for SARS-CoV-2.  
+* _Results_ - The B.1.1.7 variant, imputed from S gene dropout, largely replaced the original wild-type strain in Scotland over a four-week period beginning in mid-December 2020.     Among those testing positive, the B.1.1.7 variant was less common in those aged over than under 60 years, showed substantial regional variation being more common in the west than east, was  inversely associated with residence in a care home, working in health care, and recent hospital exposure than in those not exposed to these settings.   The proportion with the variant did not vary with the number of children in the household.   With adjustment for age, sex and transmission-related factors the rate ratio for each outcome associated with S gene dropout was 
+`r table.death.coxph["S gene dropout", 5]` for death, 
+`r table.severe.coxph["S gene dropout", 5]` for death or entry to critical care, and 
+`r table.hosp.coxph["S gene dropout", 5]` for death or hospitalisation. These risk ratios showed variation over time having risen and then fallen again the the last two weeks of  the study period. <!--can u add a p value for the interaction of the rates with calendar time?-->
+* _Conclusions_ - The relationship of the VOC 2020-12/01 to  hospitalisation rates and  severity is varying over time and the most recent data do not show any elevation in hospitalisation or severity with it. The data  do not support suggestions that this variant is preferentially transmitted through children. 
+
+# Background  
+<!--- 4 PHE technical briefings on this page
+Meera Chand, Susan Hopkins, Gavin Dabrera, Christina Achison
+Wendy Barclay, Neil Ferguson, Erik Volz
+Nick Loman
+Andrew Rambaut
+Jeff Barrett
+https://www.gov.uk/government/publications/investigation-of-novel-sars-cov-2-variant-variant-of-concern-20201201
+Briefing 1 -- the Kent cluster
+Briefing 2 -- preliminary fatality and hospitalisation rates
+Briefing 3 -- 98% specificity of SGTF by early Dec, analysis of contact tracing data
+Briefing 4 -- age and sex distribution
+--->
+A SARS-Cov-2 variant ([lineage B1.1.7](https://virological.org/t/preliminary-genomic-characterisation-of-an-emergent-sars-cov-2-lineage-in-the-uk-defined-by-a-novel-set-of-spike-mutations/563) on `gisaid.org` was designated as a variant of concern (VOC 202012/01)  in the UK in December 2020.  The variant has 23 mutations, including N501Y that is likely to affect receptor binding affinity of the spike protein.   Further characteristics of the variant were documented in a series of technical briefing notes by Public England from December 2020 onwards [@chand_investigation_2021]  The variant has spread rapidly, becoming  the commonest variant  in  cases detected in the Pillar 2 laboratories in the UK and accounting for over 90% of cases in London by early January. Analysis of contact tracing date showed higher secondary attack rates implying increased transmissibility  of this variant. One of the S gene mutations in the variant, which deletes amino acids 69 and 70 (Δ69-70), causes a reproducible failure of the S gene signal in the ThermoFisher TaqPath assay used in UK Lighthouse laboratories. Although Δ69-70 is not unique to B.1.1.7, by early  December 2020 this variant accounted for  98% of all Δ69-70 sequences. Thus S gene dropout can be used as a  proxy for B.1.1.7, allowing the epidemiology of the variant to be studied without sequencing [@chand_investigation_2021].  
+
+A modelling study suggested that "the increase in transmissibility is likely to lead to a large increase in incidence, with COVID-19 hospitalisations and deaths projected to reach higher levels in 2021 than were observed in 2020" and that control measures would not reduce the case reproduction number to less than 1 "unless primary schools, secondary schools, and universities are also closed." [@davies_estimated_2020]
+
+Preliminary analyses by Public Health England and other groups have suggested [@horby_nervtag_2021] that the VOC causes more severe disease. The objectives of this study were to investigate the relation of variant status to exposure to children and other transmission-related factors, and to investigate whether the variant status is associated with more severe disease in Scotland.   
+
+# Methods
+## Ascertainment of COVID-19 cases evaluable for B.1.1.7 status
+From early in the epidemic Public Health Scotland has maintained a regularly-updated case-control study (REACT-SCOT) of all COVID-19 cases in Scotland, with each case matched to up to ten controls and extensive linkage to other health care records and routine datasets   as previously reported [@mckeigue_rapid_2020-1].  The case definition in REACT-SCOT includes all those with a positive nucleic acid test, a hospital admission with a discharge code of COVID-19  or a death certificate with mention of COVID-19.  For cases who had tested positive in a Lighthouse laboratory, cycle threshold (Ct) values for each channel were available.  The analyses presented here focus on the subset of cases evaluable for S gene dropout as described below. As these analyses did not use data on controls, the description of methods is restricted to case ascertainment and linkages in REACT-SCOT. 
+
+All cases in Scotland with a positive RT-PCR test regardless of laboratory used were identified from the Electronic Communication of Surveillance in Scotland (ECOSS)  that captures virology testing in all NHS laboratories, hub laboratories and the  Scottish Lighthouse laboratory. From 1 September 2020  to `r dateformat(max(ct$SpecimenDate, na.rm=TRUE))` the Lighthouse laboratory accounted for `r tests.byct[2]` of the `r sum(tests.byct)` positive tests in Scotland.  For this study case ascertainment was complete up to  `r lastdate.specimen` as the date of the first positive test.  Test results from the Lighthouse laboratory were available up to `r dateformat(maxdate.ct)`
+
+## Imputation of B.1.1.7 status from S gene signal
+The ThermoFisher TaqPath assay scores results as positive if there are detectable signals from at least two of the three genes: S, N, and ORF1ab.  For this study test-positive cases with a detectable S gene signal were scored as "No dropout". Test-positive cases with no S gene signal were scored as "Definite dropout" if the cycle thresholds for the ORF1ab and N genes were less than 30. All other positive test results with no signal from the S gene were scored as "Undetermined". 
+ <!--Test-positive cases with no S gene signal were scored as "Definite dropout" if the Ct for the ORF1ab  gene (\ensuremath{C_{ORF}}) was less than 31, the Ct for the N gene (\ensuremath{C_{N}}) was less than 30, and \ensuremath{C_{ORF} - C_{N} > - 1}. All other positive test results with no signal from the S gene were scored as "Undetermined".   This was based on using the results of repeat tests on the same individual to reclassify borderline results as described in the Supplementary Text. 
+
+Chris R: a positive for STGF defined as  negative on the S gene and Ct < 25 for at least one of the OR and N genes.  A weak positive is negative for S gene and Ct <= 30 for both OR and N gene. --->
+
+## Ascertainment of  hospitalisation and severity status
+The classification of cases as COVID-symptomatic or asymptomatic is based on the question used in Pillar 2 testing. Using the Community Health Index (CHI) number as identifier all cases were linked to RAPID which is a daily update of hospitalisations, out-patient attendances (SMR00), the Scottish Morbidity Record 01 (SMR01) which records general /acute hospital discharges, the Scottish Intensive Care Society and Audit Group (SICSAG) database which records entry to critical care, and to deaths registered with the National Records of Scotland (NRS).  Fatal COVID-19 was defined as death within 28 days of testing positive, regardless of the recorded cause of death or as any death with COVID-19 coded as underlying cause. 
+
+The proportion of cases with fatal outcome was calculated over sliding seven-day time windows.  We denote this fraction as the fatal case proportion.  We use this term  to distinguish it from the case fatality ratio which is classically defined without linkage between diagnoses and deaths, as the ratio of deaths from the disease to diagnosed cases over a specified time window. Data were available up to  `r dateformat(lastdate.rapid)` for hospital admissions, `r dateformat(maxdate.sicsag)`  for entry to critical care and `r dateformat(maxdate.death)` for death registrations.  
+
+## Ascertainment of exposure  to  other  COVID-19 risk settings or exposures 
+All cases were linked to the CHI database that contains addresses linked to the Unique Property Reference Number, care home status, and the ages of all household members.  Socioeconomic status was assigned as the Scottish Index of Multiple Deprivation (SIMD) score which is based on linkage of postcodes to Census data [@fraser_scottish_2020].  Quintile 5 is the least deprived. Care home residence was assigned using the field in the CHI database,   augmented by coding as care home residents the `r care.home.reclassified[1]` individuals aged over 70 in households with 10 or more adults to give a total of `r cc.all[care.home=="Care/nursing home", .N]` care home residents out of the `r cc.all[, .N]` cases. 
+
+To examine possible associations with exposure to health-care facilities, we defined the variable "recent hospital visit/stay" as any hospital in-patient stay or out-patient attendance (face-to-face consultations only) from 5 to 14 days before presentation date.  Restriction of hospital exposure to this time window was intended to exclude consultations caused by COVID-19 symptoms for which testing was delayed by a few days, but to include those exposed to health care facilities in the time interval during which the infection was likely to have been acquired. This is broader than the definition used in Scotland and England for "probable healthcare -associated infection" as illness onset or first positive specimen date between 8 and 14 days after admission.  The broad definition we have used here is intended to capture all infections that might have been acquired through hospital exposure, rather than to identify individuals who are unlikely to have been infected outside hospital.  
+
+Teachers were identified as individuals of working-age registered with the General Teaching Council of Scotland and currently working, or believed to be currently working, as teachers at a Scottish school in 2020. Healthcare workers were identified using the General Practitioner Contractor Database (GPCD) and Scottish Workforce Information Standard System (SWISS) databases as described previously. [@shah_risk_2020; @mcallister_report_2020]. Prior comorbidities were derived by linkage to prescribing and SMR01 as described previously  [@mckeigue_rapid_2020-1]. 
+
+## Statistical methods
+The three outcomes under study were death, death or entry to critical care (severe case), and death or hospitalisation.  Follow-up for these outcomes was limited to 28 days since first testing  positive.  For each outcome a Cox regression model was fitted with days since first testing positive as the time scale, with follow-up censored at the earliest of three dates: date of first event, last date up to which records of the outcome were available through linkage, or 28 days since first testing positive.  To control for calendar time, the dataset was additionally stratified by one-week time intervals.  This is equivalent to a conditional logistic regression model where the observations are person-time intervals and there is one stratum for each combination of days since testing positive and one-week calendar time interval.  Age, sex and other covariates were included in the model as fixed effects. 
+
+Note that because the assignment of definite S gene dropout is based on a minimum level of signal (maximum Ct value) from the ORF1ab and N genes, average Ct values of these two genes in those with S gene dropout will necessarily be lower than average Ct values in those without definite S gene dropout.  As Ct values vary inversely with the quantity of viral RNA in the sample, a crude comparison of those with and without definite S gene dropout will be confounded by viral load.  For this reason associations with disease severity are presented with and without adjustment for the average Ct value of the other two genes. <!--can u insert somewhere a sensitiviy analysis of what heppens if you instead restrict to those below a given ct value threshold as other  have done? -->
+
+# Governance/ ethics
+This work was carried out under Public Health Scotland Data Protection Impact Assessment DP20210023. 
+
+# Results
+Supplementary Table \ref{tab:coeffssymptoms} shows that in comparison with cases without Ct results whose first positive tests were done in NHS hospital laboratories,  cases with Ct results whose first positive tests were done in Lighthouse laboratories had a younger age profile, a higher proportion of females, a higher proportion with children at home, and a lower fatality rate. 
+
+## Frequency of S gene dropout and association with transmission-related factors
+Figure \ref{fig:variantbydate} shows that from the second half of December 2020 onwards the S gene dropout rapidly replaced the original wild-type strain as the predominant strain among test-positive cases detected in the Lighthouse testing programme. <!--insert here the exact % t accotns for in the last available week of data ** readers can get these numbers off the figure. ---> The rise in median cycle thresholds of the ORF and N genes in the first half of December 2020 antedated the replacement of the wild-type strain by the variant.  As the variant replaced the original strain, the difference of about one cycle between the detection thresholds of the ORF gene and the N gene narrowed to the point where the Ct values overlapped.  
+
+Table \ref{tab:coeffsexposure} shows among all test-positive cases with presentation date from 1 December 2020 to `r dateformat(max(cases.all$SPECIMENDATE))` and non-missing values for S gene dropout status the association of S gene dropout with transmission-related factors including age, region, household composition, occupation and recent hospital exposure.   Among those testing positive, the B.1.1.7 variant was less common in those aged over than under 60 years. The odds of the variant were more than twice as high in the other three Scottish regions than in the eastern region.  The B.1.1.7 variant was inversely associated with residence in a care home [rate ratio `r table.coeffs.exposure["Care home", 3]`], with working in health care [rate ratio `r table.coeffs.exposure["Health care, PF", 3]`], , and with recent hospital exposure [rate ratio `r table.coeffs.exposure["Recent hospital visit/stay", 3]`].  The proportion with the variant did not vary with the number of children in the household. Supplementary Figure \ref{fig:plotrateratioSgene} shows that the associations with region and healthcare status did not vary much over time.  
+
+## Relation of symptom status to S gene dropout
+Table \ref{tab:coeffssymptoms} shows that after adjustment for cycle threshold and other covariates, the proportion of cases with symptoms did not differ between those with the variant and those with the wild-type strain.  
+
+## Relation of outcome of infection to S gene dropout
+<!--can ytou give a little ore basic data here please ie fill this in. Of all test positive cases examined here between insert date and insert date  the median (interquartile range) of follow up time up to  COVID-19  death or being censored for other death or censored at 28 days post test was xxx in those with and xxx in those without the B.1.1.7 variant  --> the `r cases.all[, .N]` test-positive cases with S gene dropout status, `r cases.all[hosp28==1, .N]` were hospitalised or dead within 28 days of testing positive,
+`r cases.all[severe28==1, .N]` were admitted to critical care or dead within 28 days, and `r cases.all[death28==1, .N]` died within 28 days. <!--can you also insert these basic data The incidence rate of death was xxx / person days at risk versus xxx /person days at risk in those with adn without the variant. For the composte outcome of hospitalsiation or death these rates were xxx and xxx respectively and for admssion to CCU or death they were xxx and xxx. -->
+
+Figure \ref{fig:survivalcurves} shows the crude survival curves for these three outcomes and suggests slightly lower survival for all three outcomes for those with the B.1.1.7 variant .
+
+ With adjustment for age, sex and transmission-related factors the rate ratio associated with S gene dropout was 
+`r table.death.coxph["S gene dropout", 5]` for death within 28 days of testing positive (Table \ref{tab:coxfatal}),
+`r table.severe.coxph["S gene dropout", 5]` for death or entry to critical care within 28 days of testing positive (Table \ref{tab:coxsevere}), and 
+`r table.hosp.coxph["S gene dropout", 5]` for death or hospitalisation within 28 days of testing positive (Table \ref{tab:coxhosp}).  The average of Ct values of the ORF1ab and N genes was strongly and inversely associated with both severe disease and hospitalisation.   
+
+<!--need to run react scot risk score and further adjust for it in suppementary tables and coment son that here  - need also to show how the react score and other characterstics DIFFERENCES  ie age residential care hcw etc etc varies over the study period   INCLUDE in this differences in the CT value between the strains over time  -->
+
+Supplementary Figure \ref{fig:plotrateratioSgene} shows the rate ratio for death or hospitalisation associated with S gene dropout by sliding 7-day time window of presentation date, adjusted for the  covariates in Table \ref{tab:coxhosp}.  The rate ratio rose from the last week of December until the second week of January, then began to fall. We note that the rate ratios for cases presenting in January are based on follow-up only to `r dateformat(min(maxdate.death, lastdate.rapid))` though the Cox regression allows for censoring.  
+
+# Discussion
+## Summary of findings and comparison with other reports
+### Transmission in different settings
+These data show that transmission of the B.1.1.7 variant  in Scotland rose from early December 2020 and that by the middle of January 2021 it had largely replaced the original strain.  From the calendar time-stratified associations of variant status with demographic variables, there is no evidence that higher transmission of the variant is associated with any demographic stratum of the population.  It is however evident that during the period of study the transmission of the variant was inversely associated with exposure to hospitals or residence in care homes, perhaps because the variant had not yet spread to these sites.
+
+Our results showing no association of variant status with the number of children in the household are consistent with a recent report from the Office of National Statistics COVID-19 Infection Survey (CIS), a  randomly selected swab surveillance survey in the UK that found no evidence of differential growth of the variant between children and adults [@walker_increased_2021].  Our results showing no difference in the proportion of symptomatic cases by S gene dropout status are consistent with the findings of the CIS survey.  
+
+### Severity of disease
+There is no clear evidence from this study that the B.1.1.7 variant is associated with more severe disease: the 28-day rates of fatality, admission to critical care and hospital admission do not differ significantly between test-positive cases with and without the variant.  Our results on the association of S gene dropout with increased hospitalisation and severity  in the first 28 days differ from those from for England presented at the NERVTAG meeting in  January 2021, and from analysis of an earlier version of this dataset presented at the NERVTAG meeting on 5 February 2021.   With ascertainment of more recent cases and wtih longer follow-up, it is now clear that the rate ratio for hospitalisation associated with the variant varied markedly over the time period that this study covers.  
+The reasons for this are not clear and we are undertaking further analyses using individual risk scores to assess confounding by susceptibility to severe disease.  
+
+### Cycle threshold
+Our results show that lower average cycle threshold of the N and ORF1ab genes in the initial positive test is associated with higher rates of fatality, entry to critical care and hospitalisation.  This contrasts with PHE [guidance](https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/926410/Understanding_Cycle_Threshold__Ct__in_SARS-CoV-2_RT-PCR_.pdf) that Ct values in a swab taken at a single point in time do not provide information about the trajectory or subsequent course of illness.  Monitoring of the cycle threshold may be useful in predicting future utilisation of hospital care. 
+
+## Strengths and limitations 
+* Although most positive tests in Scotland are in the Lighthouse labs that use the Thermofisher TaqPath assay and these data are nationally complete,  most of the cases that are hospitalised or fatal are tested in NHS labs that do not use this assay and therefore cannot impute the B.1.1.7 variant.  As this study is based on comparisons only within those who test positive in Lighthouse labs,  comparisons of disease severity between those with and without S gene dropout should not be biased even though the cohort is unrepresentative of all test-positive cases.   
+
+* The strongest confounders of the association between S gene dropout and disease severity are likely to be calendar time and transmission-related risk factors such as recent hospital exposure. We controlled for calendar time by stratification in Cox regression models.  The comprehensive linkage of the REACT-SCOT study allowed us to adjust for recent hospital exposure, care home residence, household composition, and geographic region. 
+
+* The numbers of hospitalised cases with S gene dropout is large enough for the rate ratio for this outcome to be estimated reliably.  The numbers of fatal cases during the period that both the original strain and the variant were circulating is relatively small, so that the rate ratio cannot be estimated accurately. 
+
+## Implications for policy 
+These results do not indicate that the variant has been preferentially transmitted to those who are exposed to school-age children.  They are also reassuring with respect to concerns that the variant may be associated with more severe disease.  Even if the higher transmissibility of the variant increases the incidence of infections, the effect on severe disease is likely to be small in comparison to the effect of other factors that are amenable to intervention, including overprescribing of psychotropic drugs [@mckeigue_relation_2021], transmission in hospitals[@mckeigue_relation_2021-1], and vaccination of vulnerable individuals.   
+
+# Declarations
+## Data availability
+The component datasets used here are available via the Public Benefits Privacy Panel for Health and Social Care at https://www.informationgovernance.scot.nhs.uk/pbpphsc/ for researchers who meet the criteria for access to confidential data. All source code used for derivation of variables, statistical analysis and generation of this manuscript is available on  https://github.com/pmckeigue/covid-scotland_public. 
+
+## Funding 
+No specific funding was received for this study.
+
+## Transparency declaration
+PM, as the manuscript’s guarantor, affirms: that the manuscript is an honest, accurate, and transparent account of the study being reported; that no important aspects of the study have been omitted; and that any discrepancies from the study as originally planned and registered have been explained. This manuscript has been generated directly from the source data by a reproducible research pipeline. All source code used for derivation of variables, statistical analysis and generation of this manuscript is freely available on GitHub.
+
+# Registration
+The original protocol for the REACT-SCOT case-control study was registered with the European Network of Centres for Pharmacoepidemiology and Pharmacovigilance (ENCEPP number EUPAS35558).
+
+## Conflicts of interest
+The authors declare no conflicts of interest.
+
+## Acknowledgements
+We thank all staff in critical care units who submitted data to the SICSAG database, the Scottish Morbidity Record Data Team, the staff of the National Register of Scotland, the Public Health Scotland Terminology Services, the HPS COVID-19 Laboratory & Testing cell and the NHS Scotland Diagnostic Virology Laboratories, and Nicola Rowan (HPS) for coordinating this collaboration.
+
+## Public Health Scotland COVID-19 Health Protection Study Group
+<!--this group needs to be updated-->
+
+Alice Whettlock$^1$, Allan McLeod$^1$, Andrew Gasiorowski$^1$, Andrew Merrick$^1$, Andy McAuley$^1$, April Went$^1$, Calum Purdie$^1$, Colin Fischbacher$^1$, Colin Ramsay$^1$, David Bailey$^1$, David Henderson$^1$, Diogo Marques$^1$, Eisin McDonald$^1$, Genna Drennan$^1$, Graeme Gowans$^1$, Graeme Reid$^1$, Heather Murdoch$^1$, Jade Carruthers$^1$, Janet Fleming$^1$, Jade Carruthers$^1$, Joseph Jasperse$^1$, Josie Murray$^1$, Karen Heatlie$^1$, Lindsay Mathie$^1$, Lorraine Donaldson$^1$, Martin Paton$^1$, Martin Reid$^1$, Melissa Llano$^1$, Michelle Murphy-Hall$^1$, Paul Smith$^1$, Ros Hall$^1$, Ross Cameron$^1$, Susan Brownlie$^1$, Adam Gaffney$^2$, Aynsley Milne$^2$, Christopher Sullivan$^2$, Edward McArdle$^2$, Elaine Glass$^2$, Johanna Young$^2$, William Malcolm$^2$, Jodie McCoubrey $^2$
+
+1 Public Health Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE.
+
+2 NHS National Services Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2
+6QE. 
+
+
+# References
+<div id="refs"></div>
+
+\newpage
+
+# Figures
+
+```{r plotvariantbydate, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1.25, fig.cap="\\label{fig:variantbydate}(a) Test-positives by date: area plot showing proportion of S gene dropouts in positive tests with reporting of cycle threshold. (b) Median cycle thresholds (reverse scale) in positive tests by date "}
+
+theme_set(theme_gray(base_size = 10))
+
+gA <- ggplotGrob(p.variantbydate)
+gB <- ggplotGrob(p.mediansbydate)
+#gC <- ggplotGrob(p.bysource)
+grid::grid.newpage()
+grid::grid.draw(rbind(gA, gB))
+
+```
+
+```{r plotsurvivalcurves, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1.25, fig.cap="\\label{fig:survivalcurves}28-day survival curves comparing those with and without S gene dropout, censored at last date of observation of relevant outcomes: (a) Survival till death; (b) Survival till death or admission to critical care; (c) Survival till hospital admission."}
+
+theme_set(theme_gray(base_size = 10))
+
+arrange_ggsurvplots(list(psurv.fatal, psurv.severe,
+                         psurv.hosp),
+                    print=TRUE,
+                    ncol=1,
+                    nrow=3)
+
+```
+
+\newpage 
+
+
+# Tables
+
+```{r coeffsexposure, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(table.coeffs.exposure, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="coeffsexposure",
+             row.names=TRUE,
+             align=c("r", "r", "r", "l", "r", "l"), 
+             col.names=c(clean.header(colnames(table.coeffs.exposure)[1:2]),
+                         "Odds ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Odds ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Logistic regression of S gene dropout on transmission-related factors") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+    column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="1.7cm") %>%
+    column_spec(column=6, width="2.7cm") %>%
+    column_spec(column=7, width="1.7cm") %>%
+    add_footnote(label=c("Excluding those with undetermined status for S gene dropout",
+                         "Unconditional logistic regression with S gene dropout as dependent variable",
+                         "Univariate odds ratios are for models with single variable + week of specimen as categoric variable", 
+                         "Multivariable odds ratios are for model with all covariates + week of specimen as categoric variable",
+                         "PF, patient-facing"),
+                 notation="none") %>%
+    kableExtra::group_rows("Age group", 1, 5, bold=FALSE) %>%
+    kableExtra::group_rows("Region", 7, 10, bold=FALSE) %>%
+    kableExtra::group_rows("Number of adults in household", 13, 17, bold=FALSE) %>%
+    kableExtra::group_rows("Number of school-age children in household", 19, 21, bold=FALSE) %>%
+    kableExtra::group_rows("Occupation", 22, 25, bold=FALSE) %>%
+
+    kable_styling(latex_options=c("scale_down", "hold_position"))
+```
+\newpage
+
+
+```{r coxfatal, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.death.coxph, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="coxfatal",
+             row.names=TRUE,
+             align=c("r", "r", "r", "l", "r", "l"), 
+             col.names=c(clean.header(colnames(table.death.coxph)[1:2]),
+                        "rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "rate ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Death within 28 days of testing positive: Cox regression on S gene dropout and covariates") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+    column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="1.7cm") %>%
+    column_spec(column=6, width="2.7cm") %>%
+    column_spec(column=7, width="1.7cm") %>%
+    add_footnote(label=c("Excluding those with undetermined status for S gene dropout",
+                         "Care home residents are excluded", 
+                         "Stratified by days since testing positive and calendar week",
+                         "Multivariable rate ratios are for model with all covariates"),
+                 notation="none") %>%
+    kable_styling(latex_options=c("scale_down", "hold_position"))
+
+```
+
+```{r coxsevere, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(table.severe.coxph, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="coxsevere",
+             row.names=TRUE,
+             align=c("r", "r", "r", "l", "r", "l"), 
+             col.names=c(clean.header(colnames(table.severe.coxph)[1:2]),
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Death or entry to critical care within 28 days of testing positive: Cox regression of time to failure on S gene dropout and covariates") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+    column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="1.7cm") %>%
+    column_spec(column=6, width="2.7cm") %>%
+    column_spec(column=7, width="1.7cm") %>%
+    add_footnote(label=c("Excluding those with undetermined status for S gene dropout",
+                         "Stratified by days since testing positive and calendar week",
+                          "Univariate rate ratios are for models with single variable + week of specimen as categoric variable", 
+                        "Multivariable rate ratios are for model with all covariates"),
+                 notation="none") %>%
+    kable_styling(latex_options=c("scale_down", "hold_position"))
+
+```
+
+```{r coxhosp, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.hosp.coxph, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="coxhosp",
+             row.names=TRUE,
+             align=c("r", "r", "r", "l", "r", "l"), 
+             col.names=c(clean.header(colnames(table.hosp.coxph)[1:2]),
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Death or hospitalisation within 28 days of testing positive: Cox regression on S gene dropout and covariates") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+    column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="1.7cm") %>%
+    column_spec(column=6, width="2.7cm") %>%
+    column_spec(column=7, width="1.7cm") %>%
+    add_footnote(label=c("Excluding those with undetermined status for S gene dropout",
+                         "Stratified by days since testing positive and calendar week",
+                         "Univariate rate ratios are for models with single variable + week of specimen as categoric variable", 
+                         "Multivariable rate ratios are for model with all covariates + week of specimen as categoric variable"),
+                 notation="none") %>%
+    kable_styling(latex_options=c("scale_down", "hold_position"))
+
+```
+
+\newpage
+
+\beginsupplement
+
+
+# Imputation of S gene dropout
+
+Supplementary Figure \ref{fig:plotbyCt} shows that absence of the S gene signal was associated with lower cycle threshold (Ct) for the N gene than for the ORF1ab gene.  We can identify no obvious artefactual explanation for this finding based on published documentation of the assay.  
+
+We then plotted the subset of "Undetermined" results in those individuals who had had another test that had been definitively scored (Supplementary Figure \ref{fig:plotcheck}.  Inspection of this plot showed that without loss of specificity the Ct cutoff  for the ORF gene could be increased to 31 and that the criteria for S gene dropout should include an additional restriction that \ensuremath{C_{ORF} - C_{N} > - 2}.  For comparability, the results presented here are based on the standard definition.  
+
+\newpage
+
+# Supplementary Figures
+
+```{r plotSgenebyCt, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1, fig.cap="\\label{fig:plotbyCt}Relation of S gene signal to ORF and N gene Ct values"}
+
+p.dropout
+
+
+```
+
+\newpage 
+
+```{r checkcutoff, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1, fig.cap="\\label{fig:plotcheck}Test results with S gene signal absent that were originally classified as Undetermined (\\ensuremath{C_{ORF} >= 31 or \\ensuremath{C_{N} >= 31 or  \\ensuremath{C_{N} - C_{ORF} < 1.5}), colour coded by result at repeat test. New separation lines at \\ensuremath{C_{N} - C_{ORF} = 3} and ORF = 33, used in this analysis, are shown in green"}
+
+p.check
+```
+
+```{r plotrrSgene, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1.4, fig.cap="\\label{fig:plotrateratioSgene} (a) Rate ratio for 28-day hospitalisation or death associated with S gene dropout. Line thickness is proportional to precision of estimate. (b) Rate ratio for S gene dropout associated with region (Eastern region as reference category). (c) Rate ratio for S gene dropout associated with health care worker status (other occupations as reference category)"}
+
+gA <- ggplotGrob(p.rateratio)
+gB <- ggplotGrob(p.region)
+gC <- ggplotGrob(p.hcw)
+grid::grid.newpage()
+grid::grid.draw(rbind(gA, gB, gC))
+
+```
+
+\newpage
+
+# Supplementary Tables 
+
+```{r casesbymonth, echo=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(table.cases.bymonth, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="casebymonth",
+             row.names=TRUE,
+             align=rep("r", 5),
+             caption="Cases by month") %>%
+    add_footnote(label=c("Restricted to cases with specimen date no earlier than 1 Sep 2020",
+                         "Outcome is not yet evaluable for cases with specimen date after 31 December 2020"),
+                 notation="none") %>%
+    kableExtra::group_rows("All cases", 1, 8) %>%
+        kableExtra::group_rows("Test-positive cases", 9, 11, bold=FALSE) %>%
+        kableExtra::group_rows("Cases with Ct results", 12, 16, bold=FALSE) %>%
+        kableExtra::group_rows("Fatal cases and cohort fatality rates by S gene dropout status", 17, 18, bold=FALSE) %>%
+        kable_styling(latex_options=c("scale_down", "hold_position"))
+
+```
+
+\newpage
+
+```{r withCt, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(table.withCt, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="withCt",
+             row.names=TRUE,
+             align=rep("r", 5),
+             caption="Comparison of test-positive cases with and without cycle threshold results") %>%
+    add_footnote(label=c("Restricted to cases with specimen date no earlier than 1 Sep 2020"),
+                 notation="none") %>%
+    kableExtra::group_rows("Age group", 1, 5, bold=FALSE) %>%
+        kableExtra::group_rows("Number of adults in household", 9, 13, bold=FALSE) %>%
+        kableExtra::group_rows("Number of school-age children in household", 15, 17, bold=FALSE) %>%
+        kableExtra::group_rows("Occupation", 18, 21, bold=FALSE) %>%
+        kableExtra::group_rows("Outcome", 22, 27, bold=FALSE) %>%
+        kable_styling(latex_options=c("scale_down", "hold_position"))
+```
+
+\newpage
+
+```{r surv28, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(surv28.table, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="surv28",
+             row.names=FALSE,
+             align=c("r", "r", "r", "r", "r", "r", "r"),
+             caption="28-day survival table for three outcomes: deaths, severe cases, hospitalisations") %>%
+    column_spec(column=1, width="1.5cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+    column_spec(column=4, width="2cm") %>%
+    column_spec(column=5, width="2cm") %>%
+    column_spec(column=6, width="2cm") %>%
+    column_spec(column=7, width="2cm") %>%
+    kableExtra::group_rows("Totals", 30, 30) %>%
+        add_footnote(label=c("Columns 2, 4, 6 contain the numbers censored by last date of follow-up on that date",
+                             "All remaining test-positive cases are censored at 28 days",
+                             "For each outcome, the sum of totals for censored and failures is the number evaluable at baseline",
+                             "Restricted to cases with specimen date no earlier than 1 September 2020"),
+                     notation="none") %>%
+    kable_styling(latex_options=c("scale_down", "hold_position"))
+
+```
+
+\newpage
+
+```{r coeffssymptoms, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::kable(table.symptoms, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="coeffssymptoms",
+             row.names=TRUE,
+             align=c("r", "r", "r", "l", "r", "l"), 
+             col.names=c(clean.header(colnames(table.symptoms)[1:2]),
+                         "Odds ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Odds ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Logistic regression of symptomatic versus asymptomatic COVID-19 on S gene dropout and covariates") %>%
+        add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    column_spec(column=1, width="3cm") %>%
+    column_spec(column=2, width="2cm") %>%
+    column_spec(column=3, width="2cm") %>%
+    column_spec(column=4, width="2.5cm") %>%
+    column_spec(column=5, width="1.7cm") %>%
+    column_spec(column=6, width="2.7cm") %>%
+    column_spec(column=7, width="1.7cm") %>%
+    add_footnote(label=c("Symptom status is from the field in the Lighthouse lab tests database",
+                         "Excluding those with undetermined status for S gene dropout or presentation date after 31 December 2020",
+                         "Unconditional logistic regression with symptom status as dependent variable",
+                         "Univariate odds ratios are for models with single variable + week of specimen as categoric variable", 
+                         "Multivariable odds ratios are for model with all covariates + week of specimen as categoric variable"),
+                 notation="none") %>%
+    kable_styling(latex_options=c("scale_down", "hold_position"))
+
+```

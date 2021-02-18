@@ -30,8 +30,8 @@ ct[, date_appointment := as.Date(date_appointment)] # mostly missing
 ct[, date_onset_of_symptoms := as.Date(date_onset_of_symptoms)] 
 ct[, date_reporting := as.Date(date_reporting)] # only 3 missing values and these have all fields missing except ID
 
-print(ct[date_appointment > Sys.Date(), .(date_appointment, date_onset_of_symptoms, date_reporting)])
-print(ct[date_appointment < as.Date("2020-03-01"), .(date_appointment, date_onset_of_symptoms, date_reporting)])
+#print(ct[date_appointment > Sys.Date(), .(date_appointment, date_onset_of_symptoms, date_reporting)])
+#print(ct[date_appointment < as.Date("2020-03-01"), .(date_appointment, date_onset_of_symptoms, date_reporting)])
 
 ct[date_appointment > Sys.Date() & lubridate::month(date_appointment) > 9,
    date_appointment := year.to2020(date_appointment)]
@@ -119,64 +119,107 @@ ct[N_result=="NEGATIVE", N_Ct := 40]
 ct[S_result=="NEGATIVE", S_Ct := 40] 
 ct[MS2_result=="NEGATIVE", MS2_Ct := 40] 
 
+## sgtf.orig defined as S gene negative & ORF1ab Ct < 31  & N Ct <31
+ct[S_result=="POSITIVE", sgtf.orig := "No dropout"]
+ct[S_result=="NEGATIVE" & ORF1ab_result=="POSITIVE" &  N_result=="POSITIVE" &
+   ORF1ab_Ct < 31 & N_Ct < 31,  sgtf.orig := "Definite dropout"]
+ct[S_result=="NEGATIVE" & ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" &
+   (ORF1ab_Ct >= 31 | N_Ct >= 31),
+   sgtf.orig := "Undetermined"]
+ct[, sgtf.orig := factor(sgtf.orig,
+                         levels = c("No dropout", "Undetermined", "Definite dropout"))]
 
-ct[S_result=="POSITIVE", Sgene.dropout := "No dropout"]
-
-## SGTF defined as S gene negative & ORF1ab Ct < 31  & N Ct <31
-Sgene.revised <- FALSE
-if(Sgene.revised) {
-    ## assign S_gene dropout using difference between N and ORF signals
-    ## refine this by restricting diff2channels to <=2 and N Ct to < 30
-    ## these values were chosen after plotting test results by truepos status
-    
-    ct[S_result=="NEGATIVE" & ORF1ab_result=="POSITIVE" &  N_result=="POSITIVE" &
-       ORF1ab_Ct < 31 & N_Ct < 30 & diff2channels <= 2, Sgene.dropout := "Definite dropout"]
-    
-    ct[S_result=="NEGATIVE" & ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" &
-       (ORF1ab_Ct >= 31 | N_Ct >= 30 | diff2channels > 2),
-       Sgene.dropout := "Undetermined"]
-} else {
-    ct[S_result=="NEGATIVE" & ORF1ab_result=="POSITIVE" &  N_result=="POSITIVE" &
-       ORF1ab_Ct < 31 & N_Ct < 31,  Sgene.dropout := "Definite dropout"]
-    
-    ct[S_result=="NEGATIVE" & ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" &
-       (ORF1ab_Ct >= 31 | N_Ct >= 31),
-       Sgene.dropout := "Undetermined"]
-}
-
-ct[, Sgene.dropout := factor(Sgene.dropout,
-                             levels = c("No dropout", "Undetermined", "Definite dropout"))]
-ct[is.na(S_result), Sgene.dropout := NA]
-
-print(table(ct$Sgene.dropout, exclude=NULL))
-table(ct$S_result, ct$Sgene.dropout, exclude=NULL)
-      
-## plot S negatives against Ct values for ORF and N
-png("S_gene_dropout.png")
 ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" & !is.na(S_result)],
-       aes(x=ORF1ab_Ct, y=N_Ct, color=S_result)) +
+       aes(x=ORF1ab_Ct, y=N_Ct, color=sgtf.orig)) +
+    geom_point() +
+    scale_color_manual(values=c("blue", "orange", "red")) +
+    scale_x_reverse(breaks=c(40, 30, 20, 10),
+                    labels=c("40", "30", "20", "10")) +
+    scale_y_reverse(breaks=c(40, 30, 20, 10),
+                    labels=c("40", "30", "20", "10")) +
+    geom_segment(aes(x=31, y=31, xend=31, yend=10), linetype=3, color="black") +
+    geom_segment(aes(x=31, y=31, xend=10, yend=31), linetype=3, color="black") +
+    geom_abline(slope=1, intercept=-1, color="green") +
+    ggtitle("Relation of S gene dropout (original definition with both other channels < 31) to ORF and N gene Ct values")
+
+## sgtf.fix1 restricts definite dropout to those with N - ORF > -1.5
+ct[, sgtf.fix1 := sgtf.orig]
+ct[ORF1ab_Ct - N_Ct < -1.5 & sgtf.orig=="Definite dropout", sgtf.fix1 := "Undetermined"]
+ct[, sgtf.fix1 := factor(sgtf.fix1,
+                         levels = c("No dropout", "Undetermined", "Definite dropout"))]
+
+with(ct, table(sgtf.orig, sgtf.fix1))
+             
+ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" & !is.na(S_result)],
+       aes(x=ORF1ab_Ct, y=N_Ct, color=sgtf.fix1)) +
+    geom_point() +
+    scale_color_manual(values=c("blue", "orange", "red")) +
+    scale_x_reverse(breaks=c(40, 30, 20, 10),
+                    labels=c("40", "30", "20", "10")) +
+    scale_y_reverse(breaks=c(40, 30, 20, 10),
+                    labels=c("40", "30", "20", "10")) +
+    geom_segment(aes(x=31, y=31, xend=29.5, yend=31), linetype=3, color="black") +
+    geom_segment(aes(x=31, y=31, xend=31, yend=10), linetype=3, color="black") +
+    geom_segment(aes(x=29.5, y=31, xend=8.5, yend=10), linetype=3, color="black") +
+    ggtitle("Separation line at N - ORF = 1.5")
+
+## use sgtf.fix1 to assign true neg / pos status using replicates where possible 
+ct[, max.sgtf := max(as.integer(sgtf.fix1), na.rm=TRUE), by=ANON_ID]
+ct[, min.sgtf := min(as.integer(sgtf.fix1), na.rm=TRUE), by=ANON_ID]
+ct[is.infinite(max.sgtf), max.sgtf := NA]
+ct[is.infinite(-min.sgtf), min.sgtf := NA]
+ct[max.sgtf==3, truepos := "Other test definite dropout"]
+ct[min.sgtf==1, truepos := "Other test no dropout"]
+
+ggplot(data=ct[sgtf.fix1=="Undetermined" & !is.na(truepos)], 
+       aes(x=ORF1ab_Ct, y=N_Ct, color=truepos)) +
     geom_point() +
     scale_color_manual(values=c("red", "blue")) +
     scale_x_reverse(breaks=c(40, 30, 20, 10),
                     labels=c("40", "30", "20", "10")) +
     scale_y_reverse(breaks=c(40, 30, 20, 10),
                     labels=c("40", "30", "20", "10")) +
-    geom_abline(slope=1, intercept=-1, color="green") +
-    ggtitle("Relation of S gene dropout to ORF and N gene Ct values")
-dev.off()
+    # horiz line from 33 to 28 at y=31
+    geom_segment(aes(x=33, y=31, xend=28, yend=31), linetype=3, color="black") +
+    # vertical line from 31 to 10 at x=31
+    geom_segment(aes(x=31, y=31, xend=31, yend=10), linetype=3, color="black") +
+    geom_segment(aes(x=29.5, y=31, xend=8.5, yend=10), linetype=3, color="black") +
+    # vertical line from 31 to 10 at x=31
+    geom_segment(aes(x=33, y=31, xend=33, yend=10), color="green") +
+    geom_segment(aes(x=28, y=31, xend=7, yend=10), color="green") +
+    ggtitle("Tests with S gene dropout classified as Undetermined with separation line at N - ORF = 1.5, by status at repeat test. New separation lines at N - ORF = 3 and ORF = 33")
 
-## create variables for max and min sgtf that can be used in cc.all to recode undetermined values
+## assign S_gene dropout using difference between N and ORF signals
+## refine this by restricting diff2channels to <=2 and N Ct to < 30
+## these values were chosen after plotting test results by truepos status
+
+ct[, Sgene.dropout := sgtf.fix1]
+ct[S_result=="NEGATIVE" & ORF1ab_result=="POSITIVE" &  N_result=="POSITIVE" &
+   ORF1ab_Ct < 33 & N_Ct < 31 & diff2channels <= 3, Sgene.dropout := "Definite dropout"]
+
+ct[S_result=="NEGATIVE" & ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" &
+   (ORF1ab_Ct >= 33 | N_Ct >= 31 | diff2channels > 3),
+   Sgene.dropout := "Undetermined"]
+
+ct[, Sgene.dropout := factor(Sgene.dropout,
+                             levels = c("No dropout", "Undetermined", "Definite dropout"))]
+ct[is.na(S_result), Sgene.dropout := NA]
+
+# with(ct, print(table(sgtf.orig, Sgene.dropout, exclude=NULL)))
+
+## use sgene.dropout to generate variables that can be used to reassign undetermined values where possible 
 ct[, max.Sgene.dropout := max(as.integer(Sgene.dropout), na.rm=TRUE), by=ANON_ID]
 ct[, min.Sgene.dropout := min(as.integer(Sgene.dropout), na.rm=TRUE), by=ANON_ID]
-
-with(ct, print(table(max.Sgene.dropout, min.Sgene.dropout, exclude=NULL)))
-## 55 ANON_IDs have both a definite dropout and a definite no dropout result
+ct[is.infinite(max.Sgene.dropout), max.Sgene.dropout := NA]
+ct[is.infinite(-min.Sgene.dropout), min.Sgene.dropout := NA]
+ct[max.Sgene.dropout==3, truepos := "Other test definite dropout"]
+ct[min.Sgene.dropout==1, truepos := "Other test no dropout"]
 
 ########################  merge Ct with ECOSS ###########################################
 
 ## this renames the date_appointment field in Ct with SpecimenDate
-cat("Table of missingness status for original date_appointment in Ct table: \n")
-print(table(is.na(ct$date_appointment)))
+# cat("Table of missingness status for original date_appointment in Ct table: \n")
+# print(table(is.na(ct$date_appointment)))
 ## 177 appointment dates are missing
 
 ct.nodate <- ct[is.na(date_appointment), .(ANON_ID, ct.id, date_appointment, date_reporting)]
@@ -207,25 +250,19 @@ cat("Table of missingness status for date_appointment in Ct table after matching
 print(table(is.na(ct$date_appointment)))
 ## now only 12 missing
 setnames(ct, "date_appointment", "SpecimenDate") 
+maxdate.ct <- max(ct$SpecimenDate, na.rm=TRUE)
 
 setkey(ct, ANON_ID, SpecimenDate) ## ct contains only unique values of key
 setkey(ecoss, ANON_ID, SpecimenDate) ## about 1% of key values are duplicated
 
 ## this step imports the flag_lighthouse_labs_testing variable into ecoss
 ecoss <- ct[, .(ANON_ID, SpecimenDate, flag_lighthouse_labs_testing, ct.result)][ecoss]
+save(ct, file="ct.RData")
 
 ecoss[, flag_lighthouse_labs_testing := factor(car::recode(flag_lighthouse_labs_testing, 
                                                       "NA='NHS test';
                                                        0='Ct record, not Lighthouse';
                                                        1='Lighthouse test'"))]
-
-cat("Table of ecoss results positive by matching status in Ct table\n)")
-with(ecoss, print(table(SourceLab, flag_lighthouse_labs_testing, exclude=NULL)))
-print(with(ecoss, table(ct.result, ecoss.result, exclude=NULL)))
-
-maxdate.ct <- max(ct$SpecimenDate, na.rm=TRUE)
-
-save(ct, file="ct.RData")
 
 cat("ECOSS results by lighthouse / NHS status and month\n") 
 ecoss.table <-
@@ -234,3 +271,5 @@ ecoss.table <-
          )
 print(paste.colpercent(ecoss.table)[, c(9:12, 1)])
 
+rm(ecoss.withdate)
+ 

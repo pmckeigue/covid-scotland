@@ -60,29 +60,6 @@ scripvars <- c("ANON_ID", "dispensed_date", "bnf_paragraph_code",
 drugvars <- c("bnf_paragraph_code", "bnf_paragraph_description",
               "item_code", "approved_name")
 
-#################### add fields to scrips ########################################
-
-## for now, just keep id, paragraph code, paragraph_description
-
-scrips[, bnf_paragraph_description := as.factor(bnf_paragraph_description)]
-cat("scrips object uses", object.size(scrips) * 1E-6, "MB\n")
-
-## we have 7 digits on scrips, giving resolution to subpara level only
-length(table(substr(scrips$bnf_paragraph_code, 1, 2))) # chapter
-length(table(substr(scrips$bnf_paragraph_code, 1, 4))) # chapter, section
-length(table(substr(scrips$bnf_paragraph_code, 1, 6)))  # chapter, section, paragraph
-length(table(scrips$bnf_paragraph_code)) # 537 groups
-
-## we need integer variables chapter, sectioncode, paracode for use with data.table::dcast
-scrips[, chapternum := as.integer(substr(bnf_paragraph_code, 1, 2))]
-scrips[, sectioncode := as.integer(substr(bnf_paragraph_code, 1, 4))]
-scrips[, paracode := as.integer(substr(bnf_paragraph_code, 1, 6))]
-
-## recode scrips$bnf.chapter values > 14 or NA to 14
-scrips[is.na(chapternum), chapternum := 14]
-scrips[chapternum > 14, chapternum := 14] 
-
-
 ##########################################################################
 ## separate tables for prescriptions of proton pump, opioids, nonopioids
 scrips.protonpump <- scrips[bnf_paragraph_code=="0103050"]
@@ -398,204 +375,239 @@ quantile(dose.opiate$dose.opiate.daily, probs=seq(0, 1, by=0.1), na.rm=TRUE)
 
 dose.opiate <- as.data.table(dose.opiate[, c("ANON_ID", "dose.opiate.daily")], key="ANON_ID")
 
-
 ###############################################################
 
 cat("Merging with case-control table ...\n")
 
-setkey(cc.severe, ANON_ID)
-cc.severe <- dose.protonpump[cc.severe]
+setkey(cc.kept, ANON_ID)
+cc.kept <- dose.protonpump[cc.kept]
 
-cc.severe[, `:=`(DDDs.all = coalesce(DDDs.all, 0), 
+cc.kept[, `:=`(DDDs.all = coalesce(DDDs.all, 0), 
               ESOMEPRAZOLE = coalesce(ESOMEPRAZOLE, 0),
               LANSOPRAZOLE = coalesce(LANSOPRAZOLE, 0),
               OMEPRAZOLE = coalesce(OMEPRAZOLE, 0),
               PANTOPRAZOLE = coalesce(PANTOPRAZOLE, 0),
               RABEPRAZOLE = coalesce(RABEPRAZOLE, 0))]
-cc.severe[, DDDsgr := 0.5 * ceiling(2 * DDDs.all)]
-cc.severe[, DDDsgr := as.factor(car::recode(DDDsgr, "2:hi='2 or more'"))]
+cc.kept[, DDDsgr := 0.5 * ceiling(2 * DDDs.all)]
+cc.kept[, DDDsgr := as.factor(car::recode(DDDsgr, "2:hi='2 or more'"))]
 
-cc.severe <- doseTWday.protonpump.wide[cc.severe] 
+cc.kept <- doseTWday.protonpump.wide[cc.kept] 
 
-cc.severe[, `:=`(DDD.interval1 = coalesce(DDD.interval1, 0),
+cc.kept[, `:=`(DDD.interval1 = coalesce(DDD.interval1, 0),
               DDD.interval2 = coalesce(DDD.interval2, 0))]
 
-protonpump.exposure.nonrecent <- as.integer(cc.severe$DDD.interval2 > 0)
-protonpump.exposure.recent <- as.integer(cc.severe$DDD.interval1 > 0)
+protonpump.exposure.nonrecent <- as.integer(cc.kept$DDD.interval2 > 0)
+protonpump.exposure.recent <- as.integer(cc.kept$DDD.interval1 > 0)
 
-cc.severe[, protonpump.exposuregr := as.integer(DDDs.all > 0)]
-cc.severe[protonpump.exposure.nonrecent==1 & protonpump.exposure.recent==0, protonpump.exposuregr := 1]
-cc.severe[protonpump.exposure.nonrecent==0 & protonpump.exposure.recent==1, protonpump.exposuregr := 2]
-cc.severe[protonpump.exposure.nonrecent==1 & protonpump.exposure.recent==1, protonpump.exposuregr := 3]
-protonpump.exposure.cat <- as.factor(car::recode(cc.severe[["protonpump.exposuregr"]],
+cc.kept[, protonpump.exposuregr := as.integer(DDDs.all > 0)]
+cc.kept[protonpump.exposure.nonrecent==1 & protonpump.exposure.recent==0, protonpump.exposuregr := 1]
+cc.kept[protonpump.exposure.nonrecent==0 & protonpump.exposure.recent==1, protonpump.exposuregr := 2]
+cc.kept[protonpump.exposure.nonrecent==1 & protonpump.exposure.recent==1, protonpump.exposuregr := 3]
+protonpump.exposure.cat <- as.factor(car::recode(cc.kept[["protonpump.exposuregr"]],
                                "0='No prescriptions'; 1='Non-recent only';
                                 2='Recent only';
                                 3='Prescriptions in both time windows'"))
 protonpump.exposure.cat <- factor(protonpump.exposure.cat,
                                   levels=levels(protonpump.exposure.cat)[c(2, 4, 3, 1)])
 ## problem with changing the type of an existing column
-cc.severe[, protonpump.exposurecat := protonpump.exposure.cat]
+cc.kept[, protonpump.exposurecat := protonpump.exposure.cat]
 
-cc.severe <- dose.compound.opiates[cc.severe]
+cc.kept <- dose.compound.opiates[cc.kept]
 
-cc.severe[, dose.compound.opiates.daily := coalesce(dose.compound.opiates.daily, 0)]
-cc.severe[, dosegr.compound.opiates := 5 * ceiling(dose.compound.opiates.daily / 5)]
-cc.severe[, dosegr.compound.opiates := as.factor(car::recode(dosegr.compound.opiates,
+cc.kept[, dose.compound.opiates.daily := coalesce(dose.compound.opiates.daily, 0)]
+cc.kept[, dosegr.compound.opiates := 5 * ceiling(dose.compound.opiates.daily / 5)]
+cc.kept[, dosegr.compound.opiates := as.factor(car::recode(dosegr.compound.opiates,
                                               "5:10='1-10'; 15:hi='>10'"))]
-cc.severe[, dosegr.compound.opiates := factor(dosegr.compound.opiates,
+cc.kept[, dosegr.compound.opiates := factor(dosegr.compound.opiates,
                                            levels=levels(dosegr.compound.opiates)[c(2:4, 1)])]
-table(cc.severe$dosegr.compound.opiates)
+table(cc.kept$dosegr.compound.opiates)
 
-cc.severe <- dose.opiate[cc.severe]
-cc.severe[, dose.opiate.daily := coalesce(dose.opiate.daily, 0)]
+cc.kept <- dose.opiate[cc.kept]
+cc.kept[, dose.opiate.daily := coalesce(dose.opiate.daily, 0)]
 
 ## add opiate dose from compound analgesics
-cc.severe[, dose.opiate.daily := dose.opiate.daily + dose.compound.opiates.daily]
+cc.kept[, dose.opiate.daily := dose.opiate.daily + dose.compound.opiates.daily]
 
 ## group dose into categories
-cc.severe[, dosegr.opiate := 10 * ceiling(cc.severe$dose.opiate.daily / 10)]
-cc.severe[, dosegr.opiate := as.factor(car::recode(cc.severe$dosegr.opiate,
+cc.kept[, dosegr.opiate := 10 * ceiling(cc.kept$dose.opiate.daily / 10)]
+cc.kept[, dosegr.opiate := as.factor(car::recode(cc.kept$dosegr.opiate,
                                               "10:20='1-20'; 30:50='21-50'; 60:hi='>50'"))]
-cc.severe[, dosegr.opiate := factor(dosegr.opiate,
+cc.kept[, dosegr.opiate := factor(dosegr.opiate,
                                  levels=levels(dosegr.opiate)[c(2:4, 1)])]
 
 doseTWday.opiate.wide <- getdoseTWday.wide(scrips.opiate, varname.prefix="opiateMME.")
 
 rm(scrips.opiate)
 
-cc.severe <- merge(cc.severe, doseTWday.opiate.wide, by="ANON_ID", all.x=TRUE)
+cc.kept <- merge(cc.kept, doseTWday.opiate.wide, by="ANON_ID", all.x=TRUE)
 
-cc.severe[, `:=`(opiateMME.interval1 = coalesce(opiateMME.interval1, 0),
+cc.kept[, `:=`(opiateMME.interval1 = coalesce(opiateMME.interval1, 0),
               opiateMME.interval2 = coalesce(opiateMME.interval2, 0))]
            
-opiate.exposure.nonrecent <- as.integer(cc.severe$opiateMME.interval2 > 0) 
-opiate.exposure.recent <- as.integer(cc.severe$opiateMME.interval1 > 0)
+opiate.exposure.nonrecent <- as.integer(cc.kept$opiateMME.interval2 > 0) 
+opiate.exposure.recent <- as.integer(cc.kept$opiateMME.interval1 > 0)
 
-cc.severe[, opiate.exposuregr := as.integer(dose.opiate.daily > 0)]
-cc.severe[opiate.exposure.nonrecent==1 & opiate.exposure.recent==0, opiate.exposuregr := 1]
-cc.severe[opiate.exposure.nonrecent==0 & opiate.exposure.recent==1, opiate.exposuregr := 2]
-cc.severe[opiate.exposure.nonrecent==1 & opiate.exposure.recent==1, opiate.exposuregr := 3]
+cc.kept[, opiate.exposuregr := as.integer(dose.opiate.daily > 0)]
+cc.kept[opiate.exposure.nonrecent==1 & opiate.exposure.recent==0, opiate.exposuregr := 1]
+cc.kept[opiate.exposure.nonrecent==0 & opiate.exposure.recent==1, opiate.exposuregr := 2]
+cc.kept[opiate.exposure.nonrecent==1 & opiate.exposure.recent==1, opiate.exposuregr := 3]
 
-cc.severe[, opiate.exposurecat := as.factor(car::recode(cc.severe[["opiate.exposuregr"]],
+cc.kept[, opiate.exposurecat := as.factor(car::recode(cc.kept[["opiate.exposuregr"]],
                                "0='No prescriptions'; 1='Non-recent only';
                                 2='Recent only';
                                 3='Prescriptions in both time windows'"))]
-cc.severe[, opiate.exposurecat := factor(opiate.exposurecat,
+cc.kept[, opiate.exposurecat := factor(opiate.exposurecat,
                                       levels=levels(opiate.exposurecat)[c(2, 4, 3, 1)])]
 
 ## this variable must be class integer to be included in numdrugs
-cc.severe[, anyopiate := as.integer(ANON_ID %in%
+cc.kept[, anyopiate := as.integer(ANON_ID %in%
                                  unique(scrips.compound.opiates$ANON_ID) |
                                  ANON_ID %in% ids.opioid.analgesic)]                 
+
+rm(scrips.nonopiates)
+rm(dose.protonpump)
 
 ########### other drugs of interest coded as binary ####################
 cat("Coding other drugs of interest as binary variables ...")
 
 ids.antiplatelet <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 209])
-cc.severe[, antiplatelet := as.factor(as.integer(ANON_ID %in% ids.antiplatelet))]
+cc.kept[, antiplatelet := as.factor(as.integer(ANON_ID %in% ids.antiplatelet))]
 
 ids.nsaid <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 100101])
-cc.severe[, nsaid := as.factor(as.integer(ANON_ID %in% ids.nsaid))]
+cc.kept[, nsaid := as.factor(as.integer(ANON_ID %in% ids.nsaid))]
 
 
 ids.antipsychotic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40201])
-cc.severe[, antipsychotic := as.factor(as.integer(ANON_ID %in%
+cc.kept[, antipsychotic := as.factor(as.integer(ANON_ID %in%
                                                ids.antipsychotic))]
 
 ids.osmotic.laxative <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 10604])
-cc.severe[, osmotic.laxative := as.factor(as.integer(ANON_ID %in%
+cc.kept[, osmotic.laxative := as.factor(as.integer(ANON_ID %in%
                                                   ids.osmotic.laxative))]
 
 ids.anticoagulant.any <-
     unique(scrips[bnf_paragraph_code == "0208010" |
                   bnf_paragraph_code == "0208020", ANON_ID])
-cc.severe[, anticoagulant.any := as.factor(as.integer(ANON_ID %in%
+cc.kept[, anticoagulant.any := as.factor(as.integer(ANON_ID %in%
                                                    ids.anticoagulant.any))]
 
 ids.hydroxychloroquine <- unique(scrips[approved_name=="HYDROXYCHLOROQUINE SULFATE", ANON_ID])
-cc.severe[, hydroxychloroquine := as.factor(as.integer(ANON_ID %in% ids.hydroxychloroquine))]
+cc.kept[, hydroxychloroquine := as.factor(as.integer(ANON_ID %in% ids.hydroxychloroquine))]
 
 ids.protonpump <- unique(scrips[bnf_paragraph_code == "0103050", ANON_ID])
-cc.severe[, protonpump := as.factor(as.integer(ANON_ID %in% ids.protonpump))]
-cc.severe[, y.protonpump := as.integer(protonpump =="1")]
+cc.kept[, protonpump := as.factor(as.integer(ANON_ID %in% ids.protonpump))]
+cc.kept[, y.protonpump := as.integer(protonpump =="1")]
 
-cc.severe[, compound.opiate := as.factor(as.integer(ANON_ID %in%
+cc.kept[, compound.opiate := as.factor(as.integer(ANON_ID %in%
                                                  scrips.compound.opiates$ANON_ID))]
 
 ids.gabapentinoids <- unique(scrips[approved_name=="GABAPENTIN" |
                                     approved_name=="PREGABALIN", ANON_ID])
-cc.severe[, gabapentinoids := as.factor(as.integer(ANON_ID %in% ids.gabapentinoids))]
+cc.kept[, gabapentinoids := as.factor(as.integer(ANON_ID %in% ids.gabapentinoids))]
 
 ids.antiepileptics.other <- unique(scrips[bnf_paragraph_code=="0408010" &
                                       !(approved_name=="GABAPENTIN" | approved_name=="PREGABALIN"),
                                           ANON_ID])
-cc.severe[, antiepileptics.other := as.factor(as.integer(ANON_ID %in% ids.antiepileptics.other))]
+cc.kept[, antiepileptics.other := as.factor(as.integer(ANON_ID %in% ids.antiepileptics.other))]
 
 ids.urinary.antispasmodics <- unique(scrips[bnf_paragraph_code=="0704020" & 
                                     approved_name !="MIRABEGRON", ANON_ID])
-cc.severe[, urinary.antispasmodics := as.factor(as.integer(ANON_ID %in% ids.urinary.antispasmodics))]
+cc.kept[, urinary.antispasmodics := as.factor(as.integer(ANON_ID %in% ids.urinary.antispasmodics))]
 
 cat("done\n")
 
 ###############################################################
 
 ## merge drugs, one variable per chapter
-scrips.wide <- data.table::dcast(scrips, ANON_ID ~ chapternum, fun.aggregate=length, 
-                               value.var="chapternum")
-shortnames.cols <-  bnfchapters$shortname[match(as.integer(colnames(scrips.wide)[-1]),
-                                                as.integer(bnfchapters$chapternum))]
-colnames(scrips.wide)[-1] <- paste("BNF", colnames(scrips.wide)[-1], shortnames.cols,
-                                   sep="_")
-scrips.wide <- as.data.table(scrips.wide, key="ANON_ID")
-cc.severe <- scrips.wide[cc.severe]
 
-bnfcols <- as.integer(grep("^BNF", colnames(cc.severe)))
+## generate and merge indicators for any scrip in each BNF chapter
+## 1 million rows x 14 integer fields x 4 bytes = 56 MB
+chapters.anyscrip <- scrips[, .N, by=c("ANON_ID", "chapternum")] %>%
+    dcast(ANON_ID ~ chapternum, value.var="N")
+## recode as 0, 1
+setnafill(chapters.anyscrip, cols=2:ncol(chapters.anyscrip), fill=0)
+for (j in 2:ncol(chapters.anyscrip)) set(chapters.anyscrip, j=j,
+                                         value=as.integer(chapters.anyscrip[[j]] > 0))
+shortnames.cols <-
+    bnfchapters$shortname[match(as.integer(colnames(chapters.anyscrip)[-1]),
+                                                as.integer(bnfchapters$chapternum))]
+colnames(chapters.anyscrip)[-1] <- paste("BNF", colnames(chapters.anyscrip)[-1],
+                                         shortnames.cols,
+                                         sep="_")
+setkey(chapters.anyscrip, ANON_ID)
+cc.kept <- chapters.anyscrip[cc.kept]
+rm(chapters.anyscrip)
+bnfcols <- grep("^BNF\\.", colnames(cc.kept))
+setnafill(cc.kept, cols=bnfcols, fill=0)
+
+#bnfcols <- as.integer(grep("^BNF", colnames(cc.kept)))
 ## recode indicator variables
-cc.severe[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
+#casesplusgroupAcontrols[, (bnfcols) := lapply(.SD, recode.indicator), .SDcols = bnfcols]
 
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
-## merge BNF chapters, one variable per subpara
-cat("Merging BNF subparagraph codes ...")
-chnums = 1:13
-cc.severe <- merge.bnfsubparas(chnums=chnums, data=cc.severe) # hogs memory
-cat("done\n")
+######################################################################
+## same thing for BNF subparas
+## 1 million rows x 565 integer fields x 4 bytes = ~ 2 GB
+subparas.anyscrip <- scrips[, .N, by=c("ANON_ID", "bnf_paragraph_code")] %>%
+    dcast(ANON_ID ~ bnf_paragraph_code, value.var="N")
+## recode as 0, 1
+setnafill(subparas.anyscrip, cols=2:ncol(subparas.anyscrip), fill=0)
+for (j in 2:ncol(subparas.anyscrip)) set(subparas.anyscrip, j=j,
+                                         value=as.integer(subparas.anyscrip[[j]] > 0))
+## drop rare subparagraphcodes
+keep.cols <- colSums(subparas.anyscrip) > 0.001 * nrow(subparas.anyscrip)
+subparas.anyscrip <- subparas.anyscrip[, ..keep.cols]
 
-subparacols <- grep("^subpara\\.", names(cc.severe))
-x <- cc.severe[,  ..subparacols]
+names.subparas <-
+    bnfsubparacodes$subparaname[match(as.integer(colnames(subparas.anyscrip)[-1]),
+                                      bnfsubparacodes$subparacode)]
+colnames(subparas.anyscrip)[-1] <- paste("subpara",
+                                         as.integer(colnames(subparas.anyscrip)[-1]),
+                                         names.subparas, sep=".")
+setkey(subparas.anyscrip, ANON_ID)
+cc.kept <- subparas.anyscrip[cc.kept]
+rm(subparas.anyscrip)
+subparacols <- grep("^subpara\\.", names(cc.kept))
+setnafill(cc.kept, cols=subparacols, fill=0)
+
+x <- cc.kept[,  ..subparacols]
 for(j in 1:ncol(x)) set(x, j=j, value=as.integer(x[[j]]) - 1)
 head(sapply(x[, 1:5], class))
-cc.severe[, numdrugs.subpara := rowSums(x)]
-cc.severe[, numdrugsgr := 3 * ceiling(numdrugs.subpara / 3)]
-cc.severe[, numdrugsgr := as.factor(car::recode(numdrugsgr,
+
+cc.kept[, numdrugs.subpara := rowSums(x)]
+cc.kept[, numdrugsgr := 3 * ceiling(numdrugs.subpara / 3)]
+cc.kept[, numdrugsgr := as.factor(car::recode(numdrugsgr,
                                               "3='1 to 3'; 6='4 to 6'; 9='7 to 9';
                                               12='10 to 12'; 15:hi='>12'"))]
-cc.severe[, numdrugsgr := factor(numdrugsgr,
+cc.kept[, numdrugsgr := factor(numdrugsgr,
                                  levels=levels(numdrugsgr)[c(2, 3, 5, 6, 4, 1)])]
 
-cardiovasc.subparacols <- grep("^subpara\\.2", names(cc.severe))
-x <- cc.severe[,  ..cardiovasc.subparacols]
+cardiovasc.subparacols <- grep("^subpara\\.2", names(cc.kept))
+x <- cc.kept[,  ..cardiovasc.subparacols]
 for(j in names(x)) set(x, j=j, value=as.integer(x[[j]]) - 1) 
-cc.severe[, numdrugs.cardiovasc := rowSums(x)]
-cc.severe[, numdrugs.notcardiovasc := numdrugs.subpara - numdrugs.cardiovasc]
+cc.kept[, numdrugs.cardiovasc := rowSums(x)]
+cc.kept[, numdrugs.notcardiovasc := numdrugs.subpara - numdrugs.cardiovasc]
 
-cc.severe[, cv.numdrugsgr := 3 * ceiling(numdrugs.cardiovasc / 3)]
-cc.severe[, cv.numdrugsgr := as.factor(car::recode(cv.numdrugsgr,
+cc.kept[, cv.numdrugsgr := 3 * ceiling(numdrugs.cardiovasc / 3)]
+cc.kept[, cv.numdrugsgr := as.factor(car::recode(cv.numdrugsgr,
                                               "3='1 to 3'; 6='4 to 6'; 7:hi='>6'"))]
-cc.severe[, cv.numdrugsgr := factor(cv.numdrugsgr,
+cc.kept[, cv.numdrugsgr := factor(cv.numdrugsgr,
                                  levels=levels(cv.numdrugsgr)[c(2:4, 1)])]
 
-cc.severe[, notcv.numdrugsgr := 3 * ceiling(numdrugs.notcardiovasc / 3)]
-cc.severe[, notcv.numdrugsgr := as.factor(car::recode(notcv.numdrugsgr,
+cc.kept[, notcv.numdrugsgr := 3 * ceiling(numdrugs.notcardiovasc / 3)]
+cc.kept[, notcv.numdrugsgr := as.factor(car::recode(notcv.numdrugsgr,
                                               "3='1 to 3'; 6='4 to 6'; 9='7 to 9';
                                               12='10 to 12'; 15:hi='>12'"))]
-cc.severe[, notcv.numdrugsgr := factor(notcv.numdrugsgr,
+cc.kept[, notcv.numdrugsgr := factor(notcv.numdrugsgr,
                                     levels=levels(notcv.numdrugsgr)[c(2, 3, 5, 6, 4, 1)])]
 
-print(table(cc.severe$notcv.numdrugsgr, cc.severe$cv.numdrugsgr))
+print(table(cc.kept$notcv.numdrugsgr, cc.kept$cv.numdrugsgr))
 
-x <- cc.severe[,  ..subparas.laporte]
+x <- cc.kept[,  ..subparas.laporte]
 for(j in names(x)) set(x, j=j, value=as.integer(x[[j]]) - 1) 
-cc.severe[, numdrugs.laporte := rowSums(x)]
+cc.kept[, numdrugs.laporte := rowSums(x)]
+
+ 
 cat("drugs.R script completed\n")

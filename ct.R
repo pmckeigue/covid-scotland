@@ -4,6 +4,45 @@ library(survival)
 
 source("helperfunctions.R")
 
+tabulate.freqs.coxregressions <- function(varnames=covariates, stratumvar="week",
+                                          data, split.data) {
+    table.freqs <- univariate.tabulate(varnames=varnames, outcome="event",
+                                   data=data,
+                                   drop.reflevel=FALSE, drop.sparserows=FALSE,
+                                   drop.emptyrows=TRUE, minrowsum=10)
+
+    univariate.table <- univariate.clogit(varnames=varnames, outcome="event",
+                                          data=split.data,
+                                          add.reflevel=TRUE,
+                                          model="cox", stratumvar="week")
+    
+    multivariate.table <- multivariate.clogit(varnames=varnames, outcome="event",
+                                              data=split.data,
+                                              add.reflevel=TRUE,
+                                              model="cox", stratumvar="week")
+    
+    table.aug <- combine.tables3(table.freqs, univariate.table, multivariate.table)
+    rownames(table.aug) <- replace.names(rownames(table.aug))
+    return(table.aug)
+}
+
+## rollmean.dtN returns the variable date for the rolling mean 
+rollmean.dtN <- function(dt, k) {
+    ## add rows for missing dates by a left join
+    N.dates <- dt[, .N, by=SPECIMENDATE]
+    setkey(N.dates, SPECIMENDATE)
+    all.dates <- data.table(date=seq(from=min(N.dates$SPECIMENDATE),
+                                     to=max(N.dates$SPECIMENDATE),
+                                     by=1))
+    setkey(all.dates, date)
+    all.dates <- N.dates[all.dates]
+    all.dates[is.na(N), N := 0]
+    return(data.table(date=dt$SPECIMENDATE,
+                      avdaily=zoo::rollmean(dt$N, k=k, fill=NA)))
+}
+
+########################################################
+
 load("ct.RData")
 if(!exists("cc.all")) {
     load("cc.all.RData")
@@ -39,31 +78,29 @@ ct[is.infinite(max.sgtf), max.sgtf := NA]
 ct[is.infinite(-min.sgtf), min.sgtf := NA]
 ct[max.sgtf==3, truepos := "Other test definite dropout"]
 ct[min.sgtf==1, truepos := "Other test no dropout"]
-print(with(ct, table(max.sgtf, min.sgtf, exclude=NULL)))
 
-## plot S gene result against other two channel Ct values
-p.check <- ggplot(data=ct[sgtf==2 & !is.na(truepos)],
-                  aes(x=ORF1ab_Ct, y=N_Ct, color=truepos)) +
-    geom_point(size=0.5) +
-    scale_color_manual(values=c("Other test definite dropout"="red",
-                                "Other test no dropout"="blue")) +
+## for tests with undetermined result but ground truth available from another test on same individual,
+## plot S gene result against other two channel Ct values with colour-coding of true pos and true neg 
+p.check <- ggplot(data=ct[sgtf.fix1=="Undetermined" & !is.na(truepos)], 
+       aes(x=ORF1ab_Ct, y=N_Ct, color=truepos)) +
+    geom_point() +
+    scale_color_manual(values=c("red", "blue")) +
     scale_x_reverse(breaks=c(40, 30, 20, 10),
                     labels=c("40", "30", "20", "10")) +
     scale_y_reverse(breaks=c(40, 30, 20, 10),
                     labels=c("40", "30", "20", "10")) +
-    geom_segment(aes(x=30, y=30, xend=13, yend=30), linetype=3, color="black") +
-    geom_segment(aes(x=30, y=30, xend=30, yend=15), linetype=3, color="black") +
-    geom_segment(aes(x=31, y=30, xend=28, yend=30), color="green") +
-    geom_segment(aes(x=28, y=30, xend=13, yend=15), color="green") +
-    geom_segment(aes(x=31, y=30, xend=28, yend=30), color="green") +
-    geom_segment(aes(x=31, y=30, xend=31, yend=15), color="green") +
-    ylab("N gene cycle threshold (reverse scale)") +
-    xlab("ORF1ab gene cycle threshold (reverse scale)") + 
-    theme(legend.position = c(0.65, 0.2)) +
-    theme(legend.title = element_blank()) 
- p.check
+    # horiz line from 33 to 28 at y=31
+    geom_segment(aes(x=33, y=31, xend=28, yend=31), linetype=3, color="black") +
+    # vertical line from 31 to 10 at x=31
+    geom_segment(aes(x=31, y=31, xend=31, yend=10), linetype=3, color="black") +
+    geom_segment(aes(x=29.5, y=31, xend=8.5, yend=10), linetype=3, color="black") +
+    # vertical line from 31 to 10 at x=31
+    geom_segment(aes(x=33, y=31, xend=33, yend=10), color="green") +
+    geom_segment(aes(x=28, y=31, xend=7, yend=10), color="green") +
+    ggtitle("Repeat tests initially classified as Undetermined")
+p.check
 
-## plot S gene result against other two channel Ct values
+## plot S gene result against other two channel Ct values 
 p.dropout <- ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" &
                             !is.na(S_result)],
                     aes(x=ORF1ab_Ct, y=N_Ct, color=S_result)) +
@@ -73,8 +110,8 @@ p.dropout <- ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" &
                     labels=c("40", "30", "20", "10")) + 
     scale_y_reverse(breaks=c(40, 30, 20, 10),
                     labels=c("40", "30", "20", "10")) +
-    ylab("N gene cycle threshold") +
-    xlab("ORF1ab gene cycle threshold") + 
+    ylab("N gene cycle threshold (reverse scale)") +
+    xlab("ORF1ab gene cycle threshold (reverse scale)") + 
     theme(legend.position = c(0.2, 0.8)) +
     ggtitle("Relation of S gene detection to ORF and N gene Ct values")
 
@@ -105,7 +142,7 @@ p.mediansbydate <-
     scale_y_reverse(limits=c(25, 18), expand=c(0, 0)) + 
     ylab("Median cycle threshold") +
     xlab("Specimen date") + 
-    theme(legend.position = c(0.12, 0.5))+
+    theme(legend.position = c(0.1, 0.5))+
     theme(legend.title = element_blank()) + 
     geom_line()
 p.mediansbydate
@@ -133,22 +170,6 @@ p.variantbydate <- ggplot(data=ct.Sgene, aes(x=SpecimenDate, y=N,
     theme(legend.title = element_blank())
 
 p.variantbydate
-
-
-## rollmean.dtN returns the variable date for the rolling mean 
-rollmean.dtN <- function(dt, k) {
-    ## add rows for missing dates by a left join
-    N.dates <- dt[, .N, by=SPECIMENDATE]
-    setkey(N.dates, SPECIMENDATE)
-    all.dates <- data.table(date=seq(from=min(N.dates$SPECIMENDATE),
-                                     to=max(N.dates$SPECIMENDATE),
-                                     by=1))
-    setkey(all.dates, date)
-    all.dates <- N.dates[all.dates]
-    all.dates[is.na(N), N := 0]
-    return(data.table(date=dt$SPECIMENDATE,
-                      avdaily=zoo::rollmean(dt$N, k=k, fill=NA)))
-}
 
 ########################################################
 ## Figure 1: severe cases by date of presentation
@@ -182,7 +203,7 @@ p.bysource
 
 ############################################################################
 
-cases.all <- cc.all[!is.na(Sgene.dropout) & Sgene.dropout != "Undetermined" & SPECIMENDATE >= firstdate]
+cases.all <- cc.kept[!is.na(Sgene.dropout) & Sgene.dropout != "Undetermined" & SPECIMENDATE >= firstdate]
 cases.all[, severe.case := as.integer(group == "A")]
 cases.all[, hosp.case := as.integer(group == "A" | group == "B")]
 
@@ -288,7 +309,6 @@ severe.Surv <- with(cases.all,
                  survival::Surv(time=daystosevere28, event=severe28, type="right"))  
 severe.fit <- survival::survfit(severe.Surv ~ Sgene.dropout, data=cases.all)
 
-
 #####################################################################
 ## Surv object for hosp
 ## failure time is min of daystocritical, daystodeath, daystoadmission
@@ -306,7 +326,7 @@ hosp.Surv <- with(cases.all,
 hosp.fit <- survival::survfit(hosp.Surv ~ Sgene.dropout, data=cases.all)
 
 #######################################################################
-
+## survival curves
 psurv.fatal <-
     survminer::ggsurvplot(death.fit, data = cases.all,
                           title="Death",
@@ -359,7 +379,7 @@ setkey(hosp28.table, days.sincetest)
 surv28.table <- severe28.table[hosp28.table]
 surv28.table <- death28.table[surv28.table]
 
-for (j in 2:7) ## why does browser start here? 
+for (j in 2:7)
     set(surv28.table, which(is.na(surv28.table[[j]])), j, 0 )
 totals <-  colSums(surv28.table)
 
@@ -373,32 +393,8 @@ surv28.table[nrow(surv28.table), 1] <- NA
 
 ####################################################################
 
-tabulate.freqs.coxregressions <- function(varnames=covariates, stratumvar="week",
-                                          data, split.data) {
-    table.freqs <- univariate.tabulate(varnames=varnames, outcome="event",
-                                   data=data,
-                                   drop.reflevel=FALSE, drop.sparserows=FALSE,
-                                   drop.emptyrows=TRUE, minrowsum=10)
-
-    univariate.table <- univariate.clogit(varnames=varnames, outcome="event",
-                                          data=split.data,
-                                          add.reflevel=TRUE,
-                                          model="cox", stratumvar="week")
-    
-    multivariate.table <- multivariate.clogit(varnames=varnames, outcome="event",
-                                              data=split.data,
-                                              add.reflevel=TRUE,
-                                              model="cox", stratumvar="week")
-    
-    table.aug <- combine.tables3(table.freqs, univariate.table, multivariate.table)
-    rownames(table.aug) <- replace.names(rownames(table.aug))
-    return(table.aug)
-}
-
-########################################################
-
 covariates=c("AGE", "sex", "region4", "care.home",
-             "qSIMD.integer", 
+             "qSIMD.integer", "listedgr3",  
              "hosp.recent", "av2channels", "Sgene.dropout")
 covariates.split <- c("tstart", "tstop", "event", "week", covariates) 
 
@@ -410,7 +406,6 @@ cases.all[, startweek := ceiling(startday / 7)] # first startday is 1
 
 covariates.death <- c("startday", "startweek", "daystodeath28", "death28", covariates)
 cases.death <- cases.all[, ..covariates.death]
-#cases.death[, startweek := 1 + floor(startday / 7)]
 setnames(cases.death, "daystodeath28", "tstop")
 setnames(cases.death, "death28", "event")
 setkey(cases.death, startday)
@@ -550,11 +545,12 @@ p.rateratio <-
                                          "%d %b")
                  ),
                  limits=c(firstdate, lastdate), expand=c(0, 0)) +
-    scale_y_continuous(limits=log(c(0.8, 2)),
-                       breaks=log(c(seq(0.8, 1, by=0.1), seq(1.2, 2, by=0.2))),
-                       labels=c(seq(0.8, 1, by=0.1), seq(1.2, 2, by=0.2))) +
+    scale_y_continuous(limits=log(c(0.8, 2.2)),
+                       breaks=log(c(seq(0.8, 1, by=0.1), seq(1.2, 2.2, by=0.2))),
+                           labels=c(seq(0.8, 1, by=0.1), seq(1.2, 2.2, by=0.2))) +
     xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) +
-    ylab("Rate ratio (log scale)") 
+    ylab("Rate ratio (log scale)") +
+    ggtitle("Rate ratio for hospitalisation associated with S gene dropout")
 p.rateratio
 
 
@@ -572,7 +568,6 @@ colnames(table.symptoms)[1] <- gsub("X0", "Asymptomatic",
                                     colnames(table.symptoms)[1])
 colnames(table.symptoms)[2] <- gsub("X1", "Symptomatic",
                                     colnames(table.symptoms)[2])
-
 
 covariates.lab <- c("agegr20plus", "sex", "care.home",
                     "qSIMD.integer", 
@@ -595,20 +590,21 @@ rownames(table.withCt) <- replace.names(rownames(table.withCt))
 ## covid symptoms
 with(cases.all, table(flag_covid_symptomatic, Sgene.dropout, exclude=NULL))
 
-paste.colpercent(with(cases.all[lastdate.rapid - SPECIMENDATE >=14], table(daystoadmission, Sgene.dropout, exclude=NULL)), digits=2)[1:21, ]
+print(paste.colpercent(with(cases.all[lastdate.rapid - SPECIMENDATE >=14],
+                            table(daystoadmission, Sgene.dropout, exclude=NULL)), digits=2)[1:21, ])
 
-paste.colpercent(with(cases.all[date_onset_of_symptoms <= SPECIMENDATE], table(SPECIMENDATE - date_onset_of_symptoms, Sgene.dropout, exclude=NULL)), digits=2)[1:21, ]
-
+print(paste.colpercent(with(cases.all[date_onset_of_symptoms <= SPECIMENDATE],
+                            table(SPECIMENDATE - date_onset_of_symptoms, Sgene.dropout, exclude=NULL)), digits=2)[1:21, ])
 
 ######################################################################################
 
 covariates.exposure <- c("agegr20plus", "sex", "region4", "care.home",
-                         "qSIMD.integer", 
+                         "qSIMD.integer", "listedgr3",  
                          "hh.over18gr",
                          "preschool.any", "hh.schoolagegr",
                          "occup", "hosp.recent")
 
-## unconditional logistic regression for mutant strain
+## unconditional logistic regression of variant status on covariates
 table.coeffs.exposure <-
     tabulate.freqs.regressions(varnames=covariates.exposure,
                                data=cases.all[SPECIMENDATE >= as.Date("2020-12-01")], outcome="mutant",
@@ -653,13 +649,14 @@ p.region <-
                                          "%d %b")
                  ),
                  limits=c(firstdate, lastdate), expand=c(0, 0)) +
-    scale_y_continuous(limits=log(c(1, 3.5)),
-                       breaks=log(seq(1, 3.5, by=0.5)),
-                       labels=c(seq(1, 3.5, by=0.5))) +
-    theme(legend.position = c(0.45, 0.3)) +
+    scale_y_continuous(limits=log(c(1, 6)),
+                       breaks=log(c(seq(1, 4, by=0.5), 5., 6)),
+                       labels=c(seq(1, 4, by=0.5), 5., 6)) +
+    theme(legend.position = c(0.2, 0.25)) +
     theme(legend.title = element_blank()) + 
     xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) +
-    ylab("Rate ratio (log scale)") 
+    ylab("Rate ratio (log scale)") +
+    ggtitle("Rate ratio for S gene dropout associated with region")
 p.region
 
 coeffs.hcw.timewindow <- coeffs.exposure.timewindow[substr(effect, 1, 11)=="occupHealth"]
@@ -683,7 +680,8 @@ p.hcw <-
     theme(legend.position = c(0.45, 0.8)) +
     theme(legend.title = element_blank()) + 
     xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) +
-    ylab("Rate ratio (log scale)") 
+    ylab("Rate ratio (log scale)") +
+    ggtitle("Rate ratio for S gene dropout associated with health care worker status")
 p.hcw
 
 

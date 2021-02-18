@@ -1,4 +1,6 @@
 
+## tables and figures for shielding report
+
 ## rollmean.dtN returns a data.table with columns date, avdaily (rolling mean) 
 rollmean.dtN <- function(dt, k) {
     ## FIXME: add a by= argument
@@ -16,7 +18,38 @@ rollmean.dtN <- function(dt, k) {
                       avdaily=zoo::rollmean(dt$N, k=k, fill=NA)))
 }
 
-## tables and figures for shielding report
+rollsum.datewin <- function(dt, k, datevar) {
+    ## dt is a dataset of totals (N) by date, which may have no rows for some dates in the
+    ## range of interest
+    ## add rows for missing dates by a left join of all.dates with dt
+    all.dates <- data.table(date=seq(from=min(dt[[datevar]]),
+                                     to=max(dt[[datevar]]),
+                                     by=1))
+    setkey(all.dates, date)
+    # setkeyv(dt, datevar) can't set physical key here
+    all.dates <- dt[all.dates]
+
+    return(data.table(date=all.dates[[datevar]],
+                      rsum=zoo::rollsum(all.dates[, N], k=k, fill=0, align="center")))
+}
+
+freqs.slidingwindow <- function(dt, winsize=7, datevar=NULL, categoricvar=NULL,
+                                groupvar=NULL) {
+    freqs.bydate <- dt[, .N, by=c(datevar, categoricvar, groupvar)] 
+    setkeyv(freqs.bydate, datevar)
+    freqs.tw <- freqs.bydate[, rollsum.datewin(dt=.SD, k=winsize, datevar=datevar),
+                         by=c(categoricvar, groupvar),
+                         .SDcols=c(datevar, "N")]
+    ## compute sum over levels of categoricvar in each window, by groupvar
+    freqs.N <- freqs.tw[, .(rsum.allcategories = sum(rsum)), by=c("date", groupvar)]
+    ## left join freqs.tw with freqs.N
+    setkeyv(freqs.N, c("date", groupvar))
+    setkeyv(freqs.tw, c("date", groupvar))
+    freqs.tw <- freqs.N[freqs.tw]
+    freqs.tw[, p := rsum / rsum.allcategories]
+    freqs.tw[, se.p := sqrt(p * (1 - p) / rsum.allcategories)]
+    return(freqs.tw) # one row for each level of categoricvar
+}
 
 theme_set(theme_gray(base_size = 14))
 
@@ -154,14 +187,6 @@ colnames(table.after.letter.severe) <-  c("Letter sent >= 14 days earlier",
 #########################################
 ## exclude care home residents
 
-## FIXME: remove this later
-#cc.severe[, occup := car::recode(var=occup,
-#                                 recodes="'Health care PF'='Health care, not PF / undetermined'",
-#                                 as.factor=TRUE,
-#                                 levels=c("Other / undetermined",
-#                                          "Teacher",
-#                                          "Health care, not PF / undetermined"))]
-
 ## Table 5 - regression of severe case status on shielding group and covariates
 table.shielded.severecases.nocare <-
     tabulate.freqs.regressions(varnames=c("shield.group", 
@@ -189,6 +214,19 @@ table.listedgr3.severecases.nocare.anyschoolage <-
                                outcome="CASE",
                                data=cc.severe[care.home=="Independent"])
 
+### PARF for severe cases associated with recent hospital exposure and with probable HCAI
+
+r.rapid <- summary(clogit(data=cc.severe[care.home=="Independent"],
+               CASE ~ rapid.recent + strata(stratum)))$coefficients[2]
+p.rapid <- with(cc.severe[care.home=="Independent" & CASE==1], mean(as.integer(rapid.recent)))
+
+parf.rapid <- p.rapid * (r.rapid - 1) / r.rapid
+
+r.hcai <- summary(clogit(data=cc.severe[care.home=="Independent"],
+               CASE ~ prob.hcai + strata(stratum)))$coefficients[2]
+p.hcai <- with(cc.severe[care.home=="Independent" & CASE==1], mean(as.integer(prob.hcai)))
+
+parf.hcai <- p.hcai * (r.hcai - 1) / r.hcai
 
 ## Table 6 - regression in shielded eligible only
 summary(cc.severe[listedgr3 == "Eligible for shielding" & care.home=="Independent",
@@ -201,7 +239,6 @@ table.shieldedonly.severecases.nocare <-
                                outcome="CASE",
                                data=cc.severe[listedgr3 == "Eligible for shielding" &
                                               care.home=="Independent"])
-####################################################
 
 
 ###########################################
@@ -213,7 +250,7 @@ setkey(casedates.allgr, SPECIMENDATE)
 casedates.allgr <- casedates.allgr[, rollmean.dtN(dt=.SD, k=winsize.casedates),
                                    .SDcols=c("SPECIMENDATE", "N")]
 
-## can use by= to get rolling means by category
+## use by= to get rolling means by category
 casedates.byelig <- cc.severe[CASE==1 & care.home=="Independent", .N, by=.(SPECIMENDATE, listedgr3)]
 setkey(casedates.byelig, SPECIMENDATE)
 casedates.byelig <- casedates.byelig[, rollmean.dtN(dt=.SD, k=winsize.casedates), by=listedgr3,
@@ -278,7 +315,6 @@ coeffs.long[, riskgroup := car::recode(riskgroup,
                                        "1='Moderate risk condition'; 2='Eligible for shielding';",
                                        as.factor=TRUE)]
  
-
 coeffs.long[date.midpoint >= as.Date("2020-06-01") &
                   date.midpoint < as.Date("2020-09-01"), coeff := NA]
 
@@ -451,49 +487,36 @@ p.children.rateratio <-
 
 ## 3 (a) frequency of recent hospital exposure
 winsize.hosp <- 7
-controls.hosp <- cc.severe[CASE==0 & care.home=="Independent", .N, by=.(SPECIMENDATE, hosp.recent, listedgr3)]
-setkey(controls.hosp, SPECIMENDATE)
+freqs.hosp.ctrls.tw <- freqs.slidingwindow(dt=cc.severe[CASE==0 & care.home=="Independent"],
+                                winsize=winsize.hosp,
+                                datevar="SPECIMENDATE",
+                                categoricvar="hosp.recent",
+                                groupvar="listedgr3")
+freqs.hosp.ctrls.tw <- freqs.hosp.ctrls.tw[hosp.recent==TRUE]
+freqs.hosp.ctrls.tw[rsum.allcategories <5, `:=`(p=NA, se.p=NA)]
+freqs.hosp.ctrls.tw[date >= as.Date("2020-06-01") & date <= as.Date("2020-09-30"), p := NA]
 
-controls.hosp <- controls.hosp[, rollmean.dtN(dt=.SD, k=winsize.hosp), by=.(listedgr3, hosp.recent), 
-                               .SDcols=c("SPECIMENDATE", "N")]
-
-## compute sum of avdaily over hosp.recent TRUE and FALSE in each window by listedgr3
-controls.N <- controls.hosp[, .(avdaily.total = sum(avdaily)), by=.(date, listedgr3)]
-setkey(controls.N, date, listedgr3)
-
-controls.hosp <- controls.hosp[hosp.recent==TRUE]
-setnames(controls.hosp, "avdaily", "avdaily.exposed")
-setkey(controls.hosp, date, listedgr3)
-controls.hosp <- controls.N[controls.hosp]
-controls.hosp[, expfreq := avdaily.exposed / avdaily.total]
-#controls.hosp[avdaily.total < 5, expfreq := NA]
-controls.hosp[avdaily.total < 5, avdaily.total := NA]
-controls.hosp[, se.expfreq := sqrt(expfreq * (1 - expfreq) / avdaily.total)]
-controls.hosp[date >= as.Date("2020-06-01") & date <= as.Date("2020-09-30"), expfreq := NA]
-
-
-p.hosp <- ggplot(data=controls.hosp,
-                 aes(x=date, y=expfreq,  color=listedgr3, group=listedgr3)) +
-    geom_line(size=0.07 / controls.hosp$se.expfreq^0.4) +  
-    guides(size=FALSE) + 
-    scale_color_manual(name="Risk category", values=c("black", "blue", "red"),
-                       guide = guide_legend(reverse = TRUE)) + 
+p.hosp <-
+    ggplot(data=freqs.hosp.ctrls.tw,
+           aes(x=date, y=p, color=listedgr3, group=listedgr3)) +
+    geom_line() + # size=0.002 * (freqs.hosp.ctrls.tw$rsum.allcategories)^0.5) + 
+    scale_y_continuous(limits=c(0, max(freqs.hosp.ctrls.tw$p, na.rm=TRUE)), expand=c(0, 0)) + 
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = lastdate, by = "month"),
                  expand=c(0, 0), 
                  labels=gsub("^0", "", 
-                     format.Date(seq.Date(from = as.Date("2020-03-01"),
-                              to = lastdate, by = "month"),
-                     "%d %b")
-                    ),
+                             format.Date(seq.Date(from = as.Date("2020-03-01"),
+                                                  to = lastdate, by = "month"),
+                                         "%d %b")
+                             ),
                  limits=c(as.Date("2020-03-01"), lastdate)) +
-    scale_y_continuous(breaks=seq(0, 0.2, by=0.02), limits=c(0, 0.2), expand=c(0, 0)) +
-    theme(legend.position = c(0.5, 0.7)) + 
+    theme(legend.position = c(0.5, 0.5)) +
     theme(legend.title = element_blank()) +
-    xlab(paste0("Presentation date: midpoint of ", winsize.hosp, "-day window")) +
-    ylab("Proportion exposed") +
-    ggtitle("Recent hospital exposure in controls not resident in care homes")
-p.hosp
+    guides(fill = guide_legend(reverse = TRUE)) + 
+    scale_fill_manual(values=c("red", "blue", "black")) +
+    xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) +
+    ylab("Frequency") +
+    ggtitle("Recent hospital exposure in controls")
 
 ###########################################################
 
@@ -562,18 +585,12 @@ coeffs.hosp.timewindow[, popattr.frac := case.expfreq * (rateratio - 1) / ratera
 coeffs.hosp.timewindow[date.midpoint >= as.Date("2020-06-01") &
                       date.midpoint <= as.Date("2020-09-30"), popattr.frac := NA]
 
-r.hcai <- summary(clogit(formula=CASE ~ prob.hcai + strata(stratum),
-                                 data=cc.severe))$coefficients[2]
-
-p.hcai <- with(cc.severe[CASE==0 & care.home=="Independent"], table(prob.hcai))
-p.hcai <- p.hcai[2] / sum(p.hcai)
-hcai.popattrfrac <- p.hcai * (r.hcai - 1) / (1 + p.hcai * (r.hcai - 1))
 coeffs.hosp.timewindow[date >= as.Date("2020-06-01") & date <= as.Date("2020-09-30"), popattr.frac := NA]
 
 p.fracattr <-
     ggplot(data=coeffs.hosp.timewindow, aes(x=date, y=popattr.frac)) +
     geom_line(size=0.01 * coeffs.hosp.timewindow[, se.coeff]^-2) +
-    scale_y_continuous(limits=c(0, 0.55), expand=c(0, 0)) + 
+    scale_y_continuous(limits=c(0, 0.65), expand=c(0, 0)) + 
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = lastdate, by = "month"),
                  expand=c(0, 0), 
@@ -708,9 +725,116 @@ p.bysource <- ggplot(data=casedates.bysource[date < as.Date("2021-01-20")],
     xlab(paste0("Specimen date: mid-point of ", winsize.casedates, "-day window")) +
          ylab("Daily severe cases")
 
+###########################################################
 
+## case-crossover analysis
+
+varnames.twgr <- c("rapid.timewingr",
+                   "disch.timewingr",
+                   "daycase.timewingr",
+                   "opd.timewingr",
+                   "psych.timewingr")
+varnames.keep <- c("CASE", "stratum", varnames.twgr)
+cc.severe.testpos <- cc.severe[stratum %in% cc.severe[testpositive.case==TRUE, .N,
+                                                      by=stratum][["stratum"]],
+                               ..varnames.keep]  
+
+freqs.tw <- univariate.tabulate(varnames=varnames.twgr,
+                                outcome="CASE",
+                                data=cc.severe.testpos,
+                                drop.reflevel=FALSE)
+coeffs.tw <- univariate.clogit(varnames=varnames.twgr,
+                               outcome="CASE",
+                               data=cc.severe.testpos,
+                               add.reflevel=TRUE)
+
+table.tw <- combine.tables2(freqs.tw, coeffs.tw)
+table.tw <- data.frame(interval=rep(c("Less recent interval only", "Recent interval only",
+                                   "Both intervals"), 5),
+                       table.tw)
+
+###########################################################
+
+table.hcai.rapid.recent <- with(cc.severe[testpositive.case==TRUE],
+                                                 table(hcai, rapid.recent))
+colnames(table.hcai.rapid.recent) <- c("No recent hospital exposure",
+                                "Recent hospital exposure")
+table.hcai.rapid.tw <- with(cc.severe[testpositive.case==TRUE],
+                                      table(hcai, rapid.timewingr, exclude=NULL))[, 1:2]
+colnames(table.hcai.rapid) <- c("Less recent time window only",
+                                "Recent time window only")
+
+table.hcai.rapid <- data.frame(as.data.frame.matrix(table.hcai.rapid.recent),
+                               as.data.frame.matrix(table.hcai.rapid.tw))
+table.hcai.rapid <- rbind(table.hcai.rapid, colSums(table.hcai.rapid))
+rownames(table.hcai.rapid)[6] <- "All ECDPC categories"
+
+table.hcai.rapid.recent <- rbind(paste.colpercent(table.hcai.rapid.recent),
+                                 colSums(table.hcai.rapid.recent))
+rownames(table.hcai.rapid.recent)[6] <- "All ECDPC categories"
+
+#######################################################
+table.casegr <- paste.colpercent(with(cc.all, table(casegr, hosp.recent)))
+table.hcai.hosp.recent <- paste.colpercent(with(cc.all, table(hcai, hosp.recent)))
+##################################################
+
+## restriction to those with underlying cause or critical care for ARHAI query
+strata.testpos <- cc.severe[testpositive.case==TRUE &
+                            (covid_ucod==1 | criticalcare==TRUE), .N, by=stratum]
+
+testpos.coeffs <- tabulate.freqs.regressions(varnames=c("listedgr3", "hosp.recent", "occup"),
+                           outcome="CASE",
+                           data=cc.severe[care.home=="Independent" &
+                                          stratum %in% strata.testpos$stratum==TRUE])
+
+table.rapid.coeffs <- tabulate.freqs.regressions(varnames=c("listedgr3", "rapid.recent", "occup"),
+                           outcome="CASE",
+                           data=cc.severe[care.home=="Independent"])
+
+table.daycase.coeffs <- tabulate.freqs.regressions(varnames=c("listedgr3", "daycase.recent", "occup"),
+                           outcome="CASE",
+                           data=cc.severe[care.home=="Independent"])
+
+table.opd.coeffs <- tabulate.freqs.regressions(varnames=c("listedgr3", "opd.recent", "occup"),
+                           outcome="CASE",
+                           data=cc.severe[care.home=="Independent"])
 
 #############################################################
 
+winsize.nrs <- 15
+freqs.nrs.deaths.tw <- freqs.slidingwindow(dt=cc.all[CASE==1 & fatalcase],
+                                winsize=winsize.nrs,
+                                datevar="SPECIMENDATE",
+                                categoricvar="cod.case",
+                                groupvar=NULL)
+freqs.nrs.deaths.tw <- freqs.nrs.deaths.tw[cod.case==1]
+freqs.nrs.deaths.tw[rsum.allcategories <20, `:=`(p=NA, se.p=NA)]
+freqs.nrs.deaths.tw[date >= as.Date("2020-06-01") & date <= as.Date("2020-09-30"), p := NA]
+
+p.nrs <-
+    ggplot(data=freqs.nrs.deaths.tw,
+           aes(x=date, y=p)) +
+    geom_line() + # size=0.002 * (freqs.nrs.deaths.tw$rsum.allcategories)^0.5) + 
+    scale_y_continuous(limits=c(0, max(freqs.nrs.deaths.tw$p, na.rm=TRUE)), expand=c(0, 0)) + 
+    scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
+                                   to = lastdate, by = "month"),
+                 expand=c(0, 0), 
+                 labels=gsub("^0", "", 
+                             format.Date(seq.Date(from = as.Date("2020-03-01"),
+                                                  to = lastdate, by = "month"),
+                                         "%d %b")
+                             ),
+                 limits=c(as.Date("2020-03-01"), lastdate)) +
+       xlab(paste0("Presentation date: mid-point of ", winsize.nrs, "-day window")) +
+    ylab("Frequency") +
+    ggtitle("Proportion of fatal cases ascertained only through death certificate")
+p.nrs
+
+###########################################################
+
+
+
+
 rmarkdown::render("shielding.Rmd")
 rmarkdown::render("shieldingslides.Rmd")
+

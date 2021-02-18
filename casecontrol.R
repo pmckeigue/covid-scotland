@@ -1,4 +1,4 @@
-## analysis script for case-control study
+## analysis  script for case-control study
 if(exists("cl")) {
     # parallel::stopCluster(cl)
     showConnections(all = TRUE)
@@ -141,50 +141,6 @@ if(linkdate =="jun18") {
     sicsag.filename <- paste0(datadir, "CC_SICSAG_ANON_2020-06-18.rds")
     scrips.filename <- paste0(datadir, "CC_PIS_x15_ANON_2020-06-18.rds")
     onomap <- RDStodt(paste0(datadir, "ONOMAP_ANON_2020-06-18.rds"), keyname="ANON_ID")
-} else if(linkdate == "jan6") {
-    cleanid <- FALSE
-    checkid <- FALSE
-    occup <- TRUE
-    datadir <- "./data/2021-01-06/"
-    ct.filename <-  paste0(datadir, "CT_Test_Results_2021-01-21.rds")
-    ecoss.tests.filename <- paste0(datadir, "ecoss_tests_2021-01-14.rds")
-    ecoss.cases.filename <- paste0(datadir, "ecoss_cases_2021-01-14.rds")
-    teach.filename <- paste0(datadir, "teacher_hcw.rds")
-
-    hcw <- RDStodt(teach.filename, keyname="ANON_ID")
-    hcw[hcw_hhd=="teacher", occup := "Teacher"]
-    hcw[hcw_hhd=="hcw", occup := role]
-    hcw[is.na(occup), occup := "Other / undetermined"]
-    hcw[, occup := car::recode(occup, "c('npf', 'undetermined')='Health care, not PF / undetermined'; 'pf_any'='Health care PF'")]
-
-    rapid.filename <- paste0(datadir, "CC_RAPID_ANON_2021-01-07.rds")
-    sicsag.filename <- paste0(datadir, "CC_SICSAG_ANON_2021-01-21.rds")
-    cc.filename <- paste0(datadir, "CC_linked_ANON_2021-01-21.rds")
-    diagnoses.filename <- paste0(datadir, "CC_SMR01_ICD10_x25_ANON_2021-01-07.rds")
-    diagnoses.last25.filename <- paste0(datadir, "CC_SMR01_ICD10_25_ANON_2021-01-07.rds")
-    shielding.full.filename <- paste0(datadir,
-                                      "CC_shielding_patients_anon_20210106.rds")
-    smr00.filename <- paste0(datadir, "CC_SMR00__ANON_2021-01-07.rds")
-    smr04.filename <- paste0(datadir, "CC_SMR04__ANON_2021-01-07.rds")
-    smr06.filename <- paste0(datadir, "CC_SMR06_ICD10_ANON_2021-01-07.rds")
-    scrips.filename <- paste0(datadir, "CC_PIS_x15_ANON_2021-01-12.rds")
-    scrips.last15.filename <- paste0(datadir, "CC_PIS_15_ANON_2021-01-12.rds")
-    procedures.filename <- paste0(datadir, "CC_SMR01_OPCS4_MAIN.x25_ANON_2021-01-07.rds")
-    procedures.last25.filename <-
-        paste0(datadir, "CC_SMR01_OPCS4_MAIN.25_ANON_2021-01-07.rds")
-    ## this is a character vector containing the names of the objects, not the filenames
-    raw.filenames <- grep("\\.filename", objects(), value=TRUE)
-    raw.filenames <- raw.filenames[raw.filenames != "scrips.filename"]
-    if(cleanid) {
-        for(f in raw.filenames) {
-            cleanID(f)
-        }
-    } else if(checkid) {
-        for(f in raw.filenames) {
-            checkID(f)
-        }
-    }
-    chistatus.filename <- NULL
 } else if(linkdate == "jan28") {
     cleanid <- FALSE
     checkid <- FALSE
@@ -231,6 +187,9 @@ if(linkdate =="jun18") {
     ## this is a character vector containing the names of the objects, not the filenames
     raw.filenames <- grep("\\.filename", objects(), value=TRUE)
     raw.filenames <- raw.filenames[raw.filenames != "scrips.filename"]
+
+    browser("clean")
+    
     if(cleanid) {
         for(f in raw.filenames) {
             cleanID(f)
@@ -244,9 +203,13 @@ if(linkdate =="jun18") {
 
 cc.all <- RDStodt(cc.filename, keyname="ANON_ID")
 
+## FIXME: there shouldn't be any duplicates of ANON_ID
+print(dim(cc.all))
+print(dim(unique(cc.all[, .(ANON_ID)])))
+cc.all <- cc.all[!duplicated(ANON_ID)]
+
 CoDvars <- grep("CAUSE_OF_DEATH_CODE_", names(cc.all), value=TRUE)
 cc.all[, (CoDvars) := NULL]
-print(summary(cc.all$SPECIMENDATE))
 
 ## replace years before 2020 with 2020
 cc.all[lubridate::year(SPECIMENDATE) < 2020, SPECIMENDATE := year.to2020(SPECIMENDATE)]
@@ -364,8 +327,7 @@ if(linkdate != "jun18") {
  
 #######################################################################################
 
-    source("ct_ecoss.R", verbose=TRUE)
-    rm(ecoss.withdate)
+    source("ct_ecoss.R")
     
 #######################################################################################
 
@@ -377,9 +339,9 @@ if(linkdate != "jun18") {
     setnames(ct.first, "flag_lighthouse_labs_testing", "Ct.Lighthouse.flag") 
     #ct.first[, SourceLab := NULL]
     setkey(ct.first, ANON_ID)
+
     cc.all <- ct.first[, ][cc.all]
     ## some controls later tested positive in the Lighthouse lab but were not ascertained as cases by the cutoff date for case ascertainment 
-    print(head(cc.all[Ct.SpecimenDate==as.Date("2021-02-04"), .(SPECIMENDATE, CASE)]))
     rm(ct.first)
     
     ## use max and min sgtf to recode undetermined values where possible
@@ -403,6 +365,8 @@ if(linkdate != "jun18") {
     rm(ecoss.pos)
     rm(ecoss.first)
 
+    ## check that SPECIMENDATE of test-positive cases is first specimen date in ecoss
+   
     ## SMR00 and SMR04 
     smr00 <- RDStodt(smr00.filename, keyname="ANON_ID") # outpatients
     smr00[, CLINIC_DATE := as.Date(CLINIC_DATE)] # convert PosixCT
@@ -416,7 +380,7 @@ if(linkdate != "jun18") {
     setnames(smr04, "DISCHARGE_DATE", "Discharge.Date", skip_absent=TRUE)
     smr04[, Admission.Date:= as.Date(Admission.Date, format="%m/%d/%Y")]
     smr04[, Discharge.Date:= as.Date(Discharge.Date, format="%m/%d/%Y")]
-   ## 1654 records of psychiatric admissions during 2020: last record 9 Oct
+    ## 1654 records of psychiatric admissions during 2020: last record 9 Oct
     ## smr06 <- RDStodt(smr06.filename, keyname="ANON_ID") # cancer incidence date and site
 
     ## for test-positive cases in households where an earlier member tested positive, add
@@ -462,6 +426,11 @@ if(linkdate != "jun18") {
     setkey(rapid, ANON_ID) # why isn't it still keyed? 
     rapid <- cc.specimendate[rapid] ## left join of rapid with specimendate field in cc.all
 
+
+    cat("Weeks from RAPID admission date to Specimen Date\n")
+    hist(ceiling(as.integer(rapid$Admission.Date - rapid$SPECIMENDATE) / 7),
+         xlab="Weeks (rounded up) from Specimen Date to admission in RAPID")
+
     #################################
     ## generate table of admissions for time to hospitalisation analysis
     ##exclude discharges on or before SPECIMENDATE
@@ -483,93 +452,316 @@ if(linkdate != "jun18") {
     cc.all[, adm.within14 := as.integer(!is.na(daystoadmission) & daystoadmission <= 14)] 
     cc.all[, adm.within28 := as.integer(!is.na(daystoadmission) & daystoadmission <= 28)]
 
-    ################  hosp.recent #################################
-    ## select for each individual the most recent smr00 attendance before specimendate
+################  recent hospital exposure  #################################
+    ## official definitions
+    
+    ## definite hcai: admission.daysbefore >= 15 AND discharge.daysbefore < 0
+    ## probable hcai: admission.daysbefore >= 8 AND discharge.daysbefore <= 14
+    ## indeterminate hcai: admission.daysbefore >=3 AND discharge.daysbefore < 0
+
+    ## PHE / LSHTM definition
+
+    ## Community-Onset Suspected Healthcare-Associated (COSHA)
+    ## admission.daysbefore >= -2 AND discharge.daysbefore <= 14
+
+    ## our definition
+    ## 2 time windows of exposure: 5 to 14 days, 15 to 24 days before specimen date
+    ## 
+    ## recent hospital exposure: any exposure with
+    ## admission.daysbefore >= 5 AND admission.daysbefore <= 14
+    ## OR
+    ## discharge.daysbefore >= 5 AND discharge.daysbefore <= 14
+    ## OR
+    ## admission.daysbefore > 14 AND discharge.daysbefore < 5  
+    
+   inhosp <- function(admission.daysbefore, discharge.daysbefore, lower, upper) {
+        as.integer(ifelse(
+        (admission.daysbefore >= lower & admission.daysbefore <= upper) | # admitted during interval
+        (discharge.daysbefore >= lower & discharge.daysbefore <=upper) | # discharged during interval
+        (admission.daysbefore > upper & (is.na(discharge.daysbefore) |
+                                         discharge.daysbefore < lower)), # in hosp throughout
+        1, 0))
+    }
+    
+    recode.tw <- function(x) {
+        car::recode(x,
+                    recodes="1='Less recent TW only'; 2='Recent TW only'; 3='Both TWs'",
+                    as.factor=TRUE,
+                    levels=c("Less recent TW only", "Recent TW only", "Both TWs")) 
+    }
+
+    group.tw <- function(lessrecent, recent) {
+        timewingr <- ifelse(recent==0 & lessrecent==1, 1, # exposed in less recent window only
+                     ifelse(recent==1 & lessrecent==0, 2, # exposed in recent window only
+                     ifelse(recent==1 & lessrecent==1, 3, # exposed in both windows
+                            NA)))
+        return(recode.tw(timewingr))
+    }
+
+    nextdate <- function(dates1, dates2) {
+        ## dates1 and dates2 are vectors of equal length
+        ## for each nonmissing value in dates1, get the first date in dates2 that is no earlier than dates1
+        nextdate <- dates2
+        for(i in 1:length(dates1)) {
+            if(!is.na(dates1[i])) {
+                dates.noearlier <- dates2[dates2 - dates1[i] >= 0]
+                nextdate[i] <- as.Date(min(dates.noearlier, na.rm=TRUE))
+            }
+        }
+        return(as.Date(nextdate))
+    }
+
+    ##### SMR00 outpatients
+    ## import SPECIMENDATE into smr04
     setkey(smr00, ANON_ID)
     setkey(cc.all, ANON_ID)
     smr00 <- cc.all[, .(ANON_ID, SPECIMENDATE)][smr00]
+
     smr00 <- smr00[CLINIC_DATE < SPECIMENDATE]
-    setorder(smr00, -CLINIC_DATE)
-    smr00 <- smr00[!duplicated(ANON_ID)]
-    setkey(smr00, ANON_ID)
-    smr00[, outpat.recent := as.integer(SPECIMENDATE - CLINIC_DATE > 4 &
-                                      SPECIMENDATE - CLINIC_DATE <= 14)]
-    recent.smr00 <- smr00[!is.na(outpat.recent) & outpat.recent == 1]
-  
-    ## select for each individual the most recent smr04 discharge date before specimendate
-    setkey(smr04, ANON_ID)
+    smr00[, outpatient.daysbefore := as.integer(SPECIMENDATE - CLINIC_DATE)]
+    smr00 <- smr00[outpatient.daysbefore <= 28]
+    ## date can be in only one interval, so create single variable then dcast long to wide
+    smr00[outpatient.daysbefore >14 & outpatient.daysbefore <=24, outpat.recent := "days15to24"]
+    smr00[outpatient.daysbefore >4 & outpatient.daysbefore <=14, outpat.recent := "days5to14"]
+
+    smr00 <- smr00[!is.na(outpat.recent)]
+    smr00 <- unique(smr00[, .(ANON_ID, outpat.recent)])
+    outpat.timewin <- dcast(smr00, ANON_ID ~ outpat.recent)
+    outpat.timewin[, days15to24 := as.integer(as.factor(days15to24))]
+    outpat.timewin[, days5to14 := as.integer(as.factor(days5to14))]
+    setnafill(outpat.timewin, cols=2:3, fill=0)
+
+    ## sum over ANON_ID
+    outpat.timewin <- outpat.timewin[, lapply(.SD, function(x) as.integer(sum(x) > 0)),
+                                   by=ANON_ID, .SDcols=c("days15to24", "days5to14")]
+
+    outpat.timewin[, opd.timewingr := group.tw(lessrecent=days15to24, recent=days5to14)]
+    #outpat.timewin[, opd.timewingr := recode.tw(opd.timewingr)]
+    outpat.timewin <- outpat.timewin[, .(ANON_ID, opd.timewingr)]
+
+    setkey(outpat.timewin, ANON_ID)
+    cc.all <- outpat.timewin[cc.all]
+
+    ## SMR04 psychiatric admissions
     ## import SPECIMENDATE into smr04
-    smr04 <- cc.all[, .(ANON_ID, SPECIMENDATE)][smr04]
-    smr04 <- smr04[Discharge.Date < SPECIMENDATE]
-    setkey(smr04, Admission.Date)
-    smr04 <- smr04[!duplicated(ANON_ID)]
     setkey(smr04, ANON_ID)
-    smr04[, hosp.recent := as.integer(
-    (SPECIMENDATE - Admission.Date > 4 &
-     (is.na(Discharge.Date) | Discharge.Date - SPECIMENDATE >= 0)) | 
-    (SPECIMENDATE - Discharge.Date > 0 & SPECIMENDATE - Discharge.Date <= 14) 
-    )]
-    recent.smr04 <- smr04[!is.na(hosp.recent) & hosp.recent == 1]
+    smr04 <- cc.all[, .(ANON_ID, SPECIMENDATE)][smr04]
+    smr04[, admission.daysbefore := as.integer(SPECIMENDATE - Admission.Date)]
+    smr04[, discharge.daysbefore := as.integer(SPECIMENDATE - Discharge.Date)]
+    ## drop smr04 records where admission date is on or after specimen date
+    smr04 <- smr04[admission.daysbefore > 0]
+    psych.timewin <- smr04[, .(ANON_ID, admission.daysbefore, discharge.daysbefore)] %>% unique()
+
+    ## spell can span more than one interval, so create one variable for each interval
+    psych.timewin[, days15to24 :=  inhosp(admission.daysbefore, discharge.daysbefore, lower=15, upper=24)]
+    psych.timewin[, days5to14 :=  inhosp(admission.daysbefore, discharge.daysbefore, lower=5, upper=14)]
+    setnafill(psych.timewin, cols=c("days15to24", "days5to14"), fill=0)
+    ## sum over ANON_ID
+    psych.timewin <- psych.timewin[, lapply(.SD, function(x) as.integer(sum(x) > 0)),
+                                   by=ANON_ID, .SDcols=c("days15to24", "days5to14")]
+
+    psych.timewin[, psych.timewingr := group.tw(lessrecent=days15to24, recent=days5to14)]
+    #psych.timewin[, psych.timewingr := recode.tw(psych.timewingr)]
+    psych.timewin <- psych.timewin[, .(ANON_ID, psych.timewingr)]
+
+    setkey(psych.timewin, ANON_ID)
+    cc.all <- psych.timewin[cc.all]
+ 
+    ######################################
+    ## RAPID and SMR01 
 
     diagnoses.last25 <- RDStodt(diagnoses.last25.filename, keyname="ANON_ID")
-    diagnoses.all <- rbind(diagnoses, diagnoses.last25)
-    ## import specimendate into diagnoses.all
-    diagnoses.all <- cc.specimendate[diagnoses.all]
+    diagnoses.last25[, ADMISSION_DATE := as.Date(ADMISSION_DATE)]
+    ## we don't need the diagnostic codes
+    diagnoses.last25 <- unique(diagnoses.last25[,
+                                                .(ANON_ID, ADMISSION_DATE, DISCHARGE_DATE, CIS_MARKER, INPATIENT_DAYCASE_IDENTIFIER)])
+    ## for a given ANON_ID and CIS_MARKER value, all records are on the same continuous inpatient spell
+    ## we want the earliest admission and latest discharge date for each ANON_ID and CIS_MARKER
+    diagnoses.last25[, `:=`(admissiondate = min(ADMISSION_DATE),
+                            dischargedate = max(DISCHARGE_DATE)),
+                     by=c("ANON_ID", "CIS_MARKER")]
+    diagnoses.last25 <- diagnoses.last25[, .(ANON_ID, ADMISSION_DATE, DISCHARGE_DATE, CIS_MARKER, INPATIENT_DAYCASE_IDENTIFIER)]
+    diagnoses.last25 <- unique(diagnoses.last25) # reduces number of records by about one-third
 
-    ## select most recent discharge date for each individual from diagnoses.all
-    diagnoses.all[, revdate := -as.integer(DISCHARGE_DATE)]
-    setkey(diagnoses.all, revdate, ANON_ID)
-    diagnoses.all <- diagnoses.all[!duplicated(ANON_ID), .(ANON_ID, SPECIMENDATE, DISCHARGE_DATE)]
-    table(duplicated(diagnoses.all$ANON_ID)) 
+    ## import specimendate into diagnoses.last25
+    diagnoses.last25 <- cc.specimendate[diagnoses.last25] # no missing discharge dates
+    diagnoses.last25[, admission.daysbefore := as.integer(SPECIMENDATE - ADMISSION_DATE)]
+    diagnoses.last25[, discharge.daysbefore := as.integer(SPECIMENDATE - DISCHARGE_DATE)]
 
-    ## this step imports DISCHARGE_DATE from diagnoses.all into rapid
-    diagnoses.dischargedates <- diagnoses.all[, .(ANON_ID, DISCHARGE_DATE)]
-    setkey(diagnoses.dischargedates, ANON_ID)
+    daycase.last25 <- diagnoses.last25[INPATIENT_DAYCASE_IDENTIFIER=="D"]
+    admission.last25 <- diagnoses.last25[INPATIENT_DAYCASE_IDENTIFIER=="I"]
 
-    rapid <- diagnoses.dischargedates[rapid]
-    ## discharge dates from diagnoses (SMR01) are used to fill in missing discharge dates
-    rapid[is.na(Discharge.Date) & Admission.Date <= DISCHARGE_DATE,
-          Discharge.Date := DISCHARGE_DATE]
-    
-    ## create hosp.recent variable for diagnoses.all (have kept SPECIMENDATE)
-    diagnoses.all[, hosp.recent := as.integer(is.na(DISCHARGE_DATE) &
-                                              SPECIMENDATE - DISCHARGE_DATE  > 0 & 
-                                              SPECIMENDATE - DISCHARGE_DATE  < 15)]  
-    recent.diagnoses <- diagnoses.all[!is.na(hosp.recent) & hosp.recent == 1]
+    ## keep the latest discharge date for each admission date, and drop duplicated admission dates
+    setorder(rapid, -Discharge.Date, na.last=TRUE)
+    rapid <- rapid[!duplicated(rapid[, .(ANON_ID, Admission.Date)])]
 
-    ## hosp.recent if in hospital at any time from 5 to 14 days before specimen date
-    ## this set is defined as
-    ## in hospital on specdate with admission >= 5 days before
-    ## discharged before specdate with admission <= 14 days before
-    
-    ## (disch date missing or >= specdate) AND specdate - admission date > 4
-    ## OR
-    ## discharge date nonmissing AND specdate - discharge date >= 5 and <= 14
-    
-    rapid[, hosp.recent := as.integer(
-    (SPECIMENDATE - Admission.Date > 4 &
-     (is.na(Discharge.Date) | Discharge.Date - SPECIMENDATE >= 0))
-    | 
-    (!is.na(Discharge.Date) &
-     (SPECIMENDATE - Discharge.Date >= 5 & 
-      SPECIMENDATE - Discharge.Date <= 14)))]
+    setorder(admission.last25, -DISCHARGE_DATE, na.last=TRUE)
+    admission.last25 <- admission.last25[!duplicated(admission.last25[, .(ANON_ID, ADMISSION_DATE)])]
 
-    ## prob.hcai is defined as
-    ## (disch date missing or >= specdate) AND specdate - admission date > 7
+    print(dim(rapid))
+    print(dim(unique(rapid[, .(ANON_ID, Admission.Date)])))
+    print(dim(admission.last25))
+    print(dim(unique(admission.last25[, .(ANON_ID, ADMISSION_DATE)])))
 
-    rapid[, prob.hcai := as.integer(SPECIMENDATE - Admission.Date > 7 &
-                                    (is.na(Discharge.Date) |
-                                     Discharge.Date - SPECIMENDATE >= 0))]
+    setkeyv(admission.last25, c("ANON_ID", "ADMISSION_DATE"))
+    setkeyv(rapid, c("ANON_ID", "Admission.Date"))
+    ## left join rapid with admission.last25 on admission date, and try to fill in missing discharge dates
+    rapid <- admission.last25[, .(ANON_ID, ADMISSION_DATE, DISCHARGE_DATE)][rapid]
+    setnames(rapid, "ADMISSION_DATE", "Admission.Date")
+
+    ## fill in missing discharge dates in rapid where possible
+    rapid[is.na(Discharge.Date), Discharge.Date := DISCHARGE_DATE]
+                              
+    #### day cases #########################################
+    daycase.last25[discharge.daysbefore > 14 & discharge.daysbefore <=24, # discharged during days 15-24
+                     disch.days := "days15to24"]
+    daycase.last25[discharge.daysbefore > 4 & discharge.daysbefore <=14, # discharged during days 5-14
+                     disch.days := "days5to14"]
+    daycase.timewin <- unique(daycase.last25[!is.na(disch.days), .(ANON_ID, disch.days)])
+    daycase.timewin <- dcast(daycase.timewin, ANON_ID ~ disch.days, value.var="disch.days")
+    daycase.timewin[, days15to24 := as.integer(as.factor(days15to24))]
+    daycase.timewin[, days5to14 := as.integer(as.factor(days5to14))]
+    setnafill(daycase.timewin, fill=0)
+
+    ## sum over ANON_ID
+    daycase.timewin <- daycase.timewin[, lapply(.SD, function(x) as.integer(sum(x) > 0)),
+                                   by=ANON_ID, .SDcols=c("days15to24", "days5to14")]
+
+    daycase.timewin[, daycase.timewingr := group.tw(lessrecent=days15to24, recent=days5to14)]
+    daycase.timewin <- daycase.timewin[, .(ANON_ID, daycase.timewingr)]
+
+    setkey(daycase.timewin, ANON_ID)
+    cc.all <- daycase.timewin[cc.all]
+
+    ######  admissions in SMR01  
+
+    ## drop admission records where admission date is on or after specimen date
+    admission.last25 <- admission.last25[admission.daysbefore > 0]
+    disch.timewin <- admission.last25[, .(ANON_ID, admission.daysbefore, discharge.daysbefore)] %>% unique()
+
+    ## spell can span more than one interval, so create one variable for each interval
+    disch.timewin[, days15to24 :=  inhosp(admission.daysbefore, discharge.daysbefore, lower=15, upper=24)]
+    disch.timewin[, days5to14 :=  inhosp(admission.daysbefore, discharge.daysbefore, lower=5, upper=14)]
+    setnafill(disch.timewin, cols=c("days15to24", "days5to14"), fill=0)
+ 
+    ## sum over ANON_ID
+    disch.timewin <- disch.timewin[, lapply(.SD, function(x) as.integer(sum(x) > 0)),
+                                   by=ANON_ID, .SDcols=c("days15to24", "days5to14")]
+
+    disch.timewin[, disch.timewingr := group.tw(lessrecent=days15to24, recent=days5to14)]
+    #disch.timewin[, disch.timewingr := recode.tw(disch.timewingr)]
+    disch.timewin <- disch.timewin[, .(ANON_ID, disch.timewingr)]
+
+    setkey(disch.timewin, ANON_ID)
+    cc.all <- disch.timewin[cc.all]
+
+    #################
+    ## rapid.timewin 
+
+    if(FALSE) {
+        ## where a RAPID discharge date is missing, we want to replace the missing date with
+        ## the first discharge date in diagnoses.all
+        ## that is on or after the RAPID admission date.
+        rapid[TRUE, rapid.id := .I] # set an ID for the record in the Ct table
+        rapid.nodischargedate <- rapid[is.na(Discharge.Date), ]
+        
+        diagnoses.matched <- diagnoses.last25[ANON_ID %in% rapid.nodischargedate$ANON_ID,
+                                              .(ANON_ID, DISCHARGE_DATE)]
+        rapid.nodischargedate <- rapid.nodischargedate[ANON_ID %in% diagnoses.matched$ANON_ID]
+        
+        rapid.diagnoses <- rbindlist(list(rapid.nodischargedate, diagnoses.matched), fill=TRUE)
+        setorder(rapid.diagnoses, ANON_ID, Admission.Date, DISCHARGE_DATE)
+        
+        rapid.diagnoses[, nearestdate.disch := nextdate(Admission.Date, DISCHARGE_DATE), by=ANON_ID]
+        rapid.diagnoses <- rapid.diagnoses[!is.na(Admission.Date) &
+                                           nearestdate.disch >= Admission.Date &
+                                           as.integer(nearestdate.disch - Admission.Date) <= 28,
+                                           .(rapid.id, nearestdate.disch)]
+        setkey(rapid.diagnoses, rapid.id)
+    setkey(rapid, rapid.id)
+        rapid <- rapid.diagnoses[rapid]
+        rapid[is.na(Discharge.Date), Discharge.Date := nearestdate.disch]
+    }
+
+    rapid[, admission.daysbefore := as.integer(SPECIMENDATE - Admission.Date)]
+    rapid[, discharge.daysbefore := as.integer(SPECIMENDATE - Discharge.Date)] # may be missing
+    rapid[is.na(discharge.daysbefore), discharge.daysbefore := -1E5] ## set missing values to an out-of-range negative number
+    ## keep records where admission or discharge are before specimen date
+    rapid <- rapid[admission.daysbefore > 0 | discharge.daysbefore > 0]
     
-    recent.rapid <- rapid[!is.na(hosp.recent) & hosp.recent == 1]
-    probhcai.rapid <- rapid[!is.na(prob.hcai) & prob.hcai ==1]
+    ## these definitions are mutually exclusive so can be coded as a categoric variable with 0 = no hcai
+    ## definite hcai: admission.daysbefore >= 15 AND discharge.daysbefore < 0
+    ## probable hcai: admission.daysbefore >= 8 AND discharge.daysbefore < 0
+    ## indeterminate hcai: admission.daysbefore >=3 AND discharge.daysbefore < 0
+
+    rapid.timewin <- rapid[, .(ANON_ID, admission.daysbefore, discharge.daysbefore)] %>% unique()
+    ## these are mutually exclusive categories 
+    rapid.timewin[discharge.daysbefore < 0,
+                  hcai := car::recode(admission.daysbefore,
+                                      recodes="lo:2='Non-hospital onset';
+                                                3:7='Indeterminate hospital onset';
+                                               8:14='Probable hospital onset';
+                                               15:hi='Definite hospital onset'")]
+    rapid.timewin[is.na(hcai), hcai := "Community onset"]
+                  
+    rapid.timewin[, hcai := factor(hcai,
+                                   levels=c("Community onset",
+                                            "Non-hospital onset", 
+                                            "Indeterminate hospital onset",
+                                            "Probable hospital onset", 
+                                            "Definite hospital onset"))]
     
-    cc.all[, hosp.recent := as.factor(ANON_ID %in% recent.rapid$ANON_ID |
-                                      ANON_ID %in% recent.diagnoses$ANON_ID |  
-                                      ANON_ID %in% recent.smr04$ANON_ID |
-                                      ANON_ID %in% recent.smr00$ANON_ID)]
+    rapid.hcai <- setorder(rapid.timewin, -hcai)
+    rapid.hcai <- rapid.hcai[!duplicated(ANON_ID), .(ANON_ID, hcai)]
+    setkey(rapid.hcai, ANON_ID)
+    cc.all <- rapid.hcai[cc.all]
+    cc.all[is.na(hcai), hcai := "Community onset"]
     
-    cc.all[, prob.hcai := as.factor(ANON_ID %in% probhcai.rapid$ANON_ID)] 
+    rapid.timewin[discharge.daysbefore < 0 & admission.daysbefore < 20 &
+                  (admission.daysbefore==2 | admission.daysbefore==8 | admission.daysbefore==15)]
+                  
+    rapid.timewin[, days15to24 :=  inhosp(admission.daysbefore, discharge.daysbefore, lower=15, upper=24)]
+    rapid.timewin[, days5to14 :=  inhosp(admission.daysbefore, discharge.daysbefore, lower=5, upper=14)]
+    setnafill(rapid.timewin, cols=c("days15to24", "days5to14"), fill=0)
+
+    ## sum over ANON_ID
+    rapid.timewin <- rapid.timewin[, lapply(.SD, function(x) as.integer(sum(x) > 0)),
+                                   by=ANON_ID, .SDcols=c("days15to24", "days5to14")]
+
+
+    
+    rapid.timewin[, rapid.timewingr := group.tw(lessrecent=days15to24, recent=days5to14)]
+    #rapid.timewin[, rapid.timewingr := recode.tw(rapid.timewingr)]
+    rapid.timewin <- rapid.timewin[, .(ANON_ID, rapid.timewingr)]
+    setkey(rapid.timewin, ANON_ID)
+    cc.all <- rapid.timewin[cc.all]
+
+    #######################################################
+
+    with(cc.all[CASE==0], print(table(daycase.timewingr, exclude=NULL)))
+    with(cc.all[CASE==0], print(table(disch.timewingr, exclude=NULL)))
+    with(cc.all[CASE==0], print(table(rapid.timewingr, exclude=NULL)))
+    with(cc.all[CASE==0], print(table(psych.timewingr, exclude=NULL)))
+    with(cc.all[CASE==0], print(table(opd.timewingr, exclude=NULL)))
+  
+    ## create hosp.recent variable from disch, rapid, smr04, smr00
+    ## hosp.recent if any exposure in recent time window
+    cc.all[, daycase.recent := as.logical(daycase.timewingr=="Recent TW only" | daycase.timewingr=="Both TWs")]
+    cc.all[, disch.recent := as.logical(disch.timewingr=="Recent TW only" | disch.timewingr=="Both TWs")]
+    cc.all[, rapid.recent := as.logical(rapid.timewingr=="Recent TW only" | rapid.timewingr=="Both TWs")]   
+    cc.all[, psych.recent := as.logical(psych.timewingr=="Recent TW only" | psych.timewingr=="Both TWs")]
+    cc.all[, opd.recent := as.logical(opd.timewingr=="Recent TW only" | opd.timewingr=="Both TWs")]
+
+    cc.all[is.na(daycase.recent), daycase.recent := FALSE]
+    cc.all[is.na(disch.recent), disch.recent := FALSE]
+    cc.all[is.na(rapid.recent), rapid.recent := FALSE]
+    cc.all[is.na(psych.recent), psych.recent := FALSE]
+    cc.all[is.na(opd.recent), opd.recent := FALSE]
+
+    cc.all[, hosp.recent := daycase.recent | disch.recent | rapid.recent | psych.recent | opd.recent]
+
+    cc.all[, prob.hcai := hcai == "Probable hospital onset" | hcai =="Definite hospital onset"]
+
 }
 
 ## import specimen date into diagnoses
@@ -577,7 +769,7 @@ diagnoses <- cc.specimendate[diagnoses]
 
 source("icdchapters.R")
 
-## FIXED: move subchapter assignment to here
+## FIXED: move ICD subchapter assignment to here
 ## use overlap join to assign chapter and subchapter to ICD diagnoses
     
 diagnoses[, icdnum := icdToInt(ICD10)]
@@ -704,7 +896,6 @@ x <- with(cc.all,
          as.integer(
              pmin(max(sicsag$AdmitUnit, na.rm=TRUE), Date.firstcritical, na.rm=TRUE) -
              SPECIMENDATE))
-print(summary(x))
 cc.all[x < 0, .(SPECIMENDATE, Date.firstcritical)]
 
 print(summary(as.integer(cc.all[CASE==1, Date.firstcritical - SPECIMENDATE])))
@@ -787,10 +978,10 @@ if(controls) { # case-control study
     controls.deceased <- with(cc.all, CASE==0 &
                                       !is.na(Date.Death) &
                                       Date.Death <= SPECIMENDATE)
-    cc.all <- cc.all[!(controls.deceased | cases.deceased)]                         
+    cc.all <- cc.all[!(controls.deceased | cases.deceased)]
+    rm(cases.deceased)
+    rm(controls.deceased)
     
-    
-                                        #with(cc.all[CASE==1], table(ANON_ID %in%     
 if(linkdate=="jun18") {
     with(cc.all[CASE==1],
          table(Explanation, is.na(Date.Death)))
@@ -811,7 +1002,7 @@ if(linkdate=="jun18") {
 
 ######################################################################
 ## classification of cases into 4 groups
-
+cat("Classifying cases into 4 groups ...")
 ## 8 individuals without a positive test result are included as cases but do not have
 ## covid_cod==1 or diag.case==1
 
@@ -934,6 +1125,8 @@ cc.all[, casegr3 := car::recode(as.integer(casegr),
                                 levels=c("No critical care, non-fatal",
                                         "Critical care, non-fatal", 
                                         "Fatal"))]
+cat("done\n")
+
 ####################################################################
 
 ## import most recent SMR01 discharge date into rapid
@@ -963,6 +1156,8 @@ save(narrow.case.freqs, broad.case.freqs,
      narrow.death.freqs, broad.death.freqs, file="casefreqs.4cats.agesex.RData")
 
 source("incidencemortality.R")
+rm(narrow.case)
+rm(narrow.fatalcase)
 
 ######## coding ethnicity ##############################
 
@@ -1059,12 +1254,11 @@ if(shielding) { ## shielding table ###
         shielded.full[, agegr20 := as.factor(car::recode(as.integer(AGE),
                                                      "0:39='0-39'; 40:59='40-59';
                                60:74='60-74'; 75:hi='75 or more'"))]
-        ## remove obvious wrong assignments
-    shielded.full <- shielded.full[!(shield.group == "Pregnant with heart disease" & AGE > 60)]
- #   shielded$ANON_ID)) # 2305 shield-eligible  cases
+    ## remove obvious wrong assignments
+    shielded.full <- shielded.full[!(shield.group == "Pregnant with heart disease" & AGE > 55)]
     with(cc.all[CASE==1], table(ANON_ID %in% shielded.full$ANON_ID)) # 2319 shield-eligible cases
 
-        ## left join of cc.all with subset of shielded.full in which ANON_ID is nonmissing
+    ## left join of cc.all with subset of shielded.full in which ANON_ID is nonmissing
     shielded.full.cc <- shielded.full[!is.na(ANON_ID),
                                       .(ANON_ID, shield.batch, Date.Sent,
                                         shielding_id, shield.group)]
@@ -1121,9 +1315,7 @@ if(shielding) { ## shielding table ###
 
     }
 
-crm(controls.deceased)
-rm(diagnoses.dischargedates)
-
+rm(controls.deceased)
 
 if(pis) { # read scrips file and import BNF chapter variables ############# 
 
@@ -1140,6 +1332,7 @@ if(pis) { # read scrips file and import BNF chapter variables #############
         ## keep only IDs of cases or controls matched to severe cases
         ids.keep <- cc.all[CASE==1 | group=="A", ANON_ID]
         scrips <- scrips[ANON_ID %in% ids.keep]
+        scrips <- scrips[!is.na(bnf_paragraph_code)]
         ## save this object for re-use 
         save(scrips, file=scripsobject.filename)
         cat("done\n")
@@ -1147,8 +1340,45 @@ if(pis) { # read scrips file and import BNF chapter variables #############
     
     cat("Loading saved scrips file ...")
     load(scripsobject.filename)
+    scrips <- scrips[!is.na(bnf_paragraph_code)]
+    
     cat("done\n")
 
+    #################### add fields to scrips ########################################
+
+    scrips[, bnf_paragraph_description := as.factor(bnf_paragraph_description)]
+    ## bnf_paragraph_code has seven characters, giving resolution to subpara level
+    length(table(substr(scrips$bnf_paragraph_code, 1, 2))) # chapter
+    length(table(substr(scrips$bnf_paragraph_code, 1, 4))) # chapter, section
+    length(table(substr(scrips$bnf_paragraph_code, 1, 6)))  # chapter, section, paragraph
+    length(table(scrips$bnf_paragraph_code)) # 537 groups
+    
+    ## extract integer variables chapter, sectioncode, paracode for match with bnfcodes and bnfsubparacodes
+    scrips[, chapternum := as.integer(substr(bnf_paragraph_code, 1, 2))]
+    scrips[, sectioncode := as.integer(substr(bnf_paragraph_code, 1, 4))]
+    scrips[, paracode := as.integer(substr(bnf_paragraph_code, 1, 6))]
+
+    ## BNF chapter codes: up to 2 digits, leading 0 may be stripped
+    ## section codes: 2 digits
+    
+    ## 103 is proton pump inhibitors 01 03
+    
+    ## paragraph codes: 2 digits
+    ## subpara codes: 1 digit
+    
+    ## 1001030 is rheumatic disease suppressants 10 01 03 0
+    
+    ## chemical substance code: 2 characters, may include a letter
+    
+    ## 1001030C0 is hydroxychloroquine
+    ## 1001030U0 is methotrexate
+    
+    ## recode scrips$bnf.chapter values > 14 or NA to 14
+    scrips[is.na(chapternum), chapternum := 14]
+    scrips[chapternum > 14, chapternum := 14] 
+    
+    cat("scrips object uses", object.size(scrips) * 1E-6, "MB\n")
+   
     paste.colpercent(with(cc.all, table(ANON_ID %in% scrips$ANON_ID, CASE)))
     paste.colpercent(with(cc.all, table(ANON_ID %in% diagnoses$ANON_ID, CASE)))
     
@@ -1162,39 +1392,17 @@ if(pis) { # read scrips file and import BNF chapter variables #############
     ## always prescribed as 500 mcg tablets, quantity usually 28, 56 or 100
     ## dose 2-4 tablets/day so at 2 tabs/day that corresponds to 14, 28 or 50 days supply
     
-    if(FALSE) {
-        scrips.colchicine <- 
-            subset(scrips, approved_name=="COLCHICINE",
-                   select=c("ANON_ID", "SPECIMENDATE",
-                            "dispensed_date", "item_strength",
-                            "quantity"))            
-        scrips.last15.colchicine <- 
-            subset(scrips.last15, approved_name=="COLCHICINE",
-                   select=c("ANON_ID", "SPECIMENDATE",
-                            "dispensed_date", "item_strength",
-                            "quantity"))
-        scrips.colchicine <- rbind(scrips.colchicine, scrips.last15.colchicine) %>%
-            as.data.table(key="ANON_ID")
-        scrips.colchicine[, end.date := dispensed_date + floor(quantity / 2)]
-        scrips.colchicine[, on.colchicine := dispensed_date < SPECIMENDATE &
-                                SPECIMENDATE <= end.date]
-        scrips.colchicine <- scrips.colchicine[on.colchicine==TRUE]
-        cc.all[, colchicine.current := as.factor(as.integer(ANON_ID %in%
-                                                            scrips.colchicine$ANON_ID))]
-    }
 }
 
 ########## restrict to severe cases (and matched controls) before importing drug variables
+
 cat("Restricting to severe cases and matched controls\n")
-cc.severe <- cc.all[casegroup=="A"]
+cc.kept <- cc.all[CASE==1 | casegroup=="A"]
 save(cc.all, file="cc.all.RData")
 
 if(pis) {
     source("bnfcodes.R")
-    source("drugs.R") # memory
-    rm(scrips.nonopiates)
-    rm(dose.protonpump)
-    rm(scrips.wide)
+    source("drugs.R", verbose=TRUE)
     gc()
     
     ids.bnf.diabetes <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 601])
@@ -1204,39 +1412,43 @@ if(pis) {
     objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
     print(tail(objmem))
     
-###########################################################################
+########## coding listed conditions ####################
 
 ###  diabetes based on combining Sci-Diabetes records with ICD codes and drugs 
 ## add in BNF codes 6.1 for diabetes drugs and
 ## E10 to E14 for diabetes
 
-########## coding listed conditions ####################
-
+    
     ## missing recoded as zero
-    cc.severe[is.na(dm.type), dm.type := 0]
+    cc.kept[is.na(dm.type), dm.type := 0]
     
     ## add in extra cases notified directly from SCI-Diabetes register, without assignment
-## of diabetes type from SDRN database
-    cc.severe[dm.type==0 & diab.reg==1, dm.type := 3]
+    ## of diabetes type from SDRN database
+    cc.kept[dm.type==0 & diab.reg==1, dm.type := 3]
     
                                         #cat("Extra diabetes cases from SCI-Diabetes by diabetes type\n")
-#print(table(cc.severe$dm.type, cc.severe$ANON_ID %in% ids.diabetes.extra))
-
-## code diagnoses detected from discharges or BNF codes as unknown type
-## we could classify those not on insulin as definite Type 2 but Helen says no
-## REVISION: for consistency with the diabetes paper, we will not include the extra cases identified through diagnostic codes or drug codes - they may be transient/resolved
-
-## cc.severe$dm.type[cc.severe$dm.type==0 & cc.severe$ANON_ID %in% ids.diabetes.extra] <- 3
-
+                                        #print(table(cc.kept$dm.type, cc.kept$ANON_ID %in% ids.diabetes.extra))
+    
+    ## code diagnoses detected from discharges or BNF codes as unknown type
+    ## we could classify those not on insulin as definite Type 2 but Helen says no
+    ## REVISION: for consistency with the diabetes paper, we will not include the extra cases identified through diagnostic codes or drug codes - they may be transient/resolved
+    
+    ## cc.kept$dm.type[cc.kept$dm.type==0 & cc.kept$ANON_ID %in% ids.diabetes.extra] <- 3
+    
     ## recode diabetes type
-    cc.severe[, dm.type := recode.dmtype(dm.type)]
+    cc.kept[, dm.type := recode.dmtype(dm.type)]
     
     ## define indicator variable for any diabetes
-    cc.severe[, diabetes.any := as.integer(dm.type != "Not diabetic")]
-    cc.severe[, diabetes.any := as.factor(car::recode(diabetes.any,
-                                               "0='Not diabetic'; 1='Diabetic'"))]
-    cc.severe[, diabetes.any := relevel(diabetes.any, ref="Not diabetic")]
-    
+    cc.kept[, diabetes.any := as.integer(dm.type != "Not diabetic")]
+    cc.kept[, diabetes.any := as.factor(car::recode(diabetes.any,
+                                                                    "0='Not diabetic'; 1='Diabetic'"))]
+    cc.kept[, diabetes.any := relevel(diabetes.any, ref="Not diabetic")]
+
+    cc.kept[, dm.type3 := car::recode(dm.type, "'Other/unknown type'='Type 2 diabetes'",
+                                       levels=c("Not diabetic", "Type 1 diabetes",
+                                                "Type 2 diabetes"))]
+
+
     objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
     print(tail(objmem))
     
@@ -1247,61 +1459,61 @@ if(pis) {
                        "ckd.any", "neuro.any", "liver.any", "immune.any")
     
 ############ extract predefined disease categories #################
-## as these are coded as factors, lowest level will be 1
+    ## as these are coded as factors, lowest level will be 1
     
-    cc.severe[, listed.any := 
-    as.factor(as.integer(diabetes.any=="Diabetic" | IHD.any==1 |
-                         heart.other.any==1 |
-                         ckd.any==1 | oad.any==1 |
-                         neuro.any==1 | liver.any==1 | immune.any==1))]
+    cc.kept[, listed.any := 
+                  as.factor(as.integer(diabetes.any=="Diabetic" | IHD.any==1 |
+                                       heart.other.any==1 |
+                                       ckd.any==1 | oad.any==1 |
+                                       neuro.any==1 | liver.any==1 | immune.any==1))]
     
-    cc.severe[is.na(shield.group), shield.group := ifelse(listed.any==1,
-                                                       "Moderate risk condition",
-                                                       "No risk condition")]
-    cc.severe[, shield.group := car::recode(shield.group,
-                                         "'Pregnant with heartdisease'='Additional conditions'",
-                                         as.factor=TRUE,
-                                         levels=c(
-                                             "No risk condition",
-                                             "Moderate risk condition",
-                                             "Solid organ transplant",
-                                             "Specific cancers",
-                                             "Severe respiratory",
-                                             "Rare diseases",
-                                             "On immunosuppressants",
-                                             "Additional conditions"
-                                         ))]
-    cc.severe[, shieldedonly.group := car::recode(shield.group,
-                                               "'No risk condition'=NA; 
+    cc.kept[is.na(shield.group), shield.group := ifelse(listed.any==1,
+                                                        "Moderate risk condition",
+                                                        "No risk condition")]
+    cc.kept[, shield.group := car::recode(shield.group,
+                                          "'Pregnant with heartdisease'='Additional conditions'",
+                                          as.factor=TRUE,
+                                          levels=c(
+                                              "No risk condition",
+                                              "Moderate risk condition",
+                                              "Solid organ transplant",
+                                              "Specific cancers",
+                                              "Severe respiratory",
+                                              "Rare diseases",
+                                              "On immunosuppressants",
+                                              "Additional conditions"
+                                          ))]
+    cc.kept[, shieldedonly.group := car::recode(shield.group,
+                                                "'No risk condition'=NA; 
                                                 'Moderate risk condition'=NA",
-                                     as.factor=TRUE,
-                                     levels=c(
-                                         "Severe respiratory",
-                                         "Solid organ transplant",
-                                         "Specific cancers",
-                                         "Rare diseases",
-                                         "On immunosuppressants",
-                                         "Additional conditions"
-                                     ))]
+                                                as.factor=TRUE,
+                                                levels=c(
+                                                    "Severe respiratory",
+                                                    "Solid organ transplant",
+                                                    "Specific cancers",
+                                                    "Rare diseases",
+                                                    "On immunosuppressants",
+                                                    "Additional conditions"
+                                                ))]
     
-    cc.severe[, listedgr3 := 0]
-    cc.severe[listed.any=="1", listedgr3 := 1]
-    cc.severe[shield.any==TRUE, listedgr3 := 2]
-    cc.severe[, listedgr3 := car::recode(listedgr3,
-                                  recodes=
-                                      "0='No risk condition';
+    cc.kept[, listedgr3 := 0]
+    cc.kept[listed.any=="1", listedgr3 := 1]
+    cc.kept[shield.any==TRUE, listedgr3 := 2]
+    cc.kept[, listedgr3 := car::recode(listedgr3,
+                                       recodes=
+                                           "0='No risk condition';
                                        1='Moderate risk condition';
                                        2='Eligible for shielding'",
-                                  as.factor=TRUE, 
-                                  levels=c("No risk condition",
-                                           "Moderate risk condition",
-                                           "Eligible for shielding"))]
+                                       as.factor=TRUE, 
+                                       levels=c("No risk condition",
+                                                "Moderate risk condition",
+                                                "Eligible for shielding"))]
     
-    cc.severe[, diag.other := as.integer(listed.any==0 & diag.any==1)]
-    cc.severe[, diag.other := as.factor(car::recode(diag.other,
-                                  "0='Listed condition or no admission';
+    cc.kept[, diag.other := as.integer(listed.any==0 & diag.any==1)]
+    cc.kept[, diag.other := as.factor(car::recode(diag.other,
+                                                  "0='Listed condition or no admission';
                                    1='No listed condition, but other admission diagnosis'"))]
-
+    
     rm(scrips)
     rm(subset.laporte.scrips)
 }
@@ -1310,69 +1522,96 @@ if(pis) {
 
 #####################################################################
 
-## cast ICD chapters in wide format and merge with cc.severe
-icdchapters.wide <- data.table::dcast(diagnoses, ANON_ID ~ chnum, fun.aggregate=length,
-                                      value.var="chnum")
+## generate and merge indicators for any diag in each  ICD chapter
+icdchapters.anydiag <- diagnoses[, .N, by=c("ANON_ID", "chnum")] %>%
+    dcast(ANON_ID ~ chnum, value.var="N")
+## recode as 0, 1
+setnafill(icdchapters.anydiag, cols=2:ncol(icdchapters.anydiag), fill=0)
+for (j in 2:ncol(icdchapters.anydiag)) set(icdchapters.anydiag, j=j,
+                                           value=as.integer(icdchapters.anydiag[[j]] > 0))
 ## use Roman numerals for ICD chapters
-chnums <- as.integer(colnames(icdchapters.wide)[-1])
-colnames(icdchapters.wide)[-1] <-
+chnums <- as.integer(colnames(icdchapters.anydiag)[-1])
+colnames(icdchapters.anydiag)[-1] <-
     paste0("Ch.", as.roman(chnums), "_",
            icdchapters$shortname[match(chnums, icdchapters$chnum)])
-icdchapters.wide <- as.data.table(icdchapters.wide, key="ANON_ID")
-## drop rare chapters
-#cols.keep <- colSums(icdchapters.wide) >= 20
-cols.keep <- colSums(icdchapters.wide) >= 60 ## drops perinatal chapter
-icdchapters.wide <- icdchapters.wide[, ..cols.keep]
-cc.severe <- icdchapters.wide[cc.severe]
-rm(icdchapters.wide)
+## drop rare ICD chapters (freq < 1%)
+keep.cols <- colSums(icdchapters.anydiag) >= 0.01 * nrow(icdchapters.anydiag) ## drops perinatal chapter
+icdchapters.anydiag <- icdchapters.anydiag[, ..keep.cols]
+setkey(icdchapters.anydiag, ANON_ID)
+cc.kept <- icdchapters.anydiag[cc.kept]
+rm(icdchapters.anydiag)
+icdcols <- grep("^Ch\\.", colnames(cc.kept)) # begins with Ch._
+setnafill(cc.kept, cols=icdcols, fill=0)
 
-icdcols <- grep("^Ch\\.", colnames(cc.severe), value=TRUE)
+## cc.kept[, (icdcols)] returns the column names as a vector
+## cc.kept[, .(icdcols)] returns the column names as a data.table
+## cc.kept[, ..icdcols] returns a data.table selected by column
 
-## recode as indicator variables: NA to 0, >1 to 1
-cc.severe[, (icdcols) := lapply(.SD, recode.indicator), .SDcols = icdcols]
+## derive number of chapters with at least one diag 
+x <- cc.kept[, ..icdcols]
+cc.kept[, num.icdchapters := rowSums(x)]
+rm(x)
 
-## cc.severe[, (icdcols)] returns the column names as a vector
-## cc.severe[, .(icdcols)] returns the column names as a data.table
-## cc.severe[, ..icdcols] returns a data.table selected by column
+cc.kept[, num.icdchapters.gr := as.factor(car::recode(num.icdchapters,
+                                                      "0='No discharge records';
+                         1:2='1-2 ICD-10 chapters';
+                        3:hi='3 or more chapters'"))]
+cc.kept[, num.icdchapters.gr := relevel(num.icdchapters.gr, ref="No discharge records")]
 
-## this line returns a warning that "Both 'icdcols' and '..icdcols' exist in calling scope."
-icdcolsnew <- grep("^Ch\\.", colnames(cc.severe), value=TRUE)
-cc.severe[, num.icdchapters := rowSums(matrix(as.integer(as.matrix(cc.severe[, ..icdcolsnew])),
-                                              nrow=nrow(cc.severe)))]
-cc.severe[, num.icdchapters.gr := as.factor(car::recode(num.icdchapters,
-                          "0='No discharge records'; 1:2='1-2 ICD-10 chapters';
-                           3:hi='3 or more chapters'"))]
-cc.severe[, num.icdchapters.gr := relevel(num.icdchapters.gr, ref="No discharge records")]
+################################################################################
 
-## cast subchapters in wide format and merge with cc.severe
-icdsubchapters.wide <- data.table::dcast(diagnoses, ANON_ID ~ subchnum, fun.aggregate=length,
-                                         value.var="subchnum")
-## column names are integers as character strings 
-subchnums <- as.integer(colnames(icdsubchapters.wide)[-1])
-colnames(icdsubchapters.wide)[-1] <-
+## generate and merge indicators for any diag in each  ICD subchapter
+icdsubchapters.anydiag <- diagnoses[, .N, by=c("ANON_ID", "subchnum")] %>%
+    dcast(ANON_ID ~ subchnum, value.var="N")
+## recode as 0, 1
+setnafill(icdsubchapters.anydiag, cols=2:ncol(icdsubchapters.anydiag), fill=0)
+for (j in 2:ncol(icdsubchapters.anydiag)) set(icdsubchapters.anydiag, j=j,
+                                              value=as.integer(icdsubchapters.anydiag[[j]] > 0))
+subchnums <- as.integer(colnames(icdsubchapters.anydiag)[-1])
+colnames(icdsubchapters.anydiag)[-1] <-
     paste0("Ch_", 
            as.roman(icd.subchapters$chnum[match(subchnums, icd.subchapters$subchnum)]), ": ",
            icdsubchapters$start[match(subchnums, icd.subchapters$subchnum)], "-",
            icdsubchapters$end[match(subchnums, icd.subchapters$subchnum)], " ", 
            icdsubchapters$name[match(subchnums, icd.subchapters$subchnum)])
-icdsubchapters.wide <- as.data.table(icdsubchapters.wide, key="ANON_ID")
 
-## drop rare subchapters
-cols.keep <- colSums(icdsubchapters.wide) >= 20
-icdsubchapters.wide <- icdsubchapters.wide[, ..cols.keep]
+## drop rare ICD subchapters (freq < 0.1%)
+keep.cols <- colSums(icdsubchapters.anydiag) >= 0.001 * nrow(icdsubchapters.anydiag)  
+icdsubchapters.anydiag <- icdsubchapters.anydiag[, ..keep.cols]
+setkey(icdsubchapters.anydiag, ANON_ID)
+cc.kept <- icdsubchapters.anydiag[cc.kept]
+rm(icdsubchapters.anydiag)
+icdcols <- grep("^Ch_", colnames(cc.kept)) ## no period after Ch 
+setnafill(cc.kept, cols=icdcols, fill=0)
 
-cc.severe <- icdsubchapters.wide[cc.severe]
-rm(icdsubchapters.wide)
+## derive number of subchapters with at least one diag 
+x <- cc.kept[, ..icdcols]
+cc.kept[, num.icdsubchapters := rowSums(x)]
+rm(x)
 
-## recode subchapters as indicators
-icdcols <- grep("^Ch_", colnames(cc.severe), value=TRUE)
-cc.severe[, (icdcols) := lapply(.SD, recode.indicator), .SDcols = icdcols]
-
-cc.severe[AGE < 75] %>% save(file="data/cc.severe.lt75.RData")
-
-rm(scrips)
 rm(diagnoses)
+rm(procedures)
 gc()
+
+## calculate risk score
+if(FALSE) {
+    ## shield.group now has an extra level 
+    load(file="betadraws.riskscore.RData")
+    keep.covariates <- covariate.names %in% names(cc.kept)
+    covariates.keep <- covariate.names[keep.covariates]
+    beta.draws <- beta.draws[, keep.covariates]
+    X <- model.matrix(object=~ ., data=cc.kept[, ..covariates.keep])[, -1]
+    linearpredictor.draws <- X %*% t(beta.draws)
+    rm(X)
+    unnorm.p <- rowMeans(exp(linearpredictor.draws))
+}
+
+#######################################################################################
+objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
+print(tail(objmem))
+
+cc.severe <- cc.kept[casegroup=="A"]
+cc.severe[AGE < 75] %>% save(file="data/cc.severe.lt75.RData")
 
 ###########################################
 
@@ -1382,28 +1621,20 @@ if(linkdate == "jun18") {
     #nfold <- 10
     #source("stepwise.R")
     #source("pharmaco.R")
-    #rmarkdown::render("pharmaco.Rmd", output_file="pharmacoBMED-D-20-02413_rev4.pdf")
-} else if(linkdate != "jan28") {
-
-    #tabulate.freqs.regressions(varnames="colchicine.current",
-    #                           data=cc.all[casegroup=="A" | casegroup=="B"])
-
-    source("shielding.R")
-    rmarkdown::render("shielding.Rmd")
-    source("ct.R")
-    save(table.coeffs.exposure, table.symptoms, table.withCt, file="ct.tables_jan6.RData")
 } else {
     source("ct.R")
     source("shielding.R")
     rmarkdown::render("shielding.Rmd")
-
 }
-
-## remove large objects from memory
-rm(diagnoses)
 
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
 Rprof()
 print(summaryRprof(tmp)$by.total[1:20, ])
+
+#####################################################
+
+
+## returns a data.table with columns date, rsum 
+

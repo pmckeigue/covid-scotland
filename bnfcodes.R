@@ -1,34 +1,24 @@
-## BNF chapter codes: up to 2 digits, leading 0 may be stripped
-## section codes: 2 digits
 
-## 103 is proton pump inhibitors 01 03
-
-## paragraph codes: 2 digits
-## subpara codes: 1 digit
-
-## 1001030 is rheumatic disease suppressants 10 01 03 0
-
-## chemical substance code: 2 characters, may include a letter
-
-## 1001030C0 is hydroxychloroquine
-## 1001030U0 is methotrexate
-
-bnfcodes <- read_excel("./BNF_Code_Information.xlsx", sheet=4)
+bnfcodes <- as.data.table(read_excel("./BNF_Code_Information.xlsx", sheet=4))
 colnames(bnfcodes) <- c("chaptername", "chapternum", "sectionname", "sectioncode")
+bnfcodes[, `:=`(chapternum=as.integer(chapternum), sectioncode=as.integer(sectioncode))]
 
-bnfparacodes <- read_excel("./BNF_Code_Information.xlsx", sheet=3)
+bnfparacodes <- as.data.table(read_excel("./BNF_Code_Information.xlsx", sheet=3))
 colnames(bnfparacodes) <- c("chaptername", "chapternum",
                             "sectionname", "sectioncode",
                             "paraname", "paracode")
-bnfparacodes$paracode <- as.integer(bnfparacodes$paracode)
+bnfparacodes[, `:=`(chapternum=as.integer(chapternum), sectioncode=as.integer(sectioncode),
+                    paracode=as.integer(paracode))]
 
-bnfsubparacodes <- read_excel("./BNF_Code_Information.xlsx", sheet=1)[, 1:8]
+bnfsubparacodes <- as.data.table(read_excel("./BNF_Code_Information.xlsx", sheet=1)[, 1:8])
 colnames(bnfsubparacodes) <- c("chaptername", "chapternum",
                                "sectionname", "sectioncode",
                                "paraname", "paracode",
                                "subparaname", "subparacode")
-bnfsubparacodes <- bnfsubparacodes[!duplicated(bnfsubparacodes$subparacode), ]
-bnfsubparacodes$subparacode <- as.integer(bnfsubparacodes$subparacode)
+bnfsubparacodes <- bnfsubparacodes[!duplicated(subparacode)]
+bnfsubparacodes[, `:=`(chapternum=as.integer(chapternum), sectioncode=as.integer(sectioncode),
+                       paracode=as.integer(paracode), subparacode=as.integer(subparacode))]
+bnfsubparacodes[substring(subparaname, 1, 5) == "DUMMY", subparaname := sectionname]
 
 bnfchapters <- bnfcodes[, 1:2]
 bnfchapters <- base::unique(bnfchapters)

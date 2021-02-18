@@ -616,3 +616,26 @@ table.drugs.carehome <- table.drugs.carehome[grep("^1[123][0-9]+{5}",
                                                                   
 ssri <- tabulate.freqs.regressions(varnames="subpara.403030.Selective serotonin re-uptake inhibitors",
                            data=cc.severe)[, 1:4]
+
+    if(FALSE) {
+        scrips.colchicine <- 
+            subset(scrips, approved_name=="COLCHICINE",
+                   select=c("ANON_ID", "SPECIMENDATE",
+                            "dispensed_date", "item_strength",
+                            "quantity"))            
+        scrips.last15.colchicine <- 
+            subset(scrips.last15, approved_name=="COLCHICINE",
+                   select=c("ANON_ID", "SPECIMENDATE",
+                            "dispensed_date", "item_strength",
+                            "quantity"))
+        scrips.colchicine <- rbind(scrips.colchicine, scrips.last15.colchicine) %>%
+            as.data.table(key="ANON_ID")
+        scrips.colchicine[, end.date := dispensed_date + floor(quantity / 2)]
+        scrips.colchicine[, on.colchicine := dispensed_date < SPECIMENDATE &
+                                SPECIMENDATE <= end.date]
+        scrips.colchicine <- scrips.colchicine[on.colchicine==TRUE]
+        cc.all[, colchicine.current := as.factor(as.integer(ANON_ID %in%
+                                                            scrips.colchicine$ANON_ID))]
+    }
+}
+

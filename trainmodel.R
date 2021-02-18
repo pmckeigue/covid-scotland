@@ -192,29 +192,37 @@ clogit.model.cmdstan <- cmdstanr::cmdstan_model(
                                       cpp_options = list(stan_threads = TRUE))
 
 ## load case-control dataset
-
+## exclude care home residents and restrict to first wave
 cc.severe.lt75 <- as.data.table(readRDS("data/cc.severe.lt75.rds"), key="ANON_ID")
+cc.severe.lt75 <- cc.severe.lt75[care.home=="Independent" &
+                                 SPECIMENDATE < as.Date("2020-06-01")]
 
-cc.severe.lt75[, dmtype := car::recode(dm.type, "'Other/unknown type'='Type 2 diabetes'",
-                                       levels=c("Not diabetic", "Type 1 diabetes",
-                                                "Type 2 diabetes"))]
+## for an online app, we want easy to use variables
+## age, sex, care home+++
+## diagnoses of each listed condition++++
+## up to 10 drug classes
+## up to 10 extra hospital diagnoses
+## household size
 
-cc.severe.lt75[hh.over18==0, hh.over18 := 1]
+## for a PHS algo, we can use any variables accessible to PHS
+
+## care home, SIMD_quintile, children in household
+## all drug classes ## could maybe omit BNF chapters 11-13 (eye, ear, miscellaneous)
+## all hospital diagnoses
 
 ## select covariates
-select.cols <- c("CASE", "stratum", "hh.over18", "qSIMD.integer", "dm.type", "shield.group",
+select.cols <- c("CASE", "stratum", "hh.over18", "qSIMD.integer", "dm.type3", "shield.group",
                  grep("^Ch_", colnames(cc.severe.lt75), value=TRUE),
                  grep("subpara\\.", colnames(cc.severe.lt75), value=TRUE)
                  )
-U <- 0 # number of unpenalized columns
+
+## FIXME: calculate number of unpenalized columns as length(levels()) - 1 for factors
+U <- 10 # number of unpenalized columns
 
 ## other possible variables to add in: number of children, health-care worker, teacher
 
-## exclude care home residents and select columns 
-cc.severe.lt75 <- cc.severe.lt75[care.home=="Independent", ..select.cols]
-
-## exclude rows with missing values
-cc.nonmissing <- na.omit(cc.severe.lt75)
+## select columns and exclude rows with missing values
+cc.nonmissing <- na.omit(cc.severe.lt75[, ..select.cols])
 
 ## drop strata without at least one case and one control
 cc.drop <- cc.nonmissing[, drop := length(unique(CASE)) == 1,
@@ -270,18 +278,6 @@ for(s in 1:S) { # set ycat to the index of the case within each stratum
 
 ############################################################################
 
-## for an online app, we want easy to use variables
-## age, sex, care home+++
-## diagnoses of each listed condition++++
-## up to 10 drug classes
-## up to 10 extra hospital diagnoses
-## household size
-
-## for a PHS algo, we can use any variables accessible to PHS
-
-## care home, SIMD_quintile, children in household
-## all drug classes ## could maybe omit BNF chapters 11-13 (eye, ear, miscellaneous)
-## all hospital diagnoses
 
 grainsize <- 1 # ceiling(S / 16)
     

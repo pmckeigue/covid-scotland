@@ -184,12 +184,11 @@ if(linkdate =="jun18") {
     procedures.filename <- paste0(datadir, "CC_SMR01_OPCS4_MAIN.x25_ANON_2021-01-28.rds")
     procedures.last25.filename <-
         paste0(datadir, "CC_SMR01_OPCS4_MAIN.25_ANON_2021-01-28.rds")
+    vacc.filename <- paste0(datadir, "vaccinations_2021-01-28.rds")
     ## this is a character vector containing the names of the objects, not the filenames
     raw.filenames <- grep("\\.filename", objects(), value=TRUE)
     raw.filenames <- raw.filenames[raw.filenames != "scrips.filename"]
 
-    browser("clean")
-    
     if(cleanid) {
         for(f in raw.filenames) {
             cleanID(f)
@@ -324,7 +323,47 @@ if(linkdate != "jun18") {
                                                 "Teacher",
                                                 "Health care, not PF / undetermined"))]
     }
- 
+
+    vacc <- RDStodt(vacc.filename, key="ANON_ID")
+    vacc <- unique(vacc)
+    levels(vacc$vax_type_1)[2] <- "Pfizer"  
+    levels(vacc$vax_type_2)[2] <- "Pfizer"
+    vacc[, weekdose1 := floor(as.integer(vax_dose_1 - as.Date("2020-12-01")) / 7)]
+    vacc[, weekdose1 := as.Date("2010-12-01") + 7 * weekdose1]
+    cc.all <- vacc[cc.all]
+    cc.all[, dayssincedose1 := as.integer(SPECIMENDATE - vax_dose_1)]
+    cc.all[is.na(dayssincedose1) | dayssincedose1 < 0, dayssincedose1 := -1]
+    cc.all[, weekssincedose1 := floor(dayssincedose1 / 7)]
+    cc.all[dayssincedose1 <0, vaxstatus := 1]
+    cc.all[dayssincedose1 >=0 & dayssincedose1 <15, vaxstatus := 2]
+    cc.all[dayssincedose1 >=15, vaxstatus := 3]
+    cc.all[, vaxstatus := car::recode(vaxstatus,
+                                      "1='Not yet vaccinated';
+                                       2='Vaccinated in last 14 days';
+                                       3='Vaccinated at least 15 days earlier'",
+                                      as.factor=TRUE,
+                                      levels=c("Not yet vaccinated", 
+                                               "Vaccinated in last 14 days",
+                                               "Vaccinated at least 15 days earlier"))]
+     
+    cc.all[dayssincedose1 <0, vaxtype := 1]
+    cc.all[dayssincedose1 >=0 & dayssincedose1 <15 & vax_type_1=="Pfizer", vaxtype := 2]
+    cc.all[dayssincedose1 >=0 & dayssincedose1 <15 & vax_type_1=="AZ", vaxtype := 3]
+    cc.all[dayssincedose1 >=15 & vax_type_1=="Pfizer", vaxtype := 4]
+    cc.all[dayssincedose1 >=15 & vax_type_1=="AZ", vaxtype := 5]
+    cc.all[, vaxtype := car::recode(vaxtype,
+                                      "1='Not yet vaccinated';
+                                       2='Pfizer vaccine in last 14 days';
+                                       3='AZ vaccine in last 14 days';
+                                       4='Pfizer vaccine at least 15 days earlier';
+                                       5='AZ vaccine at least 15 days earlier'",
+                                    as.factor=TRUE,
+                                    levels=c("Not yet vaccinated", 
+                                             "Pfizer vaccine in last 14 days",
+                                             "AZ vaccine in last 14 days",
+                                             "Pfizer vaccine at least 15 days earlier",
+                                             "AZ vaccine at least 15 days earlier"))]
+    
 #######################################################################################
 
     source("ct_ecoss.R")
@@ -426,10 +465,6 @@ if(linkdate != "jun18") {
     setkey(rapid, ANON_ID) # why isn't it still keyed? 
     rapid <- cc.specimendate[rapid] ## left join of rapid with specimendate field in cc.all
 
-
-    cat("Weeks from RAPID admission date to Specimen Date\n")
-    hist(ceiling(as.integer(rapid$Admission.Date - rapid$SPECIMENDATE) / 7),
-         xlab="Weeks (rounded up) from Specimen Date to admission in RAPID")
 
     #################################
     ## generate table of admissions for time to hospitalisation analysis
@@ -1635,6 +1670,15 @@ print(summaryRprof(tmp)$by.total[1:20, ])
 
 #####################################################
 
+summary(vacc)
 
-## returns a data.table with columns date, rsum 
 
+vax.firstdoses <- vacc[, .N, by=c("weekdose1", "vax_type_1")]
+
+ggplot(data=vax.firstdoses, aes(x=weekdose1, y=N, color=vax_type_1)) +
+    geom_line() 
+
+tabulate.freqs.regressions(data=cc.severe, outcome="CASE",
+                           varnames=c("care.home", "listedgr3", "hosp.recent",
+                                      "SIMD.quintile", "hh.over18gr", "hh.schoolagegr", 
+                                      "vaxstatus"))

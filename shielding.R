@@ -19,6 +19,7 @@ rollmean.dtN <- function(dt, k) {
 }
 
 rollsum.datewin <- function(dt, k, datevar) {
+    ## returns a table of rolling sums of width k centred on date
     ## dt is a dataset of totals (N) by date, which may have no rows for some dates in the
     ## range of interest
     ## add rows for missing dates by a left join of all.dates with dt
@@ -35,6 +36,8 @@ rollsum.datewin <- function(dt, k, datevar) {
 
 freqs.slidingwindow <- function(dt, winsize=7, datevar=NULL, categoricvar=NULL,
                                 groupvar=NULL) {
+    ## returns a table of freqs for categoric var by groupvar over sliding windows of
+    ## width winsize centred at date
     freqs.bydate <- dt[, .N, by=c(datevar, categoricvar, groupvar)] 
     setkeyv(freqs.bydate, datevar)
     freqs.tw <- freqs.bydate[, rollsum.datewin(dt=.SD, k=winsize, datevar=datevar),
@@ -50,6 +53,8 @@ freqs.slidingwindow <- function(dt, winsize=7, datevar=NULL, categoricvar=NULL,
     freqs.tw[, se.p := sqrt(p * (1 - p) / rsum.allcategories)]
     return(freqs.tw) # one row for each level of categoricvar
 }
+
+
 
 theme_set(theme_gray(base_size = 14))
 
@@ -759,9 +764,10 @@ table.hcai.rapid.recent <- with(cc.severe[testpositive.case==TRUE],
                                                  table(hcai, rapid.recent))
 colnames(table.hcai.rapid.recent) <- c("No recent hospital exposure",
                                 "Recent hospital exposure")
+
 table.hcai.rapid.tw <- with(cc.severe[testpositive.case==TRUE],
                                       table(hcai, rapid.timewingr, exclude=NULL))[, 1:2]
-colnames(table.hcai.rapid) <- c("Less recent time window only",
+colnames(table.hcai.rapid.tw) <- c("Less recent time window only",
                                 "Recent time window only")
 
 table.hcai.rapid <- data.frame(as.data.frame.matrix(table.hcai.rapid.recent),

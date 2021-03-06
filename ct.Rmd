@@ -129,27 +129,26 @@ Preliminary analyses by Public Health England and other groups have suggested [@
 
 # Methods
 ## Ascertainment of COVID-19 cases evaluable for B.1.1.7 status
-From early in the epidemic Public Health Scotland has maintained a regularly-updated case-control study (REACT-SCOT) of all COVID-19 cases in Scotland, with each case matched to up to ten controls and extensive linkage to other health care records and routine datasets   as previously reported [@mckeigue_rapid_2020-1].  The case definition in REACT-SCOT includes all those with a positive nucleic acid test, a hospital admission with a discharge code of COVID-19  or a death certificate with mention of COVID-19.  For cases who had tested positive in a Lighthouse laboratory, cycle threshold (Ct) values for each channel were available.  The analyses presented here focus on the subset of cases evaluable for S gene dropout as described below. As these analyses did not use data on controls, the description of methods is restricted to case ascertainment and linkages in REACT-SCOT. 
+From early in the epidemic Public Health Scotland has maintained a regularly-updated case-control study (REACT-SCOT) of all COVID-19 cases in Scotland, with each case matched to up to ten controls and extensive linkage to other health care records and routine datasets   as previously reported [@mckeigue_rapid_2020].  The case definition in REACT-SCOT includes all those with a positive nucleic acid test, a hospital admission with a discharge code of COVID-19  or a death certificate with mention of COVID-19.  For cases who had tested positive in a Lighthouse laboratory, cycle threshold (Ct) values for each channel were available.  The analyses presented here focus on the subset of cases evaluable for S gene dropout as described below. As these analyses did not use data on controls, the description of methods is restricted to case ascertainment and linkages in REACT-SCOT. 
 
 All cases in Scotland with a positive RT-PCR test regardless of laboratory used were identified from the Electronic Communication of Surveillance in Scotland (ECOSS)  that captures virology testing in all NHS laboratories, hub laboratories and the  Scottish Lighthouse laboratory. From 1 September 2020  to `r dateformat(max(ct$SpecimenDate, na.rm=TRUE))` the Lighthouse laboratory accounted for `r tests.byct[2]` of the `r sum(tests.byct)` positive tests in Scotland.  For this study case ascertainment was complete up to  `r lastdate.specimen` as the date of the first positive test.  Test results from the Lighthouse laboratory were available up to `r dateformat(maxdate.ct)`
 
 ## Imputation of B.1.1.7 status from S gene signal
 The ThermoFisher TaqPath assay scores results as positive if there are detectable signals from at least two of the three genes: S, N, and ORF1ab.  For this study test-positive cases with a detectable S gene signal were scored as "No dropout". Test-positive cases with no S gene signal were scored as "Definite dropout" if the cycle thresholds for the ORF1ab and N genes were less than 30. All other positive test results with no signal from the S gene were scored as "Undetermined". 
  <!--Test-positive cases with no S gene signal were scored as "Definite dropout" if the Ct for the ORF1ab  gene (\ensuremath{C_{ORF}}) was less than 31, the Ct for the N gene (\ensuremath{C_{N}}) was less than 30, and \ensuremath{C_{ORF} - C_{N} > - 1}. All other positive test results with no signal from the S gene were scored as "Undetermined".   This was based on using the results of repeat tests on the same individual to reclassify borderline results as described in the Supplementary Text. 
-
 Chris R: a positive for STGF defined as  negative on the S gene and Ct < 25 for at least one of the OR and N genes.  A weak positive is negative for S gene and Ct <= 30 for both OR and N gene. --->
 
 ## Ascertainment of  hospitalisation and severity status
 The classification of cases as COVID-symptomatic or asymptomatic is based on the question used in Pillar 2 testing. Using the Community Health Index (CHI) number as identifier all cases were linked to RAPID which is a daily update of hospitalisations, out-patient attendances (SMR00), the Scottish Morbidity Record 01 (SMR01) which records general /acute hospital discharges, the Scottish Intensive Care Society and Audit Group (SICSAG) database which records entry to critical care, and to deaths registered with the National Records of Scotland (NRS).  Fatal COVID-19 was defined as death within 28 days of testing positive, regardless of the recorded cause of death or as any death with COVID-19 coded as underlying cause. 
 
-The proportion of cases with fatal outcome was calculated over sliding seven-day time windows.  We denote this fraction as the fatal case proportion.  We use this term  to distinguish it from the case fatality ratio which is classically defined without linkage between diagnoses and deaths, as the ratio of deaths from the disease to diagnosed cases over a specified time window. Data were available up to  `r dateformat(lastdate.rapid)` for hospital admissions, `r dateformat(maxdate.sicsag)`  for entry to critical care and `r dateformat(maxdate.death)` for death registrations.  
+The proportion of cases with fatal outcome was calculated over sliding seven-day time windows.  Data were available up to  `r dateformat(lastdate.rapid)` for hospital admissions, `r dateformat(maxdate.sicsag)`  for entry to critical care and `r dateformat(maxdate.death)` for death registrations.  
 
 ## Ascertainment of exposure  to  other  COVID-19 risk settings or exposures 
-All cases were linked to the CHI database that contains addresses linked to the Unique Property Reference Number, care home status, and the ages of all household members.  Socioeconomic status was assigned as the Scottish Index of Multiple Deprivation (SIMD) score which is based on linkage of postcodes to Census data [@fraser_scottish_2020].  Quintile 5 is the least deprived. Care home residence was assigned using the field in the CHI database,   augmented by coding as care home residents the `r care.home.reclassified[1]` individuals aged over 70 in households with 10 or more adults to give a total of `r cc.all[care.home=="Care/nursing home", .N]` care home residents out of the `r cc.all[, .N]` cases. 
+All cases were linked to the CHI database that contains addresses linked to the Unique Property Reference Number, care home status, and the ages of all household members.  Socioeconomic status was assigned as the Scottish Index of Multiple Deprivation (SIMD) score which is based on linkage of postcodes to Census data [@fraser_scottish_2020].  Quintile 5 is the least deprived. Care home residence was assigned using the field in the CHI database,   augmented by coding as care home residents the `r care.home.reclassified[1]` individuals aged over 70 in households with 10 or more adults to give a total of `r cc.all[care.home=="Care/nursing home", .N]` care home residents out of the `r cc.all[, .N]` cases. The definition of Scottish regions was based on the Nomenclature of Units for Territorial Statistics [Level 2](https://www.gov.scot/publications/review-nomenclature-units-territorial-statistics-nuts-boundaries/), with the North-Eastern and Highlands & Islands regions grouped as Northern.   
 
 To examine possible associations with exposure to health-care facilities, we defined the variable "recent hospital visit/stay" as any hospital in-patient stay or out-patient attendance (face-to-face consultations only) from 5 to 14 days before presentation date.  Restriction of hospital exposure to this time window was intended to exclude consultations caused by COVID-19 symptoms for which testing was delayed by a few days, but to include those exposed to health care facilities in the time interval during which the infection was likely to have been acquired. This is broader than the definition used in Scotland and England for "probable healthcare -associated infection" as illness onset or first positive specimen date between 8 and 14 days after admission.  The broad definition we have used here is intended to capture all infections that might have been acquired through hospital exposure, rather than to identify individuals who are unlikely to have been infected outside hospital.  
 
-Teachers were identified as individuals of working-age registered with the General Teaching Council of Scotland and currently working, or believed to be currently working, as teachers at a Scottish school in 2020. Healthcare workers were identified using the General Practitioner Contractor Database (GPCD) and Scottish Workforce Information Standard System (SWISS) databases as described previously. [@shah_risk_2020; @mcallister_report_2020]. Prior comorbidities were derived by linkage to prescribing and SMR01 as described previously  [@mckeigue_rapid_2020-1]. 
+Teachers were identified as individuals of working-age registered with the General Teaching Council of Scotland and currently working as teachers at a Scottish school in 2020. Healthcare workers were identified using the General Practitioner Contractor Database (GPCD) and Scottish Workforce Information Standard System (SWISS) databases as described previously. [@shah_risk_2020; @mcallister_report_2020]. Prior comorbidities were derived by linkage to prescribing and SMR01 as described previously  [@mckeigue_rapid_2020]. 
 
 ## Statistical methods
 The three outcomes under study were death, death or entry to critical care (severe case), and death or hospitalisation.  Follow-up for these outcomes was limited to 28 days since first testing  positive.  For each outcome a Cox regression model was fitted with days since first testing positive as the time scale, with follow-up censored at the earliest of three dates: date of first event, last date up to which records of the outcome were available through linkage, or 28 days since first testing positive.  To control for calendar time, the dataset was additionally stratified by one-week time intervals.  This is equivalent to a conditional logistic regression model where the observations are person-time intervals and there is one stratum for each combination of days since testing positive and one-week calendar time interval.  Age, sex and other covariates were included in the model as fixed effects. 
@@ -207,7 +206,7 @@ Our results show that lower average cycle threshold of the N and ORF1ab genes in
 * The numbers of hospitalised cases with S gene dropout is large enough for the rate ratio for this outcome to be estimated reliably.  The numbers of fatal cases during the period that both the original strain and the variant were circulating is relatively small, so that the rate ratio cannot be estimated accurately. 
 
 ## Implications for policy 
-These results do not indicate that the variant has been preferentially transmitted to those who are exposed to school-age children.  They are also reassuring with respect to concerns that the variant may be associated with more severe disease.  Even if the higher transmissibility of the variant increases the incidence of infections, the effect on severe disease is likely to be small in comparison to the effect of other factors that are amenable to intervention, including overprescribing of psychotropic drugs [@mckeigue_relation_2021], transmission in hospitals[@mckeigue_relation_2021-1], and vaccination of vulnerable individuals.   
+These results do not indicate that the variant has been preferentially transmitted to those who are exposed to school-age children.  They are also reassuring with respect to concerns that the variant may be associated with more severe disease.  Even if the higher transmissibility of the variant increases the incidence of infections, the effect on severe disease is likely to be small in comparison to the effect of other factors that are amenable to intervention, including overprescribing of psychotropic drugs [@mckeigue_relation_2021], transmission in hospitals (McKeigue 2021, submitted) and vaccination of vulnerable individuals.   
 
 # Declarations
 ## Data availability
@@ -219,24 +218,18 @@ No specific funding was received for this study.
 ## Transparency declaration
 PM, as the manuscript’s guarantor, affirms: that the manuscript is an honest, accurate, and transparent account of the study being reported; that no important aspects of the study have been omitted; and that any discrepancies from the study as originally planned and registered have been explained. This manuscript has been generated directly from the source data by a reproducible research pipeline. All source code used for derivation of variables, statistical analysis and generation of this manuscript is freely available on GitHub.
 
-# Registration
+## Registration
 The original protocol for the REACT-SCOT case-control study was registered with the European Network of Centres for Pharmacoepidemiology and Pharmacovigilance (ENCEPP number EUPAS35558).
 
 ## Conflicts of interest
 The authors declare no conflicts of interest.
 
 ## Acknowledgements
-We thank all staff in critical care units who submitted data to the SICSAG database, the Scottish Morbidity Record Data Team, the staff of the National Register of Scotland, the Public Health Scotland Terminology Services, the HPS COVID-19 Laboratory & Testing cell and the NHS Scotland Diagnostic Virology Laboratories, and Nicola Rowan (HPS) for coordinating this collaboration.
+We thank all staff in critical care units who submitted data to the SICSAG database, the Scottish Morbidity Record Data Team, the staff of the National Register of Scotland, the Public Health Scotland Terminology Services, the HPS COVID-19 Laboratory & Testing cell and the NHS Scotland Diagnostic Virology Laboratories. 
 
 ## Public Health Scotland COVID-19 Health Protection Study Group
-<!--this group needs to be updated-->
-
-Alice Whettlock$^1$, Allan McLeod$^1$, Andrew Gasiorowski$^1$, Andrew Merrick$^1$, Andy McAuley$^1$, April Went$^1$, Calum Purdie$^1$, Colin Fischbacher$^1$, Colin Ramsay$^1$, David Bailey$^1$, David Henderson$^1$, Diogo Marques$^1$, Eisin McDonald$^1$, Genna Drennan$^1$, Graeme Gowans$^1$, Graeme Reid$^1$, Heather Murdoch$^1$, Jade Carruthers$^1$, Janet Fleming$^1$, Jade Carruthers$^1$, Joseph Jasperse$^1$, Josie Murray$^1$, Karen Heatlie$^1$, Lindsay Mathie$^1$, Lorraine Donaldson$^1$, Martin Paton$^1$, Martin Reid$^1$, Melissa Llano$^1$, Michelle Murphy-Hall$^1$, Paul Smith$^1$, Ros Hall$^1$, Ross Cameron$^1$, Susan Brownlie$^1$, Adam Gaffney$^2$, Aynsley Milne$^2$, Christopher Sullivan$^2$, Edward McArdle$^2$, Elaine Glass$^2$, Johanna Young$^2$, William Malcolm$^2$, Jodie McCoubrey $^2$
-
-1 Public Health Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE.
-
-2 NHS National Services Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2
-6QE. 
+Allan McLeod​, Alice Whettlock April Went, Beth Findlay Chris Sullivan, Ciaran Harvey, David Henderson, Edward McArdle, Eisin McDonald, Emily Griffiths, Genna Drennan, Johanna Young, Kirstin Leslie, Leonardo I Green, Louise Nicol, Melissa Llano, Nick Christofidis, Paul Bett, Ross Cameron, Theresa Ryan, Victoria Ponce Hardy.  
+Public Health Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE  
 
 
 # References
@@ -246,7 +239,7 @@ Alice Whettlock$^1$, Allan McLeod$^1$, Andrew Gasiorowski$^1$, Andrew Merrick$^1
 
 # Figures
 
-```{r plotvariantbydate, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1.25, fig.cap="\\label{fig:variantbydate}(a) Test-positives by date: area plot showing proportion of S gene dropouts in positive tests with reporting of cycle threshold. (b) Median cycle thresholds (reverse scale) in positive tests by date "}
+```{r plotvariantbydate, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1.25, fig.cap="\\label{fig:variantbydate}(a) Test-positive cases with reporting of cycle threshold, by date: area plot showing proportion of S gene dropouts. (b) Median cycle thresholds (reverse scale) in positive tests, by date."}
 
 theme_set(theme_gray(base_size = 10))
 
@@ -302,9 +295,10 @@ knitr::kable(table.coeffs.exposure,
                  notation="none") %>%
     kableExtra::group_rows("Age group", 1, 5, bold=FALSE) %>%
     kableExtra::group_rows("Region", 7, 10, bold=FALSE) %>%
-    kableExtra::group_rows("Number of adults in household", 13, 17, bold=FALSE) %>%
-    kableExtra::group_rows("Number of school-age children in household", 19, 21, bold=FALSE) %>%
-    kableExtra::group_rows("Occupation", 22, 25, bold=FALSE) %>%
+    kableExtra::group_rows("Risk category", 13, 15, bold=FALSE) %>%
+    kableExtra::group_rows("Number of adults in household", 16, 20, bold=FALSE) %>%
+    kableExtra::group_rows("Number of school-age children in household", 21, 23, bold=FALSE) %>%
+    kableExtra::group_rows("Occupation", 24, 28, bold=FALSE) %>%
 
     kable_styling(latex_options=c("scale_down", "hold_position"))
 ```
@@ -364,9 +358,11 @@ knitr::kable(table.severe.coxph,
                           "Univariate rate ratios are for models with single variable + week of specimen as categoric variable", 
                         "Multivariable rate ratios are for model with all covariates"),
                  notation="none") %>%
-    kable_styling(latex_options=c("scale_down", "hold_position"))
+    kable_styling(latex_options=c("scale_down", "HOLD_position"))
 
 ```
+
+\newpage
 
 ```{r coxhosp, echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -393,7 +389,7 @@ knitr::kable(table.hosp.coxph,
                          "Univariate rate ratios are for models with single variable + week of specimen as categoric variable", 
                          "Multivariable rate ratios are for model with all covariates + week of specimen as categoric variable"),
                  notation="none") %>%
-    kable_styling(latex_options=c("scale_down", "hold_position"))
+    kable_styling(latex_options=c("scale_down", "HOLD_position"))
 
 ```
 
@@ -401,8 +397,8 @@ knitr::kable(table.hosp.coxph,
 
 \beginsupplement
 
-
-# Imputation of S gene dropout
+# Supplementary material
+## Imputation of S gene dropout
 
 Supplementary Figure \ref{fig:plotbyCt} shows that absence of the S gene signal was associated with lower cycle threshold (Ct) for the N gene than for the ORF1ab gene.  We can identify no obvious artefactual explanation for this finding based on published documentation of the assay.  
 
@@ -410,7 +406,7 @@ We then plotted the subset of "Undetermined" results in those individuals who ha
 
 \newpage
 
-# Supplementary Figures
+## Supplementary Figures
 
 ```{r plotSgenebyCt, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1, fig.cap="\\label{fig:plotbyCt}Relation of S gene signal to ORF and N gene Ct values"}
 
@@ -421,7 +417,7 @@ p.dropout
 
 \newpage 
 
-```{r checkcutoff, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1, fig.cap="\\label{fig:plotcheck}Test results with S gene signal absent that were originally classified as Undetermined (\\ensuremath{C_{ORF} >= 31 or \\ensuremath{C_{N} >= 31 or  \\ensuremath{C_{N} - C_{ORF} < 1.5}), colour coded by result at repeat test. New separation lines at \\ensuremath{C_{N} - C_{ORF} = 3} and ORF = 33, used in this analysis, are shown in green"}
+```{r checkcutoff, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.asp=1, fig.cap="\\label{fig:plotcheck}Repeat tests on same individual for test-positive results originally classified as Undetermined (\\ensuremath{C_{ORF} \\ge 31} or \\ensuremath{C_N \\ge 31} or  \\ensuremath{C_N - C_{ORF} < 1.5}), colour coded by result at repeat test. New separation lines at \\ensuremath{C_N - C_{ORF} = 3} and \\ensuremath{C_{ORF} = 33}, used in this analysis, are shown in green"}
 
 p.check
 ```
@@ -430,7 +426,7 @@ p.check
 
 gA <- ggplotGrob(p.rateratio)
 gB <- ggplotGrob(p.region)
-gC <- ggplotGrob(p.hcw)
+gC <- ggplotGrob(p.hosp)
 grid::grid.newpage()
 grid::grid.draw(rbind(gA, gB, gC))
 
@@ -438,7 +434,7 @@ grid::grid.draw(rbind(gA, gB, gC))
 
 \newpage
 
-# Supplementary Tables 
+## Supplementary Tables 
 
 ```{r casesbymonth, echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -449,12 +445,11 @@ knitr::kable(table.cases.bymonth,
              row.names=TRUE,
              align=rep("r", 5),
              caption="Cases by month") %>%
-    add_footnote(label=c("Restricted to cases with specimen date no earlier than 1 Sep 2020",
-                         "Outcome is not yet evaluable for cases with specimen date after 31 December 2020"),
+    add_footnote(label=c("Restricted to cases with specimen date no earlier than 1 Sep 2020"),
                  notation="none") %>%
     kableExtra::group_rows("All cases", 1, 8) %>%
-        kableExtra::group_rows("Test-positive cases", 9, 11, bold=FALSE) %>%
-        kableExtra::group_rows("Cases with Ct results", 12, 16, bold=FALSE) %>%
+        kableExtra::group_rows("Test-positive cases", 9, 12, bold=FALSE) %>%
+        kableExtra::group_rows("Cases with Ct results", 13, 16, bold=FALSE) %>%
         kableExtra::group_rows("Fatal cases and cohort fatality rates by S gene dropout status", 17, 18, bold=FALSE) %>%
         kable_styling(latex_options=c("scale_down", "hold_position"))
 

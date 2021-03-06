@@ -8,8 +8,9 @@ rm(list=ls())
 gc()
 
 linkdate <- "jun18"
-linkdate <- "jan6"
 linkdate <- "jan28"
+#linkdate <- "feb18"
+## all saved data files should be to datadir defined by linkdate
 
 controls <- TRUE
 shielding <- TRUE
@@ -20,7 +21,6 @@ pis <- TRUE
 stepwise <- FALSE ## uncomment to save time if old version still valid
 fatal.predict <- TRUE
 fatal.predict <- FALSE
-numdays.letter <- 14
 
 ## required system packages: libcurl4-openssl-dev, pandoc, pandoc-citeproc
 ##   libssl-dev libxml2-dev
@@ -67,60 +67,6 @@ Rprof(tmp <- tempfile())
 
 source("helperfunctions.R")
 
-
-add.index <- function(dt)  { # why does this return NA values for ANON_ID? 
-    dt$case.index <- 1:nrow(dt)
-    dt$case.interval <- c(NA, as.integer(diff(dt$SPECIMENDATE)))
-    return(dt[, .(ANON_ID, case.index, case.interval)])
-}
-
-year.to2020 <- function(x) {
-    lubridate::year(x) <- 2020
-    return(x)
-}
-
-year.to2021 <- function(x) {
-    lubridate::year(x) <- 2021
-    return(x)
-}
-
-cleanID <- function(filename) {
-    namestring <- eval(parse(text=filename))
-    if(grepl("\\.csv$", namestring)) {
-        x <- fread(namestring)
-    } else {
-        x <- as.data.table(readRDS(namestring))
-    }
-    setnames(x, "anon_id", "ANON_ID", skip_absent=TRUE)
-    setnames(x, "CC_ANON_ID", "ANON_ID", skip_absent=TRUE)
-    x[, ANON_ID := as.integer(gsub(".* ", "", ANON_ID))] # remove date prefix
-    namesstring <- gsub("\\.csv$", "\\.rds", namestring) # save with .rds extension
-    saveRDS(x, file=namestring)
-}
-
-checkID <- function(rdsfilename) {
-    namestring <- eval(parse(text=rdsfilename))
-    if(!is.null(namestring)) {
-        x <- readRDS(namestring)
-        setnames(x, "anon_id", "ANON_ID", skip_absent=TRUE)
-        setnames(x, "CC_ANON_ID", "ANON_ID", skip_absent=TRUE)
-        cat(rdsfilename, x[["ANON_ID"]][1], "\n")
-    }
-}
-
-recode.dmtype <- function(x) {
-    r <- as.factor(car::recode(x, 
-                        "c(0, 10, 17, 97)='Not diabetic';
-                         c(1, 101, 102)='Type 1 diabetes';
-                         c(2, 202, 203)='Type 2 diabetes'; 
-                         3:9='Other/unknown type';
-                         11:16='Other/unknown type';
-                         18:96='Other/unknown type';
-                         98:100='Other/unknown type'"))
-    r <- factor(r, levels=levels(r)[c(1, 3, 4, 2)])
-    return(r)
-}
-
 ##################################################################
 batches <- as.data.table(read.table("data/BatchReference.csv", sep="\t", header=TRUE))
 setnames(batches, "Batch", "shield.batch")
@@ -129,7 +75,14 @@ setkey(batches, shield.batch)
 batches$Date.Sent <- gsub("Friday ", "", batches$Date.Sent)
 batches$Date.Sent <- gsub("^([[:digit:]]+)([stndrdth]{2} )", "\\1 ", batches$Date.Sent)
 batches$Date.Sent <- as.Date(batches$Date.Sent, "%d %B %Y")
- 
+
+cleanid <- FALSE
+checkid <- FALSE
+controls <- TRUE
+shielding <- TRUE
+occup <- TRUE
+chistatus.filename <- NULL
+
 if(linkdate =="jun18") {
     sicsag <- FALSE
     datadir <- "./data/jun18"
@@ -142,15 +95,7 @@ if(linkdate =="jun18") {
     scrips.filename <- paste0(datadir, "CC_PIS_x15_ANON_2020-06-18.rds")
     onomap <- RDStodt(paste0(datadir, "ONOMAP_ANON_2020-06-18.rds"), keyname="ANON_ID")
 } else if(linkdate == "jan28") {
-    cleanid <- FALSE
-    checkid <- FALSE
-    controls <- TRUE
-    shielding <- TRUE
-    occup <- TRUE
-    chistatus.filename <- NULL
     datadir <- "./data/2021-01-28/"
-#    old.datadir <- "./data/old2021-01-28/"
-    ## new ct file is missing the flag_symptomatic_covid field
     ct.filename <-  paste0(datadir, "CT_Test_Results_2021-01-28.rds")
     ecoss.tests.filename <- paste0(datadir, "ecoss_tests_2021-01-28.rds")
     if(occup) {
@@ -159,6 +104,9 @@ if(linkdate =="jun18") {
         ## this has a field hcw_hhd_anon which is the ID used in the source HCW file
         hcw.static <- RDStodt(hcw_static.fname, keyname="anon_id")
         hcw.static <- hcw.static[!is.na(role)]
+        hcw.static[, role := car::recode(role,
+            "c('npf', 'undetermined')='Health care, not PF / undetermined';
+                          'pf_any'='Health care PF'")]
         hcw <- RDStodt(hcw.filename)
         hcw <- hcw[!is.na(hcw_hhd_anon) & hcw_hhd_anon != "missing_anon_id" & !is.na(ANON_ID)]
         setkey(hcw, hcw_hhd_anon)  ## have to set this in a separate step
@@ -168,7 +116,7 @@ if(linkdate =="jun18") {
         hcw <- hcw[, .(ANON_ID, role, role_sub)]
         hcw <- hcw[!is.na(role)]
         setkey(hcw, ANON_ID)
-   }
+    }
     rapid.filename <- paste0(datadir, "CC_RAPID_ANON_2021-01-28.rds")
     sicsag.filename <- paste0(datadir, "CC_SICSAG_ANON_2021-01-28.rds")
     cc.filename <- paste0(datadir, "CC_linked_ANON_2021-01-28.rds")
@@ -185,24 +133,99 @@ if(linkdate =="jun18") {
     procedures.last25.filename <-
         paste0(datadir, "CC_SMR01_OPCS4_MAIN.25_ANON_2021-01-28.rds")
     vacc.filename <- paste0(datadir, "vaccinations_2021-01-28.rds")
-    ## this is a character vector containing the names of the objects, not the filenames
-    raw.filenames <- grep("\\.filename", objects(), value=TRUE)
-    raw.filenames <- raw.filenames[raw.filenames != "scrips.filename"]
+} else if(linkdate=="feb18") {
+    datadir <- "./data/2021-02-18/"
+    ct.filename <-  paste0(datadir, "CT_Test_Results_2021-02-18.rds")
+    ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-02-18.rds")
+    if(occup) {
+        hcw_static.fname <- "./data/HCW_data_cleaned/static_hcw_hhd.Rds"
+        hcw.filename <- paste0(datadir, "hcw_anon_ids_2021-02-18.rds")
+        teach.filename <- paste0(datadir, "Teacher_sectors_anon_id_2021-02-18.rds")
+        teach <- RDStodt(teach.filename, keyname="ANON_ID")
+        
+        hcw.static <- RDStodt(hcw_static.fname, keyname="anon_id")
+        str(hcw.static)
+        hcw.static <- hcw.static[!is.na(role)]
+        hcw.static[, role := car::recode(role,
+            "c('npf', 'undetermined')='Health care, not PF / undetermined';
+                          'pf_any'='Health care PF'")]
 
-    if(cleanid) {
-        for(f in raw.filenames) {
-            cleanID(f)
-        }
-    } else if(checkid) {
-        for(f in raw.filenames) {
-            checkID(f)
-        }
+        ## anon_id in hcw.static is integer appended with _0 or _1
+        ## _0 is Scottish Workforce Information Standard System (SWISS) - transferred from ISD to NHS Education for Scotland (NES) in 2019
+        ## _1 is GP Contractor Database (GPCD)
+        hcw.static[grepl("_0", anon_id), dbase := "SWISS"]
+        hcw.static[grepl("_1", anon_id), dbase := "GP Contractor Database"]
+        hcw.static[, dbase := as.factor(dbase)]
+        hcw.static[, HCW_ANON_ID := as.integer(gsub("_.", "", hcw.static$anon_id))]
+        hcw.static <- unique(hcw.static, by="HCW_ANON_ID") 
+        setnames(hcw.static, "anon_id", "hcw_id")
+        setnames(hcw.static, "hid", "hcw_hid")
+    
+        hcw <- RDStodt(hcw.filename)
+        hcw <- unique(hcw, by="HCW_ANON_ID")
+        str(hcw)
+        hcw <- hcw[!is.na(HCW_ANON_ID) & !is.na(ANON_ID)]
+        #cat("hcw rows matched by HCW_ANON_ID in hcw.static:\n")
+        #print(table(hcw$HCW_ANON_ID %in% hcw.static$HCW_ANON_ID))
+        hcw <- unique(hcw, by="ANON_ID")
+ 
+        setkey(hcw.static, HCW_ANON_ID)
+        setkey(hcw, HCW_ANON_ID)
+        hcw <- hcw.static[hcw]
+        rm(hcw.static)
+        hcw <- hcw[, HCW_ANON_ID := NULL]
+        setkey(hcw, ANON_ID)
+    }
+    rapid.filename <- paste0(datadir, "CC_RAPID_ANON_2021-02-18.rds")
+    sicsag.filename <- paste0(datadir, "CC_SICSAG_ANON_2021-02-18.rds")
+    cc.filename <- paste0(datadir, "CC_linked_ANON_2021-02-18.rds")
+    diagnoses.filename <- paste0(datadir, "CC_SMR01_ICD10_x25_ANON_2021-02-18.rds")
+    diagnoses.last25.filename <- paste0(datadir, "CC_SMR01_ICD10_25_ANON_2021-02-18.rds")
+
+    ## no shielding
+    shielding.full.filename <- paste0(datadir,
+                                      "CC_shielding_patients_anon_20210218.rds")
+    smr00.filename <- paste0(datadir, "CC_SMR00__ANON_2021-02-18.rds")
+    smr04.filename <- paste0(datadir, "CC_SMR04__ANON_2021-02-18.rds")
+    smr06.filename <- paste0(datadir, "CC_SMR06_ICD10_ANON_2021-02-18.rds")
+    scrips.filename <- paste0(datadir, "CC_PIS_x15_ANON_2021-02-18.rds")
+    scrips.last15.filename <- paste0(datadir, "CC_PIS_15_ANON_2021-02-18.rds")
+    procedures.filename <- paste0(datadir, "CC_SMR01_OPCS4_MAIN.x25_ANON_2021-02-18.rds")
+    procedures.last25.filename <-
+        paste0(datadir, "CC_SMR01_OPCS4_MAIN.25_ANON_2021-02-18.rds")
+    vacc.filename <- paste0(datadir, "vaccinations_2021-02-18.rds")
+}
+
+## this is a character vector containing the names of the objects, not the filenames
+raw.filenames <- grep("\\.filename", objects(), value=TRUE)
+raw.filenames <- raw.filenames[raw.filenames != "scrips.filename"]
+if(cleanid) {
+    for(f in raw.filenames) {
+        cleanID(f)
+    }
+} else if(checkid) {
+    for(f in raw.filenames) {
+        checkID(f)
     }
 }
 
-cc.all <- RDStodt(cc.filename, keyname="ANON_ID")
+if(FALSE) {
+    filestructures.list <- NULL
+    for(f in raw.filenames) {
+        namestring <- eval(parse(text=f))
+        if(!is.null(namestring)) {
+            dt <- RDStodt(namestring)
+            filestructures.list[[f]] <- ls.str(dt)
+        }
+    }
+    sink(file="filestructures.txt")
+    print(filestructures.list)
+    sink()
+}
 
-## FIXME: there shouldn't be any duplicates of ANON_ID
+cc.all <- RDStodt(cc.filename, keyname="ANON_ID")
+## there shouldn't be any duplicates of ANON_ID
+cat("check for duplicate ANON_ID values\n")
 print(dim(cc.all))
 print(dim(unique(cc.all[, .(ANON_ID)])))
 cc.all <- cc.all[!duplicated(ANON_ID)]
@@ -221,17 +244,6 @@ cc.all[SPECIMENDATE > Sys.Date(), SPECIMENDATE := year.to2020(SPECIMENDATE)]
 lastdate.specimen <- max(cc.all$SPECIMENDATE)
 cat("Last specimen date", format(lastdate.specimen,"%d %B %Y"), "\n")
 
-setnames(cc.all, "CAREHOME", "care.home", skip_absent=TRUE)
-
-cc.all[is.na(INSTITUTION_CODE==93) |
-       (INSTITUTION_CODE!=93 & INSTITUTION_CODE!=98), care.home := 0]
-cc.all[!is.na(INSTITUTION_CODE) & (INSTITUTION_CODE==93 | INSTITUTION_CODE==98),
-       care.home := 1]
-
-cc.all[, care.home := as.factor(car::recode(care.home, "0='Independent';
-                                                        1='Care/nursing home'"))]
-cc.all[, care.home := relevel(care.home, ref="Independent")]
-
 setnames(cc.all, "CASE_NO", "stratum", skip_absent=TRUE)
 setnames(cc.all, "SEX", "sex", skip_absent=TRUE)
 setnames(cc.all, "imumune", "immune", skip_absent=TRUE)
@@ -240,6 +252,15 @@ setnames(cc.all, "DATE_OF_DEATH", "Date.Death", skip_absent=TRUE)
 setnames(cc.all, "age", "AGE", skip_absent=TRUE)
 setnames(cc.all, "AgeYear", "AGE", skip_absent=TRUE)
 setnames(cc.all, "simd2020_sc_quintile", "qSIMD.integer", skip_absent=TRUE)
+setnames(cc.all, "CAREHOME", "care.home", skip_absent=TRUE)
+
+cc.all[is.na(INSTITUTION_CODE==93) |
+       (INSTITUTION_CODE!=93 & INSTITUTION_CODE!=98), care.home := 0]
+cc.all[!is.na(INSTITUTION_CODE) & (INSTITUTION_CODE==93 | INSTITUTION_CODE==98),
+       care.home := 1]
+cc.all[, care.home := as.factor(car::recode(care.home, "0='Independent';
+                                                        1='Care/nursing home'"))]
+cc.all[, care.home := relevel(care.home, ref="Independent")]
 
 if(!controls) { # cases only
     cc.all[, CASE := 1]
@@ -260,29 +281,25 @@ with(cc.all, table(is.case, diag.case)) # 74 have is.fase==false and diag.case==
 with(cc.all[diag.case==1 & cod.case==0],
      table(icu + hdu > 0, !is.na(Date.Death))) # 4 cases ascertained through discharge diagnosis were not in critical care and have a death certificate with no mention of COVID.
 ## Sharon & Jen have assigned these a dummy specimen date 7 days before date of admission
-    ## we reconstruct the date of admission as 7 days after the specimen date,
-    ## then code as severe if the date of death was within 28 days of admission.
+## we reconstruct the date of admission as 7 days after the specimen date,
+## then code as severe if the date of death was within 28 days of admission.
 
 cc.all[AGE < 0, AGE := 0]
-
-maxdate.specimen <- max(cc.all[CASE==1, SPECIMENDATE])
 
 cc.all[is.na(Prisoner_Flag), Prisoner_Flag := FALSE]
 ## all cases not ascertained through diag or cod must be testpositive cases
 ## 3052 cases not testpositive cases
-cc.all[, region := factor(car::recode(hb2019name,
-   recode="c('NHS Borders', 'NHS Fife', 'NHS Lothian', 'NHS Tayside', 'NHS Forth Valley') ='Eastern';
-   'NHS Greater Glasgow and Clyde'='Glasgow';
-   'NHS Grampian' = 'North Eastern'; 
- c('NHS Ayrshire and Arran', 'NHS Dumfries and Galloway', 'NHS Lanarkshire') = 'South Western';
- c('NHS Western Isles', 'NHS Shetland', 'NHS Highland', 'NHS Orkney') = 'Highlands and Islands'"))]
-cc.all[, region3 := car::recode(region,
-                                 "c('North Eastern', 'Highlands and Islands')='Northern';
-                                  'Glasgow'='South Western'",
-                                levels=c("Eastern", "South Western", "Northern"))]
+cc.all[, region := factor(car::recode(hb2019name, # NUTS 2 classification, but West Central should include North Lanarkshire
+                                      recode=
+                             "c('NHS Fife', 'NHS Lothian', 'NHS Tayside', 'NHS Forth Valley')='Eastern';
+                                                             'NHS Greater Glasgow and Clyde'='West Central';
+                                                                              'NHS Grampian'='North Eastern'; 
+  c('NHS Borders', 'NHS Ayrshire and Arran', 'NHS Dumfries and Galloway', 'NHS Lanarkshire')='Southern';
+                        c('NHS Western Isles', 'NHS Shetland', 'NHS Highland', 'NHS Orkney')='Highlands and Islands'"))]
+
 cc.all[, region4 := car::recode(region,
                                 "c('North Eastern', 'Highlands and Islands')='Northern'",
-                                levels=c("Eastern", "Glasgow", "South Western", "Northern"))]
+                                levels=c("Eastern", "West Central", "Southern", "Northern"))]
 maxdate.death <- max(cc.all$Date.Death, na.rm=TRUE)
 
 cc.all[, SIMD.quintile := as.factor(car::recode(SIMD.quintile, "'Unknown'=NA"))]
@@ -304,14 +321,24 @@ cc.all[, agegr2 :=
                                    "0:74='0-74 years'; 75:hi='75+ years'"))]
 
 if(linkdate != "jun18") {
-    cc.all[, occup := "Other / undetermined"]
-    if(linkdate=="jan28") {
+    cc.all[, occup := "Other / undetermined"] # default assignment
+    if(linkdate=="jan28"| linkdate=="feb18") {
         cc.all[TEACHER_FLAG==1, occup := "Teacher"]
-        cc.all[HCW_FLAG==1, occup := "Health care, not PF / undetermined"]
+        cc.all[HCW_FLAG==1, occup := "Health care, not PF /undetermined"]
     } 
     if(occup) {
-        ## use hcw table to code PF health care workers
-        cc.all[ANON_ID %in% hcw[role=="pf_any", ANON_ID], occup := "Health care PF"]
+        if(linkdate=="feb18") {
+            cc.all <- teach[cc.all]
+            rm(teach)
+        }
+        cc.all <- hcw[cc.all] # make sure duplicate IDS are removed from hcw
+        rm(hcw)
+        ## only about 60% of HCW matched in hcw are  identified by the HCW_FLAG field      
+        #print(with(cc.all, table(is.na(role), HCW_FLAG, exclude=NULL)))
+        #print(with(cc.all, table(role, HCW_FLAG, exclude=NULL)))
+
+        ## use hcw role field to code PF health care workers
+        cc.all[!is.na(role), occup := role]
         cc.all[, occup := base::factor(occup,
                                        levels=c("Other / undetermined",
                                                 "Teacher",
@@ -326,50 +353,64 @@ if(linkdate != "jun18") {
 
     vacc <- RDStodt(vacc.filename, key="ANON_ID")
     vacc <- unique(vacc)
-    levels(vacc$vax_type_1)[2] <- "Pfizer"  
-    levels(vacc$vax_type_2)[2] <- "Pfizer"
     vacc[, weekdose1 := floor(as.integer(vax_dose_1 - as.Date("2020-12-01")) / 7)]
     vacc[, weekdose1 := as.Date("2010-12-01") + 7 * weekdose1]
     cc.all <- vacc[cc.all]
+
     cc.all[, dayssincedose1 := as.integer(SPECIMENDATE - vax_dose_1)]
     cc.all[is.na(dayssincedose1) | dayssincedose1 < 0, dayssincedose1 := -1]
     cc.all[, weekssincedose1 := floor(dayssincedose1 / 7)]
     cc.all[dayssincedose1 <0, vaxstatus := 1]
-    cc.all[dayssincedose1 >=0 & dayssincedose1 <15, vaxstatus := 2]
-    cc.all[dayssincedose1 >=15, vaxstatus := 3]
+    cc.all[dayssincedose1 >=0 & dayssincedose1 <14, vaxstatus := 2]
+    cc.all[dayssincedose1 >=14, vaxstatus := 3]
+
+    cc.all[, vaxnow := !is.na(vax_dose_1)]
+    cc.all[, vaxnow := car::recode(vaxnow,
+                                   recodes="FALSE='Not vaccinated';
+                                            TRUE='At least one dose'",
+                                   as.factor=TRUE,
+                                   levels=c("Not vaccinated", "At least one dose"))]
+    
     cc.all[, vaxstatus := car::recode(vaxstatus,
-                                      "1='Not yet vaccinated';
-                                       2='Vaccinated in last 14 days';
-                                       3='Vaccinated at least 15 days earlier'",
+                                      "1='No vaccine by presentation date';
+                                       2='Vaccinated in last 13 days';
+                                       3='Vaccinated at least 14 days earlier'",
                                       as.factor=TRUE,
-                                      levels=c("Not yet vaccinated", 
-                                               "Vaccinated in last 14 days",
-                                               "Vaccinated at least 15 days earlier"))]
-     
-    cc.all[dayssincedose1 <0, vaxtype := 1]
-    cc.all[dayssincedose1 >=0 & dayssincedose1 <15 & vax_type_1=="Pfizer", vaxtype := 2]
-    cc.all[dayssincedose1 >=0 & dayssincedose1 <15 & vax_type_1=="AZ", vaxtype := 3]
-    cc.all[dayssincedose1 >=15 & vax_type_1=="Pfizer", vaxtype := 4]
-    cc.all[dayssincedose1 >=15 & vax_type_1=="AZ", vaxtype := 5]
-    cc.all[, vaxtype := car::recode(vaxtype,
-                                      "1='Not yet vaccinated';
-                                       2='Pfizer vaccine in last 14 days';
-                                       3='AZ vaccine in last 14 days';
-                                       4='Pfizer vaccine at least 15 days earlier';
-                                       5='AZ vaccine at least 15 days earlier'",
+                                      levels=c("No vaccine by presentation date", 
+                                               "Vaccinated in last 13 days",
+                                               "Vaccinated at least 14 days earlier"))]
+
+    cc.all[is.na(vax_dose_1) & is.na(vax_type_1), vax_type_1 := "No vaccine"]
+    cc.all[, vax_type_1 := car::recode(vax_type_1,
+                                       recodes="'mRNA-Pfizer'='Pfizer';
+                                             'AZ'='AstraZeneca'",
+                                     as.factor=TRUE,
+                                     levels=c("No vaccine", "Pfizer", "AstraZeneca"))]
+    ## combined variable for vaxstatus and vax_type_1
+    cc.all[dayssincedose1 <0, vaxgr := 1]
+    cc.all[dayssincedose1 >=0 & dayssincedose1 <14 & vax_type_1=="Pfizer", vaxgr := 2]
+    cc.all[dayssincedose1 >=0 & dayssincedose1 <14 & vax_type_1=="AstraZeneca", vaxgr := 3]
+    cc.all[dayssincedose1 >=14 & vax_type_1=="Pfizer", vaxgr := 4]
+    cc.all[dayssincedose1 >=14 & vax_type_1=="AstraZeneca", vaxgr := 5]
+    cc.all[, vaxgr := car::recode(vaxgr,
+                                    "1='Not yet vaccinated';
+                                       2='Pfizer vaccine in last 13 days';
+                                       3='AZ vaccine in last 13 days';
+                                       4='Pfizer vaccine at least 14 days earlier';
+                                       5='AZ vaccine at least 14 days earlier'",
                                     as.factor=TRUE,
                                     levels=c("Not yet vaccinated", 
-                                             "Pfizer vaccine in last 14 days",
-                                             "AZ vaccine in last 14 days",
-                                             "Pfizer vaccine at least 15 days earlier",
-                                             "AZ vaccine at least 15 days earlier"))]
+                                             "Pfizer vaccine in last 13 days",
+                                             "AZ vaccine in last 13 days",
+                                             "Pfizer vaccine at least 14 days earlier",
+                                             "AZ vaccine at least 14 days earlier"))]
     
 #######################################################################################
-
+    
     source("ct_ecoss.R")
     
 #######################################################################################
-
+    
     ## left join cc.all with first positive test from ct
     ct <- ct[!is.na(Sgene.dropout)]  ## drop records where the S gene signal is NA
     setkey(ct, SpecimenDate)
@@ -422,6 +463,8 @@ if(linkdate != "jun18") {
     ## 1654 records of psychiatric admissions during 2020: last record 9 Oct
     ## smr06 <- RDStodt(smr06.filename, keyname="ANON_ID") # cancer incidence date and site
 
+
+    ## FIXME: this section should be moved
     ## for test-positive cases in households where an earlier member tested positive, add
     ## index (2 or more) and interval in days since last case in household
     households.multicase <- cc.all[!is.na(HID) & testpositive.case==TRUE, .N, by=HID]
@@ -488,14 +531,13 @@ if(linkdate != "jun18") {
     cc.all[, adm.within28 := as.integer(!is.na(daystoadmission) & daystoadmission <= 28)]
 
 ################  recent hospital exposure  #################################
-    ## official definitions
+    ## ECDPC definitions
     
     ## definite hcai: admission.daysbefore >= 15 AND discharge.daysbefore < 0
     ## probable hcai: admission.daysbefore >= 8 AND discharge.daysbefore <= 14
     ## indeterminate hcai: admission.daysbefore >=3 AND discharge.daysbefore < 0
 
     ## PHE / LSHTM definition
-
     ## Community-Onset Suspected Healthcare-Associated (COSHA)
     ## admission.daysbefore >= -2 AND discharge.daysbefore <= 14
 
@@ -509,43 +551,6 @@ if(linkdate != "jun18") {
     ## OR
     ## admission.daysbefore > 14 AND discharge.daysbefore < 5  
     
-   inhosp <- function(admission.daysbefore, discharge.daysbefore, lower, upper) {
-        as.integer(ifelse(
-        (admission.daysbefore >= lower & admission.daysbefore <= upper) | # admitted during interval
-        (discharge.daysbefore >= lower & discharge.daysbefore <=upper) | # discharged during interval
-        (admission.daysbefore > upper & (is.na(discharge.daysbefore) |
-                                         discharge.daysbefore < lower)), # in hosp throughout
-        1, 0))
-    }
-    
-    recode.tw <- function(x) {
-        car::recode(x,
-                    recodes="1='Less recent TW only'; 2='Recent TW only'; 3='Both TWs'",
-                    as.factor=TRUE,
-                    levels=c("Less recent TW only", "Recent TW only", "Both TWs")) 
-    }
-
-    group.tw <- function(lessrecent, recent) {
-        timewingr <- ifelse(recent==0 & lessrecent==1, 1, # exposed in less recent window only
-                     ifelse(recent==1 & lessrecent==0, 2, # exposed in recent window only
-                     ifelse(recent==1 & lessrecent==1, 3, # exposed in both windows
-                            NA)))
-        return(recode.tw(timewingr))
-    }
-
-    nextdate <- function(dates1, dates2) {
-        ## dates1 and dates2 are vectors of equal length
-        ## for each nonmissing value in dates1, get the first date in dates2 that is no earlier than dates1
-        nextdate <- dates2
-        for(i in 1:length(dates1)) {
-            if(!is.na(dates1[i])) {
-                dates.noearlier <- dates2[dates2 - dates1[i] >= 0]
-                nextdate[i] <- as.Date(min(dates.noearlier, na.rm=TRUE))
-            }
-        }
-        return(as.Date(nextdate))
-    }
-
     ##### SMR00 outpatients
     ## import SPECIMENDATE into smr04
     setkey(smr00, ANON_ID)
@@ -607,7 +612,7 @@ if(linkdate != "jun18") {
 
     diagnoses.last25 <- RDStodt(diagnoses.last25.filename, keyname="ANON_ID")
     diagnoses.last25[, ADMISSION_DATE := as.Date(ADMISSION_DATE)]
-    ## we don't need the diagnostic codes
+    ## don't need diagnostic codes
     diagnoses.last25 <- unique(diagnoses.last25[,
                                                 .(ANON_ID, ADMISSION_DATE, DISCHARGE_DATE, CIS_MARKER, INPATIENT_DAYCASE_IDENTIFIER)])
     ## for a given ANON_ID and CIS_MARKER value, all records are on the same continuous inpatient spell
@@ -633,10 +638,10 @@ if(linkdate != "jun18") {
     setorder(admission.last25, -DISCHARGE_DATE, na.last=TRUE)
     admission.last25 <- admission.last25[!duplicated(admission.last25[, .(ANON_ID, ADMISSION_DATE)])]
 
-    print(dim(rapid))
-    print(dim(unique(rapid[, .(ANON_ID, Admission.Date)])))
-    print(dim(admission.last25))
-    print(dim(unique(admission.last25[, .(ANON_ID, ADMISSION_DATE)])))
+    #print(dim(rapid))
+    #print(dim(unique(rapid[, .(ANON_ID, Admission.Date)])))
+    #print(dim(admission.last25))
+    #print(dim(unique(admission.last25[, .(ANON_ID, ADMISSION_DATE)])))
 
     setkeyv(admission.last25, c("ANON_ID", "ADMISSION_DATE"))
     setkeyv(rapid, c("ANON_ID", "Admission.Date"))
@@ -693,31 +698,6 @@ if(linkdate != "jun18") {
     #################
     ## rapid.timewin 
 
-    if(FALSE) {
-        ## where a RAPID discharge date is missing, we want to replace the missing date with
-        ## the first discharge date in diagnoses.all
-        ## that is on or after the RAPID admission date.
-        rapid[TRUE, rapid.id := .I] # set an ID for the record in the Ct table
-        rapid.nodischargedate <- rapid[is.na(Discharge.Date), ]
-        
-        diagnoses.matched <- diagnoses.last25[ANON_ID %in% rapid.nodischargedate$ANON_ID,
-                                              .(ANON_ID, DISCHARGE_DATE)]
-        rapid.nodischargedate <- rapid.nodischargedate[ANON_ID %in% diagnoses.matched$ANON_ID]
-        
-        rapid.diagnoses <- rbindlist(list(rapid.nodischargedate, diagnoses.matched), fill=TRUE)
-        setorder(rapid.diagnoses, ANON_ID, Admission.Date, DISCHARGE_DATE)
-        
-        rapid.diagnoses[, nearestdate.disch := nextdate(Admission.Date, DISCHARGE_DATE), by=ANON_ID]
-        rapid.diagnoses <- rapid.diagnoses[!is.na(Admission.Date) &
-                                           nearestdate.disch >= Admission.Date &
-                                           as.integer(nearestdate.disch - Admission.Date) <= 28,
-                                           .(rapid.id, nearestdate.disch)]
-        setkey(rapid.diagnoses, rapid.id)
-    setkey(rapid, rapid.id)
-        rapid <- rapid.diagnoses[rapid]
-        rapid[is.na(Discharge.Date), Discharge.Date := nearestdate.disch]
-    }
-
     rapid[, admission.daysbefore := as.integer(SPECIMENDATE - Admission.Date)]
     rapid[, discharge.daysbefore := as.integer(SPECIMENDATE - Discharge.Date)] # may be missing
     rapid[is.na(discharge.daysbefore), discharge.daysbefore := -1E5] ## set missing values to an out-of-range negative number
@@ -763,8 +743,6 @@ if(linkdate != "jun18") {
     rapid.timewin <- rapid.timewin[, lapply(.SD, function(x) as.integer(sum(x) > 0)),
                                    by=ANON_ID, .SDcols=c("days15to24", "days5to14")]
 
-
-    
     rapid.timewin[, rapid.timewingr := group.tw(lessrecent=days15to24, recent=days5to14)]
     #rapid.timewin[, rapid.timewingr := recode.tw(rapid.timewingr)]
     rapid.timewin <- rapid.timewin[, .(ANON_ID, rapid.timewingr)]
@@ -773,11 +751,11 @@ if(linkdate != "jun18") {
 
     #######################################################
 
-    with(cc.all[CASE==0], print(table(daycase.timewingr, exclude=NULL)))
-    with(cc.all[CASE==0], print(table(disch.timewingr, exclude=NULL)))
-    with(cc.all[CASE==0], print(table(rapid.timewingr, exclude=NULL)))
-    with(cc.all[CASE==0], print(table(psych.timewingr, exclude=NULL)))
-    with(cc.all[CASE==0], print(table(opd.timewingr, exclude=NULL)))
+    with(cc.all[CASE==1], print(table(daycase.timewingr, exclude=NULL)))
+    with(cc.all[CASE==1], print(table(disch.timewingr, exclude=NULL)))
+    with(cc.all[CASE==1], print(table(rapid.timewingr, exclude=NULL)))
+    with(cc.all[CASE==1], print(table(psych.timewingr, exclude=NULL)))
+    with(cc.all[CASE==1], print(table(opd.timewingr, exclude=NULL)))
   
     ## create hosp.recent variable from disch, rapid, smr04, smr00
     ## hosp.recent if any exposure in recent time window
@@ -804,22 +782,22 @@ diagnoses <- cc.specimendate[diagnoses]
 
 source("icdchapters.R")
 
-## FIXED: move ICD subchapter assignment to here
 ## use overlap join to assign chapter and subchapter to ICD diagnoses
-    
 diagnoses[, icdnum := icdToInt(ICD10)]
 diagnoses[, icdnum2 := icdnum]
 setkey(diagnoses, icdnum, icdnum2)
 setkey(icd.subchapters, startnum, endnum)
 diagnoses <- foverlaps(diagnoses, icd.subchapters[, .(chnum, subchnum, startnum, endnum)])
 
-if(linkdate != "jan28") {
+## select columns of diagnoses -- do we need this? 
+if(linkdate == "jun18") {
     diagnoses <- diagnoses[, .(ANON_ID, SPECIMENDATE, DISCHARGE_DATE,
                            ICD10, chnum, subchnum)]
-    ids.icd.neoplasm.lastyear <-
+}
+## FIXME -- move to morbidity coding section
+ids.icd.neoplasm.lastyear <-
         unique(diagnoses[as.integer(SPECIMENDATE - DISCHARGE_DATE) + 25 > 365 &
                      grepl("^C[0-9]|^D[0-4]", ICD10), ANON_ID])
-}
 
 ###############################################
 
@@ -933,7 +911,7 @@ x <- with(cc.all,
              SPECIMENDATE))
 cc.all[x < 0, .(SPECIMENDATE, Date.firstcritical)]
 
-print(summary(as.integer(cc.all[CASE==1, Date.firstcritical - SPECIMENDATE])))
+#print(summary(as.integer(cc.all[CASE==1, Date.firstcritical - SPECIMENDATE])))
 # 75% of admissions to critical care are within 10 days of SPECIMENDATE
 
 #######  generate a separate field for date of admission within 21-day time window
@@ -978,10 +956,9 @@ cc.all[, critical.within28 := as.integer(!is.na(daystocritical) & daystocritical
 
 cc.all[, dispensing.days := as.integer(SPECIMENDATE - as.Date("2019-06-01"))]
 
-## exclude 3 cases already dead before their SPECIMENDATE
-cases.deceased <- with(cc.all, CASE==1 &
-                                  !is.na(Date.Death) &
-                                  Date.Death < SPECIMENDATE)
+## exclude cases already dead before their SPECIMENDATE, and controls already dead on date of test of case they were matched to
+
+cc.all <- cc.all[is.na(Date.Death) | Date.Death >= SPECIMENDATE]
 
 ## imputed SPECIMENDATE is 14 days before death
 ## but note that mode for days to death is 8 days
@@ -1006,16 +983,6 @@ if(!is.null(chistatus.filename)) {
                      EXTENDED_STATUS == "C" |
                      (EXTENDED_STATUS == "D" & !is.na(Date.Death))]
 }
-
-if(controls) { # case-control study 
-
-    ## exclude controls already dead on date of test of case they were matched to
-    controls.deceased <- with(cc.all, CASE==0 &
-                                      !is.na(Date.Death) &
-                                      Date.Death <= SPECIMENDATE)
-    cc.all <- cc.all[!(controls.deceased | cases.deceased)]
-    rm(cases.deceased)
-    rm(controls.deceased)
     
 if(linkdate=="jun18") {
     with(cc.all[CASE==1],
@@ -1024,17 +991,16 @@ if(linkdate=="jun18") {
 
 ## rows have been replicated within strata containing N cases so that each case and control appears N^2 times
 ## remove these replicated rows
-    cc.all <- distinct(.data=cc.all, ANON_ID, stratum, .keep_all = TRUE)
-    setkey(cc.all, ANON_ID)
-    cc.all <- copy(cc.all) # force a deep copy
-    
-    num.casectrl.strata <- cc.all[, .N, by=c("stratum", "CASE")]
-    ## what we want is a table with one row per stratum, separate columns for numcases and numctrls
-    num.casectrl.strata <- dcast(num.casectrl.strata, stratum ~ CASE, value.var="N")
-    colnames(num.casectrl.strata) <- c("stratum", "controls", "cases")
-    with(num.casectrl.strata, print(table(controls, cases)))
-} 
+cc.all <- distinct(.data=cc.all, ANON_ID, stratum, .keep_all = TRUE)
+setkey(cc.all, ANON_ID)
+cc.all <- copy(cc.all) # force a deep copy
 
+num.casectrl.strata <- cc.all[, .N, by=c("stratum", "CASE")]
+## we want a table with one row per stratum, separate columns for numcases and numctrls
+num.casectrl.strata <- dcast(num.casectrl.strata, stratum ~ CASE, value.var="N")
+colnames(num.casectrl.strata) <- c("stratum", "controls", "cases")
+with(num.casectrl.strata, print(table(controls, cases)))
+ 
 ######################################################################
 ## classification of cases into 4 groups
 cat("Classifying cases into 4 groups ...")
@@ -1188,12 +1154,14 @@ broad.case.freqs <- with(cc.all[broad.case], table(AGE, sex, exclude=NULL))
 narrow.death.freqs <- with(cc.all[narrow.fatalcase], table(AGE, sex, exclude=NULL))
 broad.death.freqs <- with(cc.all[broad.fatalcase], table(AGE, sex, exclude=NULL))
 save(narrow.case.freqs, broad.case.freqs,
-     narrow.death.freqs, broad.death.freqs, file="casefreqs.4cats.agesex.RData")
+     narrow.death.freqs, broad.death.freqs,
+     file=paste0(datadir, "casefreqs.4cats.agesex.RData"))
 
-source("incidencemortality.R")
+#source("incidencemortality.R")
 rm(narrow.case)
 rm(narrow.fatalcase)
-
+rm(broad.fatalcase)
+rm(broad.case)
 ######## coding ethnicity ##############################
 
 source("ethnic_assign.R")
@@ -1255,20 +1223,22 @@ print(tail(objmem))
 
 if(shielding) { ## shielding table ###
         
-        shielded.full <- RDStodt(shielding.full.filename, keyname="ANON_ID")
-        setnames(shielded.full, "group", "shield.group", skip_absent=TRUE)
-        setnames(shielded.full, "batch", "shield.batch", skip_absent=TRUE)
-        setnames(shielded.full, "age", "AGE", skip_absent=TRUE)
-        setnames(shielded.full, "care_home", "care.home", skip_absent=TRUE)
+    shielded.full <- RDStodt(shielding.full.filename)
+    setnames(shielded.full, "anon_id", "ANON_ID", skip_absent=TRUE)
+    setkey(shielded.full, ANON_ID)
+    setnames(shielded.full, "group", "shield.group", skip_absent=TRUE)
+    setnames(shielded.full, "batch", "shield.batch", skip_absent=TRUE)
+    setnames(shielded.full, "age", "AGE", skip_absent=TRUE)
+    setnames(shielded.full, "care_home", "care.home", skip_absent=TRUE)
                                         #shielded.full[nursing_home==1, care.home := 1]
                                         #shielded.full[, care.home := as.factor(care.home)]
-        shielded.full[, sex := as.factor(car::recode(sex, "1='Male'; 2='Female'"))]
-        setkey(shielded.full, shield.batch)
-        shielded.full <- batches[shielded.full]
-        print(with(shielded.full, table(is.na(ANON_ID)))) # 17314 with nonmissing ANON_ID
-        ## no duplicates among nonmissing ANON_IDs
-        
-        shielded.full[, shield.group := car::recode(shield.group,
+    shielded.full[, sex := as.factor(car::recode(sex, "1='Male'; 2='Female'"))]
+    setkey(shielded.full, shield.batch)
+    shielded.full <- batches[shielded.full]
+    #print(with(shielded.full, table(is.na(ANON_ID)))) # 17314 with nonmissing ANON_ID
+    ## no duplicates among nonmissing ANON_IDs
+    
+    shielded.full[, shield.group := car::recode(shield.group,
                                                 "1='Solid organ transplant';
                                       2='Specific cancers';
                                       3='Severe respiratory';
@@ -1276,9 +1246,9 @@ if(shielding) { ## shielding table ###
                                       5='On immunosuppressants';
                                       6='Pregnant with heart disease';
                                       7='Additional conditions'",
-                                     as.factor=TRUE,
-                                     levels=c(
-                                         "Solid organ transplant",
+                                      as.factor=TRUE,
+                                      levels=c(
+                                          "Solid organ transplant",
                                          "Specific cancers",
                                          "Severe respiratory",
                                          "Rare diseases",
@@ -1286,7 +1256,7 @@ if(shielding) { ## shielding table ###
                                          "Pregnant with heart disease",
                                          "Additional conditions"
                                      ))]
-        shielded.full[, agegr20 := as.factor(car::recode(as.integer(AGE),
+    shielded.full[, agegr20 := as.factor(car::recode(as.integer(AGE),
                                                      "0:39='0-39'; 40:59='40-59';
                                60:74='60-74'; 75:hi='75 or more'"))]
     ## remove obvious wrong assignments
@@ -1329,26 +1299,7 @@ if(shielding) { ## shielding table ###
     shielded.full[is.na(casegr3), casegr3 := "Not diagnosed as case"]
     shielded.full[, casegr3 := factor(casegr3, levels=c("Not diagnosed as case",
                                                       levels(cc.all$casegr3)))]
- 
-    ## assign after.letter as 1 for those shielded if letter sent at least numdays.letter before specimen date 
-    cc.all[, after.letter := ifelse(Date.Sent + numdays.letter <= SPECIMENDATE, 1, 0)]
-    ## assign after.letter as 0 for those not shielded
-    cc.all[is.na(Date.Sent), after.letter := 0]
-    cc.all[, after.letter := as.factor(after.letter)]
-
-    cc.all[, interval2 := 0]
-    cc.all[, interval3 := 0]
-    cc.all[SPECIMENDATE >=  as.Date("2020-04-03") + 14 &
-           SPECIMENDATE < as.Date("2020-08-01") + 14, interval2 := 1]
-    cc.all[SPECIMENDATE >=  as.Date("2020-08-01") + 14, interval3 := 1]
-    
-    cc.all[, interval := ifelse(SPECIMENDATE <  as.Date("2020-04-03") + 14, 1,
-                         ifelse(SPECIMENDATE <  as.Date("2020-08-01") + 14, 2, 3))]
-    
-    cc.all[, interval2.shielding := interval2 * (as.integer(shield.any) - 1)]
-    cc.all[, interval3.shielding := interval3 * (as.integer(shield.any) - 1)]
-
-    }
+     }
 
 rm(controls.deceased)
 
@@ -1365,7 +1316,7 @@ if(pis) { # read scrips file and import BNF chapter variables #############
         ## restrict to last 240 days before cutoff of (specimendate - 15) 
         scrips <- scrips[daysbefore - 15 <= 240]
         ## keep only IDs of cases or controls matched to severe cases
-        ids.keep <- cc.all[CASE==1 | group=="A", ANON_ID]
+        ids.keep <- cc.all[CASE==1 | casegroup=="A", ANON_ID]
         scrips <- scrips[ANON_ID %in% ids.keep]
         scrips <- scrips[!is.na(bnf_paragraph_code)]
         ## save this object for re-use 
@@ -1433,11 +1384,13 @@ if(pis) { # read scrips file and import BNF chapter variables #############
 
 cat("Restricting to severe cases and matched controls\n")
 cc.kept <- cc.all[CASE==1 | casegroup=="A"]
-save(cc.all, file="cc.all.RData")
+
+save(cc.all, file=paste0(datadir, "cc.all.RData"))
+rm(cc.all)
 
 if(pis) {
     source("bnfcodes.R")
-    source("drugs.R", verbose=TRUE)
+    source("drugs.R")
     gc()
     
     ids.bnf.diabetes <- unique(scrips$ANON_ID[as.integer(scrips$sectioncode) == 601])
@@ -1452,7 +1405,6 @@ if(pis) {
 ###  diabetes based on combining Sci-Diabetes records with ICD codes and drugs 
 ## add in BNF codes 6.1 for diabetes drugs and
 ## E10 to E14 for diabetes
-
     
     ## missing recoded as zero
     cc.kept[is.na(dm.type), dm.type := 0]
@@ -1461,8 +1413,8 @@ if(pis) {
     ## of diabetes type from SDRN database
     cc.kept[dm.type==0 & diab.reg==1, dm.type := 3]
     
-                                        #cat("Extra diabetes cases from SCI-Diabetes by diabetes type\n")
-                                        #print(table(cc.kept$dm.type, cc.kept$ANON_ID %in% ids.diabetes.extra))
+    #cat("Extra diabetes cases from SCI-Diabetes by diabetes type\n")
+    #print(table(cc.kept$dm.type, cc.kept$ANON_ID %in% ids.diabetes.extra))
     
     ## code diagnoses detected from discharges or BNF codes as unknown type
     ## we could classify those not on insulin as definite Type 2 but Helen says no
@@ -1558,6 +1510,7 @@ if(pis) {
 #####################################################################
 
 ## generate and merge indicators for any diag in each  ICD chapter
+
 icdchapters.anydiag <- diagnoses[, .N, by=c("ANON_ID", "chnum")] %>%
     dcast(ANON_ID ~ chnum, value.var="N")
 ## recode as 0, 1
@@ -1586,7 +1539,6 @@ setnafill(cc.kept, cols=icdcols, fill=0)
 x <- cc.kept[, ..icdcols]
 cc.kept[, num.icdchapters := rowSums(x)]
 rm(x)
-
 cc.kept[, num.icdchapters.gr := as.factor(car::recode(num.icdchapters,
                                                       "0='No discharge records';
                          1:2='1-2 ICD-10 chapters';
@@ -1623,43 +1575,73 @@ setnafill(cc.kept, cols=icdcols, fill=0)
 x <- cc.kept[, ..icdcols]
 cc.kept[, num.icdsubchapters := rowSums(x)]
 rm(x)
-
 rm(diagnoses)
 rm(procedures)
 gc()
 
-## calculate risk score
-if(FALSE) {
-    ## shield.group now has an extra level 
-    load(file="betadraws.riskscore.RData")
-    keep.covariates <- covariate.names %in% names(cc.kept)
-    covariates.keep <- covariate.names[keep.covariates]
-    beta.draws <- beta.draws[, keep.covariates]
-    X <- model.matrix(object=~ ., data=cc.kept[, ..covariates.keep])[, -1]
-    linearpredictor.draws <- X %*% t(beta.draws)
-    rm(X)
-    unnorm.p <- rowMeans(exp(linearpredictor.draws))
+## calculate risk score in controls and set intercept to equate observed and expected severe cases
+if(TRUE) {
+    #source("trainmodel.R")
+    source("riskscore.R")
+
+    ## thin beta.draws to have  < 1000 samples
+    keep.draws <- seq(1, nrow(beta.draws), by=ceiling(nrow(beta.draws) / 1000))
+    beta.draws <- beta.draws[keep.draws, ]
+    
+    ## calculate unnormalized risk score
+    ## FIXME: impute missing values so that risk score can be calculated for everyone 
+    covariate.names.agesex <- c("ANON_ID", "AGE", "sex", covariate.names) 
+    cc.predict <- na.omit(cc.kept[, ..covariate.names.agesex])
+    setnames(cc.predict, "AGE", "Age")
+    setnames(cc.predict, "sex", "Sex")
+    
+    cat("calculating unnormalized logits with matrix multiplication ...")
+    X.kept <- model.matrix(object=~ ., data=cc.predict[, ..covariateonly.names])[, -1]
+    cc.predict <- cc.predict[, .(ANON_ID, Age, Sex)] # to save memory
+    unnorm.lograte.draws <- X.kept %*% t(beta.draws) # this is a large object
+    rm(X.kept)
+    cat("done\n")
+ 
+    objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
+    print(tail(objmem))
+    ## without thinning, this will use a lot of memory
+    cat("calculating unnormalized logits of mean in arithmetic basis ...")
+    unnorm.lograte <- matrixStats::rowLogSumExps(unnorm.lograte.draws) -
+    log(ncol(unnorm.lograte.draws))
+    rm(unnorm.lograte.draws)
+    cc.predict[, logit.unnorm := ..unnorm.lograte]
+
+    ## merge with dt.lookup to get gam.logit and calculate logit.norm 
+    setkey(cc.predict, Age, Sex)
+    setkey(dt.lookup, COVID.age, Sex)
+    cc.predict <- dt.lookup[cc.predict]
+    cc.predict[, logit.norm := ..intercept.gam.unnorm + gam.logit + logit.unnorm]
+    setnames(cc.predict, "COVID.age", "Age")
+    cc.predict <- cc.predict[, .(ANON_ID, Sex, logit.norm)]
+    
+    covidage <- getCOVIDage(x=cc.predict, y=dt.lookup)
+    setkey(covidage, ANON_ID)
+    cc.kept <- covidage[cc.kept]
 }
 
 #######################################################################################
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
+print(table(cc.kept$CASE, cc.kept$casegroup))
+
 cc.severe <- cc.kept[casegroup=="A"]
-cc.severe[AGE < 75] %>% save(file="data/cc.severe.lt75.RData")
+cc.lt75 <- cc.severe[AGE < 75]
+save(cc.lt75, file=paste0(datadir, "cc.severe.lt75.RData"))
+rm(cc.lt75)
 
 ###########################################
 
-if(linkdate == "jun18") {
-   source("paper1tables.R")
-   ## ##### stepwise regressions use saved version #####################
-    #nfold <- 10
-    #source("stepwise.R")
-    #source("pharmaco.R")
+if(linkdate == "jan28") {
+    source("shielding.R")
+    rmarkdown::render("transmission.Rmd")
 } else {
     source("ct.R")
-    source("shielding.R")
-    rmarkdown::render("shielding.Rmd")
 }
 
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
@@ -1670,15 +1652,3 @@ print(summaryRprof(tmp)$by.total[1:20, ])
 
 #####################################################
 
-summary(vacc)
-
-
-vax.firstdoses <- vacc[, .N, by=c("weekdose1", "vax_type_1")]
-
-ggplot(data=vax.firstdoses, aes(x=weekdose1, y=N, color=vax_type_1)) +
-    geom_line() 
-
-tabulate.freqs.regressions(data=cc.severe, outcome="CASE",
-                           varnames=c("care.home", "listedgr3", "hosp.recent",
-                                      "SIMD.quintile", "hh.over18gr", "hh.schoolagegr", 
-                                      "vaxstatus"))

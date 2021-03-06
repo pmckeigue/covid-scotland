@@ -1,5 +1,123 @@
 ## helperfunctions for COVID analyses
 
+add.index <- function(dt)  { # why does this return NA values for ANON_ID? 
+    dt$case.index <- 1:nrow(dt)
+    dt$case.interval <- c(NA, as.integer(diff(dt$SPECIMENDATE)))
+    return(dt[, .(ANON_ID, case.index, case.interval)])
+}
+
+year.to2020 <- function(x) {
+    lubridate::year(x) <- 2020
+    return(x)
+}
+
+year.to2021 <- function(x) {
+    lubridate::year(x) <- 2021
+    return(x)
+}
+
+cleanID <- function(filename) {
+    namestring <- eval(parse(text=filename))
+    print("cleaning", namestring)
+    if(grepl("\\.csv$", namestring)) {
+        x <- fread(namestring)
+    } else {
+        x <- as.data.table(readRDS(namestring))
+    }
+    setnames(x, "anon_id", "ANON_ID", skip_absent=TRUE)
+    setnames(x, "CC_ANON_ID", "ANON_ID", skip_absent=TRUE)
+    x[, ANON_ID := as.integer(gsub(".* ", "", ANON_ID))] # remove date prefix
+    namesstring <- gsub("\\.csv$", "\\.rds", namestring) # save with .rds extension
+    print(namestring)
+    saveRDS(x, file=namestring)
+}
+
+checkID <- function(rdsfilename) {
+    namestring <- eval(parse(text=rdsfilename))
+    if(!is.null(namestring)) {
+        x <- readRDS(namestring)
+        setnames(x, "anon_id", "ANON_ID", skip_absent=TRUE)
+        setnames(x, "CC_ANON_ID", "ANON_ID", skip_absent=TRUE)
+        cat(rdsfilename, x[["ANON_ID"]][1], "\n")
+    }
+}
+
+recode.dmtype <- function(x) {
+    r <- as.factor(car::recode(x, 
+                        "c(0, 10, 17, 97)='Not diabetic';
+                         c(1, 101, 102)='Type 1 diabetes';
+                         c(2, 202, 203)='Type 2 diabetes'; 
+                         3:9='Other/unknown type';
+                         11:16='Other/unknown type';
+                         18:96='Other/unknown type';
+                         98:100='Other/unknown type'"))
+    r <- factor(r, levels=levels(r)[c(1, 3, 4, 2)])
+    return(r)
+}
+
+inhosp <- function(admission.daysbefore, discharge.daysbefore, lower, upper) {
+        as.integer(ifelse(
+        (admission.daysbefore >= lower & admission.daysbefore <= upper) | # admitted during interval
+        (discharge.daysbefore >= lower & discharge.daysbefore <=upper) | # discharged during interval
+        (admission.daysbefore > upper & (is.na(discharge.daysbefore) |
+                                         discharge.daysbefore < lower)), # in hosp throughout
+        1, 0))
+    }
+
+recode.tw <- function(x) {
+        car::recode(x,
+                    recodes="1='Less recent TW only'; 2='Recent TW only'; 3='Both TWs'",
+                    as.factor=TRUE,
+                    levels=c("Less recent TW only", "Recent TW only", "Both TWs")) 
+    }
+
+group.tw <- function(lessrecent, recent) {
+        timewingr <- ifelse(recent==0 & lessrecent==1, 1, # exposed in less recent window only
+                     ifelse(recent==1 & lessrecent==0, 2, # exposed in recent window only
+                     ifelse(recent==1 & lessrecent==1, 3, # exposed in both windows
+                            NA)))
+        return(recode.tw(timewingr))
+    }
+
+nextdate <- function(dates1, dates2) {
+        ## dates1 and dates2 are vectors of equal length
+        ## for each nonmissing value in dates1, get the first date in dates2 that is no earlier than dates1
+        nextdate <- dates2
+        for(i in 1:length(dates1)) {
+            if(!is.na(dates1[i])) {
+                dates.noearlier <- dates2[dates2 - dates1[i] >= 0]
+                nextdate[i] <- as.Date(min(dates.noearlier, na.rm=TRUE))
+            }
+        }
+        return(as.Date(nextdate))
+    }
+
+findintercept <- function(alpha, logit1, logit2) {
+    ## alpha is intercept
+    ## logit1 is correctly calibrated to give expected cases
+    ## logit2 is from conditional model
+    expected <- sum(invlogit(logit1))
+    expected.fullmodel <- sum(invlogit(alpha + logit1 + logit2))
+    return(abs(expected.fullmodel - expected))
+}
+
+## covid age is the age at  which logit.norm equates to gam.logit
+getCOVIDage <- function(x, y) {
+    ## left join x (id, sex, logit.norm) on y(COVID.age, sex, gam.logit)
+    ## and get covid age from nearest matched row in y
+    #setnames(y, "COVID.age", "COVID.age")
+    setkeyv(x, c("Sex", "logit.norm"))
+    setkeyv(y, c("Sex", "gam.logit"))
+    x <- y[x, roll="nearest"]
+    return(x)
+}
+
+logit <- function(x) log(x / (1 - x))
+
+invlogit <- function(x) {
+    return(x / (1 + exp(-x)))
+}
+
 icdToInt <- function(x) {
     N <- length(x)
     int3 <- integer(N)
@@ -72,7 +190,6 @@ format.estcipv <- function(x.ci, x.pval) {
     x <- gsub("times", "\\\\times", x)
     return(x)
 }
-
 
 `clogistLoglike`  <-  function(n,m,x,beta) {
     ## https://rdrr.io/cran/saws/src/R/clogistLoglike.R
@@ -717,7 +834,6 @@ tabulate.icdchapter <- function(chnum, data=cc.severe, minrowsum=20) {
     }
 }
 
-
 format.pvalue <- function(z, pvalue) {
     pvalue.na <- is.na(pvalue)
     ## convert to character so that extreme p-values can be represented in scientific notation
@@ -930,37 +1046,49 @@ nonmissing.obs <- function(x, varnames) { ## subset rows nonmissing for varnames
 
 normalize.predictions <- function(unnorm.p, stratum, y) { 
     ## normalize probs so that they sum to 1 within each stratum
-    ## returns data frame with 4 columns: stratum, normconst, prior.p, posterior.p
+    ## returns data frame with 3 columns: stratum, prior.p, posterior.p
 
-    unnorm.p <- as.numeric(unnorm.p)
-    stratum <- as.integer(as.character(stratum))
-    nonmissing <- !is.na(unnorm.p)
+    predictions <- data.table(unnorm.p, stratum, y)
+    predictions[, unnorm.p := as.numeric(unnorm.p)]
+    predictions[, stratum := as.integer(as.character(stratum))]
+    predictions <- na.omit(predictions) 
 
     ## keep only strata that contain a single case 
-    table.strata <- tapply(y, stratum, sum) == 1
-    strata.onecase <- as.integer(names(table.strata)[as.integer(table.strata)==1])
-    keep <- !is.na(unnorm.p) & stratum %in% strata.onecase
-
-    cat(length(which(!keep)), "predictions dropped because stratum does not contain one case\n")
-
-    unnorm.p <- unnorm.p[keep]
-    stratum <- as.factor(stratum[keep])
-    y <- y[keep]
-
-    ## compute normalizing constant and prior for each stratum, then merge
-    norm.constant <- as.numeric(tapply(unnorm.p, stratum, sum))
-    stratum.size <- as.numeric(tapply(unnorm.p, stratum, length))
-    print(table(stratum.size))
-    prior.p <- 1/stratum.size
-    norm.constant <- data.frame(stratum=levels(stratum),
-                                normconst=norm.constant,
-                                prior.p=as.numeric(prior.p))
+    numcases.strata <- predictions[y==1, .N, by=stratum]
+    numcases.strata <- numcases.strata[N==1]
+    setkey(numcases.strata, stratum)
+    setkey(predictions, stratum)
+    predictions <- predictions[numcases.strata] 
     
-    norm.predicted <- data.frame(unnorm.p, y, stratum)
-    norm.predicted <- merge(norm.predicted, norm.constant, by="stratum")
-    # normalize probs
-    norm.predicted$posterior.p <- norm.predicted$unnorm.p / norm.predicted$normconst
-    return(norm.predicted)
+    predictions[, stratum.size := .N, by=stratum]
+    predictions[, norm.constant := sum(unnorm.p), by=stratum]
+    predictions[, prior.p := 1/stratum.size]
+    predictions[, posterior.p := unnorm.p /norm.constant]
+    predictions <- predictions[, .(prior.p, posterior.p, y)]
+    return(predictions)
+}
+
+normalize.logrates <- function(unnorm.lograte, stratum, y) { 
+    ## normalize logrates so that exp(lograte) sums to 1 within each stratum
+    ## returns data frame with 3 columns: stratum, prior.p, posterior.p
+
+    predictions <- data.table(unnorm.lograte, stratum, y)
+    predictions[, unnorm.lograte := as.numeric(unnorm.lograte)]
+    predictions <- na.omit(predictions) 
+
+    ## keep only strata that contain a single case 
+    numcases.strata <- predictions[y==1, .N, by=stratum]
+    numcases.strata <- numcases.strata[N==1]
+    setkey(numcases.strata, stratum)
+    setkey(predictions, stratum)
+    predictions <- predictions[numcases.strata] 
+    
+    predictions[, stratum.size := .N, by=stratum]
+    predictions[, log.normconstant := matrixStats::logSumExp(unnorm.lograte), by=stratum]
+    predictions[, prior.p := 1/stratum.size]
+    predictions[, posterior.p := exp(unnorm.lograte - log.normconstant)]
+    predictions <- predictions[, .(stratum, prior.p, posterior.p, y)]
+    return(predictions)
 }
 
 append.emptyrow <- function(x) {

@@ -1,7 +1,14 @@
+
+
 ## pharmacoepi paper
 
 
 ## list of logical vectors to be used as argument to compare.timewindows()
+load(scripsobject.filename)
+scrips <- scrips[!is.na(bnf_paragraph_code)]
+
+scripsobject.filename <- paste0(datadir, "scrips.last240days.RData")
+
 subsets.laporte.scrips <- list(
     ppi = with(scrips, bnf_paragraph_code == "0103050"),
     antispasm.gi = with(scrips, bnf_paragraph_code == "0102000"),
@@ -25,6 +32,10 @@ subsets.laporte.scrips <- list(
     nsaid = with(scrips, bnf_paragraph_code == "0406000")
 )
 
+nocare <- cc.severe$care.home=="Independent"
+notlisted <- cc.severe$listedgr3=="No risk condition"
+nocare.notlisted <- nocare & notlisted
+q
 
 ########################################################
 ## tabulate rate ratios for each num drug group by listed.any
@@ -65,7 +76,10 @@ for(cat in levels(cc.severe[care.home=="Independent"]$listed.any)) {
 }
 table.notcv.numdrugsgr.listed.any <- data.frame(notcv.numdrugsgr=rep(levels(cc.severe$notcv.numdrugsgr), 2),
                                                 table.notcv.numdrugsgr.listed.any)
-colnames(table.notcv.numdrugsgr.listed.any)[2:3] <- paste0(c("Controls (", "Cases ("), as.integer(table(cc.severe[nocare]$CASE)), rep(")", 2))
+colnames(table.notcv.numdrugsgr.listed.any)[2:3] <-
+    paste0(c("Controls (", "Cases ("),
+           as.integer(table(cc.severe[care.home=="Independent", CASE])),
+           rep(")", 2))
 
 
 ########################################################################
@@ -617,7 +631,7 @@ table.drugs.carehome <- table.drugs.carehome[grep("^1[123][0-9]+{5}",
 ssri <- tabulate.freqs.regressions(varnames="subpara.403030.Selective serotonin re-uptake inhibitors",
                            data=cc.severe)[, 1:4]
 
-    if(FALSE) {
+if(FALSE) {
         scrips.colchicine <- 
             subset(scrips, approved_name=="COLCHICINE",
                    select=c("ANON_ID", "SPECIMENDATE",
@@ -637,5 +651,6 @@ ssri <- tabulate.freqs.regressions(varnames="subpara.403030.Selective serotonin 
         cc.all[, colchicine.current := as.factor(as.integer(ANON_ID %in%
                                                             scrips.colchicine$ANON_ID))]
     }
-}
 
+
+rm(scrips)

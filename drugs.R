@@ -296,14 +296,14 @@ for(j in 3:ncol(dose.protonpump)) { # loop over approved names to divide by disp
 dose.protonpump$DDDs.all <- rowSums(dose.protonpump[, -(1:2)])
 dose.protonpump <- as.data.table(dose.protonpump, key="ANON_ID")
 ## shouldn't need this line if left join works correctly
-dose.protonpump <- subset(dose.protonpump, ANON_ID %in% cc.all$ANON_ID)
+dose.protonpump <- subset(dose.protonpump, ANON_ID %in% cc.kept$ANON_ID)
 dose.protonpump[, dispensing.days:= NULL]
 
 ###############  average dose in each TW-day interval ######################## 
 
 doseTWday.protonpump.wide <- getdoseTWday.wide(scrips.protonpump, varname.prefix="DDD.")
 doseTWday.protonpump.wide <- as.data.table(doseTWday.protonpump.wide, key="ANON_ID")
-doseTWday.protonpump.wide <- subset(doseTWday.protonpump.wide, ANON_ID %in% cc.all$ANON_ID)
+doseTWday.protonpump.wide <- subset(doseTWday.protonpump.wide, ANON_ID %in% cc.kept$ANON_ID)
 
 rm(scrips.protonpump)
 
@@ -336,11 +336,11 @@ dose.compound.opiates <- subset(dose.compound.opiates,
 dose.compound.opiates <- as.data.table(dose.compound.opiates, key="ANON_ID")
 
 ids.opioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40702])
-cc.all[, opioid.analgesic := as.factor(as.integer(ANON_ID %in%
+cc.kept[, opioid.analgesic := as.factor(as.integer(ANON_ID %in%
                                                       ids.opioid.analgesic))]
 
 ids.nonopioid.analgesic <- unique(scrips$ANON_ID[as.integer(substr(scrips$bnf_paragraph_code, 1, 6)) == 40701])
-cc.all[, nonopioid.analgesic := as.factor(as.integer(ANON_ID %in%
+cc.kept[, nonopioid.analgesic := as.factor(as.integer(ANON_ID %in%
                                                      ids.nonopioid.analgesic))]
 
 ####### opiate exposure   ##################
@@ -552,7 +552,8 @@ print(tail(objmem))
 ## 1 million rows x 565 integer fields x 4 bytes = ~ 2 GB
 subparas.anyscrip <- scrips[, .N, by=c("ANON_ID", "bnf_paragraph_code")] %>%
     dcast(ANON_ID ~ bnf_paragraph_code, value.var="N")
-## recode as 0, 1
+
+## recode N as 0, 1
 setnafill(subparas.anyscrip, cols=2:ncol(subparas.anyscrip), fill=0)
 for (j in 2:ncol(subparas.anyscrip)) set(subparas.anyscrip, j=j,
                                          value=as.integer(subparas.anyscrip[[j]] > 0))
@@ -575,6 +576,8 @@ setnafill(cc.kept, cols=subparacols, fill=0)
 x <- cc.kept[,  ..subparacols]
 for(j in 1:ncol(x)) set(x, j=j, value=as.integer(x[[j]]) - 1)
 head(sapply(x[, 1:5], class))
+
+###################################################################################
 
 cc.kept[, numdrugs.subpara := rowSums(x)]
 cc.kept[, numdrugsgr := 3 * ceiling(numdrugs.subpara / 3)]

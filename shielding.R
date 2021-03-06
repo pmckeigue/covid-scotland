@@ -1,6 +1,8 @@
 
 ## tables and figures for shielding report
 
+
+
 ## rollmean.dtN returns a data.table with columns date, avdaily (rolling mean) 
 rollmean.dtN <- function(dt, k) {
     ## FIXME: add a by= argument
@@ -54,7 +56,8 @@ freqs.slidingwindow <- function(dt, winsize=7, datevar=NULL, categoricvar=NULL,
     return(freqs.tw) # one row for each level of categoricvar
 }
 
-
+datadir <- "data/2021-01-28/"
+load(paste0(datadir, "cc.all.RData"))
 
 theme_set(theme_gray(base_size = 14))
 
@@ -166,28 +169,6 @@ with(cc.all[shield.group != "No shielding"], table(hh.over18gr, agegr20))
 severe.infected.date <- table(cc.severe[care.home=="Independent"][CASE==1, SPECIMENDATE - 7])
 dateby.props <- cumsum(severe.infected.date) / sum(severe.infected.date)
 dateby.props <- dateby.props[match(levels(as.factor(cc.all$Date.Sent)), names(dateby.props))]
-
-## table by infection after letter
-table.after.letter <- univariate.tabulate(varnames=c("shield.group", "adultsgt2",
-                                                     "hosp.recent", "hb2019name"), 
-                                            outcome="after.letter",
-                                          data=cc.all[CASE==1 & care.home=="Independent" &
-                                                      shield.group != "No shielding"],
-                                          colpercent=FALSE)
-rownames(table.after.letter) <- replace.names(rownames(table.after.letter))
-colnames(table.after.letter) <- c("Letter sent at least days earlier",
-                                  "Letter not sent at least 14 days earlier")
-
-## same for severe cases
-table.after.letter.severe <- univariate.tabulate(varnames=c("shield.group", "hh.over18gr",
-                                                            "hosp.recent", "hb2019name"), 
-                                            outcome="after.letter",
-                                          data=cc.severe[CASE==1 & care.home=="Independent" &
-                                                      shield.group != "No shielding"],
-                                          colpercent=FALSE)
-rownames(table.after.letter.severe) <- replace.names(rownames(table.after.letter.severe))
-colnames(table.after.letter.severe) <-  c("Letter sent >= 14 days earlier",
-                                          "Letter not sent at least 14 days earlier")
 
 #########################################
 ## exclude care home residents
@@ -347,8 +328,11 @@ p.rateratio <-
                      "%d %b")
                  ),
                  limits=c(as.Date("2020-03-01"), lastdate)) +
-    xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) + ylab("Rate ratio (log scale)") +
-    ggtitle("Association with risk category") +
+    labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
+         y="Rate ratio (log scale)",
+         title="Association with risk category",
+         tag="(a)",
+         caption="Arrows indicate dates that shielding advice letters were sent, with thickness proportional to number of letters") + 
     annotate(geom="segment",
              x = dates.letters,
              xend = dates.letters,
@@ -361,7 +345,7 @@ p.rateratio
 #####################################
 
 ## 2 (b) plot rate ratio associated with recent hospital exposure by time window
-
+## coeffs.hosp calculated from unadjusted coefficient
 coeffs.hosp.timewindow <- NULL
 for(timewin in 1:length(startdates)) {
     tdata <- cc.severe[care.home=="Independent" &
@@ -402,8 +386,10 @@ p.hosp.rateratio <-
                      "%d %b")
                  ),
                  limits=c(as.Date("2020-03-01"), lastdate)) +
-     xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) + ylab("Rate ratio (log scale)") +
-    ggtitle("Association with recent hospital exposure")
+    labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
+         y="Rate ratio (log scale)",
+         title="Association with recent hospital exposure",
+         tag="(b)")
 
 #################################################################################
 ## 2 (c) plot rate ratio associated with number of children by time window
@@ -459,32 +445,14 @@ p.household.rateratio <-
                      "%d %b")
                  ),
                  limits=c(as.Date("2020-03-01"), lastdate)) +
-    xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) + ylab("Rate ratio (log scale)") +
-    labs(color='Rate ratio') + 
-    theme(legend.position = c(0.5, 0.6)) + 
+    theme(legend.position = c(0.5, 0.5)) + 
     geom_hline(size=0.2, yintercept=0) +
-    ggtitle("Association with adults and children in household")
-
-p.children.rateratio <-
-    ggplot(data=coeffs.children.timewindow, aes(x=date.midpoint, y=coeff)) +
-    geom_line(size=0.01 * coeffs.children.timewindow[, se.coeff]^-2) +
-    scale_y_continuous(breaks=log(c(0.6, 0.8, 1, 1.2)),
-                       limits=log(c(0.6, 1.2)),
-                       labels=c(0.6, 0.8, 1, 1.2)) + 
-    xlim(as.Date(c("2020-03-01", "2020-11-30"))) +   
-    scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
-                                   to = lastdate, by = "month"),
-                 expand=c(0, 0), 
-                 labels=gsub("^0", "", 
-                     format.Date(seq.Date(from = as.Date("2020-03-01"),
-                              to = lastdate, by = "month"),
-                     "%d %b")
-                 ),
-                 limits=c(as.Date("2020-03-01"), lastdate)) +
-    xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) + ylab("Rate ratio per child (log scale)") +
-    geom_hline(size=0.2, yintercept=0) +
-    ggtitle("Association with school-age children in household")
-
+    labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
+         y="Rate ratio (log scale)", 
+         color='Rate ratio',
+         title="Association with adults and school-age children in household",
+         caption="Data from 1 June to 30 September 2020 are omitted because the numbers are small", 
+         tag="(b)") 
 
 #################################################################################
 
@@ -517,11 +485,12 @@ p.hosp <-
                  limits=c(as.Date("2020-03-01"), lastdate)) +
     theme(legend.position = c(0.5, 0.5)) +
     theme(legend.title = element_blank()) +
-    guides(fill = guide_legend(reverse = TRUE)) + 
-    scale_fill_manual(values=c("red", "blue", "black")) +
-    xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) +
-    ylab("Frequency") +
-    ggtitle("Recent hospital exposure in controls")
+    scale_color_manual(values=c("black", "blue", "red")) +
+    #guides(fill = guide_legend(reverse = TRUE)) + 
+    labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
+         y="Frequency", 
+         title="Recent hospital exposure in controls",
+         tag="(a)")
 
 ###########################################################
 
@@ -605,45 +574,11 @@ p.fracattr <-
                                          "%d %b")
                              ),
                  limits=c(as.Date("2020-03-01"), lastdate)) +
-    xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) +
-    ylab("Population attributable risk fraction") +
-    ggtitle("Fraction of severe cases attributable to hospital exposure")
-
-## 3 (c) fraction of severe cases in care home residents
-
-cases.all <- cc.severe[CASE==1, .N, by=.(SPECIMENDATE, care.home)]
-setkey(cases.all, SPECIMENDATE)
-cases.all <- cases.all[, rollmean.dtN(dt=.SD, k=winsize),
-                                       by=care.home, 
-                                       .SDcols=c("SPECIMENDATE", "N")]
-
-## compute sum of avdaily over care.home TRUE and FALSE in each window
-cases.all.N <- cases.all[, .(avdaily.total = sum(avdaily)), by=date]
-setkey(cases.all.N, date)
-cases.all <- cases.all[care.home=="Care/nursing home"]
-setnames(cases.all, "avdaily", "avdaily.care.home")
-setkey(cases.all, date)
-cases.all <- cases.all.N[cases.all]
-cases.all[, care.frac := avdaily.care.home / avdaily.total]
-setkey(cases.all, date)
-cases.all[date.midpoint >= as.Date("2020-06-01") &
-                  date.midpoint < as.Date("2020-09-01"), care.frac := NA]
-
-p.carefrac <-
-    ggplot(data=cases.all, aes(x=date, y=care.frac)) +
-    geom_line() + # size=0.01 * coeffs.children.timewindow[, se.coeff]^-2) +
-    scale_y_continuous(limits=c(0, 0.75), expand=c(0, 0)) + 
-    scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
-                                   to = lastdate, by = "month"),
-                 labels=gsub("^0", "", 
-                     format.Date(seq.Date(from = as.Date("2020-03-01"),
-                              to = lastdate, by = "month"),
-                     "%d %b")
-                 ),
-                 limits=c(as.Date("2020-03-01"), lastdate)) +
-    xlab(paste0("Presentation date: mid-point of sliding window")) +
-    ylab("Proportion of severe cases") +
-    ggtitle("Fraction of severe cases resident in care homes")
+    labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
+         y="Population attributable risk fraction",
+         title="Fraction of severe cases attributable to hospital exposure",
+         caption="Data from 1 June to 30 September 2020 are omitted because the numbers are small.",
+         tag="(c)")
 
 #############################################################################
 ## Supplementary Figure 1: case fatality rate
@@ -652,7 +587,7 @@ casedates.all <- cc.all[CASE==1, .N, by=.(SPECIMENDATE, fatalcase, shield.any)]
 ## cast to wide format
 casedates.all <- dcast(casedates.all, SPECIMENDATE ~ fatalcase + shield.any, value.var="N")
 ## set NA to 0
-for (j in 2:5) {
+for(j in 2:5) {
     set(casedates.all, which(is.na(casedates.all[[j]])), j, 0)
 }
 ## compute sliding window
@@ -838,9 +773,6 @@ p.nrs
 
 ###########################################################
 
-
-
-
-rmarkdown::render("shielding.Rmd")
+rmarkdown::render("transmission.Rmd")
 rmarkdown::render("shieldingslides.Rmd")
 

@@ -6,7 +6,7 @@
 scotpop <- read_excel("./Scotland_midyearpop_est2019.xlsx")
 
 # load("casefreqs.RData") ## national cumulative cases and deaths by sex and one year age group
-
+"casefreqs.4cats.agesex.RData"
 ####### incidence and mortality using national population estimates ######################
 
 narrow.case.freqs <- data.frame(Age=as.integer(rownames(narrow.case.freqs)),
@@ -71,6 +71,8 @@ colnames(gam.female.long)[2] <- "Status"
 gam.female.long$Sex <- "Females"
 gam <- rbind(gam.male.long, gam.female.long)
 
+save(gam, file="gam.RData")
+
 ###############################################################
 
 logodds.posterior <- predict(object=cases.model, newdata=discrim, type="link")
@@ -89,7 +91,6 @@ discrim$W <- log.likratio / log(2)
 lambda1 <- sum(discrim$W * discrim$Deaths) / sum(discrim$Deaths)
 lambda0 <- sum(-discrim$W * discrim$Survivors) / sum(discrim$Survivors)
 deaths.Lambda.agesex <- 0.5 * (lambda0 +  lambda1)
-
 
 get.covidage <- function(popmodel, sex, logitrisk) {
     ## get interpolated age given logitrisk and sex

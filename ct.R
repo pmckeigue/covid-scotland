@@ -43,13 +43,17 @@ rollmean.dtN <- function(dt, k) {
 
 ########################################################
 
-load("ct.RData")
+datadir <- "./data/2021-02-18/"
+
+load("ct.RData") ## FIXME - should have been saved to datadir
+
 if(!exists("cc.all")) {
-    load("cc.all.RData")
+    load(paste0(datadir, "cc.all.RData"))
 }
 
 firstdate <- as.Date("2020-09-01")
-lastdate <- as.Date("2021-01-31")
+lastdate <- as.Date("2021-02-01")
+lastdate.tests <- lastdate.specimen - 7
 
 ##########################################################
 
@@ -97,6 +101,8 @@ p.check <- ggplot(data=ct[sgtf.fix1=="Undetermined" & !is.na(truepos)],
     # vertical line from 31 to 10 at x=31
     geom_segment(aes(x=33, y=31, xend=33, yend=10), color="green") +
     geom_segment(aes(x=28, y=31, xend=7, yend=10), color="green") +
+    ylab("N gene cycle threshold (reverse scale)") +
+    xlab("ORF1ab gene cycle threshold (reverse scale)") + 
     ggtitle("Repeat tests initially classified as Undetermined")
 p.check
 
@@ -130,24 +136,26 @@ p.mediansbydate <-
            aes(x=SpecimenDate, y=value, group=variable,
                color=variable)) +
     scale_x_date(breaks = seq.Date(from = firstdate,
-                                   to = lastdate, by = "month"),
+                                   to = lastdate.tests, by = "month"),
                  labels=gsub("^0", "", 
                              format.Date(seq.Date(from = firstdate,
-                                                  to = lastdate, by = "month"),
+                                                  to = lastdate.tests, by = "month"),
                                          "%d %b")
                  ),
-                 limits=c(firstdate, lastdate)) +
+                 limits=c(firstdate, lastdate.tests)) +
     scale_color_manual(labels = c("ORF1ab", "N", "S", "MS2 (control)"),
                        values = c("red", "blue", "green", "black")) +
     scale_y_reverse(limits=c(25, 18), expand=c(0, 0)) + 
-    ylab("Median cycle threshold") +
-    xlab("Specimen date") + 
+    labs(y="Median cycle threshold", 
+         x="Specimen date",
+         tag="(b)") + 
     theme(legend.position = c(0.1, 0.5))+
     theme(legend.title = element_blank()) + 
     geom_line()
 p.mediansbydate
 
-## area plot of time series by S gene dropout 
+## area plot of time series by S gene dropout
+
 setkey(ct, SpecimenDate)
 ct.first <- ct[!duplicated(ANON_ID)]  ## restrict to first positive test
 ct.Sgene <- ct.first[!is.na(Sgene.dropout), .N, by=c("SpecimenDate", "Sgene.dropout")]
@@ -156,15 +164,16 @@ p.variantbydate <- ggplot(data=ct.Sgene, aes(x=SpecimenDate, y=N,
                                               group=Sgene.dropout, fill=Sgene.dropout)) +
     geom_area() +
     scale_x_date(breaks = seq.Date(from = firstdate,
-                                   to = lastdate, by = "month"),
+                                   to = lastdate.tests, by = "month"),
                  labels=gsub("^0", "", 
                              format.Date(seq.Date(from = firstdate,
-                                                  to = lastdate, by = "month"),
+                                                  to = lastdate.tests, by = "month"),
                                          "%d %b")
                  ),
-                 limits=c(firstdate, lastdate)) +
-    xlab("Specimen date") +
-    ylab("Number of test-positive cases") + 
+                 limits=c(firstdate, lastdate.tests)) +
+    labs(x="Specimen date", 
+         y="Number of test-positive cases",
+         tag="(a)") + 
     scale_fill_manual(values=c("grey", "blue", "red")) +
     theme(legend.position = c(0.4, 0.7)) +
     theme(legend.title = element_blank())
@@ -238,7 +247,7 @@ colsums.cases.casegr <- colSums(cases.casegr)
 casefatality.casegr <- round(100 * colSums(cases.casegr[3:6, ]) / colsums.cases.casegr, 1)
 cases.casegr <- paste.colpercent(cases.casegr)
 cases.casegr <- rbind(colsums.cases.casegr, cases.casegr, casefatality.casegr)
-cases.casegr[, ncol(cases.casegr)] <- "."
+#cases.casegr[, ncol(cases.casegr)] <- "."
 
 rownames(cases.casegr)[c(1, 8)] <- c("Total cases", "Cohort fatality rate (\\%)")
 
@@ -278,7 +287,7 @@ cases.nosgtf.fatality <-
 cases.nosgtf.fatality <- paste.colpercent(cases.nosgtf.fatality, digits=2)[2, ]  
 
 cases.sgtf.fatality <- rbind(cases.nosgtf.fatality, cases.sgtf.fatality)
-cases.sgtf.fatality[, ncol(cases.sgtf.fatality)] <- rep(".", 2)
+#cases.sgtf.fatality[, ncol(cases.sgtf.fatality)] <- rep(".", 2)
 rownames(cases.sgtf.fatality) <- c("No dropout", "Definite dropout")
 
 table.cases.bymonth <- rbind(cases.casegr, cases.testCt, cases.testsgtf, cases.sgtf.fatality)
@@ -347,7 +356,6 @@ psurv.severe <-
                           legend="none",
                           axes.offset=FALSE,
                           risk.table.y.text = FALSE)
-
 psurv.hosp <-
     survminer::ggsurvplot(hosp.fit, data = cases.all, 
                           title="Hospitalisation or death",
@@ -393,7 +401,7 @@ surv28.table[nrow(surv28.table), 1] <- NA
 
 ####################################################################
 
-covariates=c("AGE", "sex", "region4", "care.home",
+covariates=c("AGE", "sex", "region4", "care.home", "COVID.age",
              "qSIMD.integer", "listedgr3",  
              "hosp.recent", "av2channels", "Sgene.dropout")
 covariates.split <- c("tstart", "tstop", "event", "week", covariates) 
@@ -505,7 +513,7 @@ covariates.window.split <- c("tstart", "tstop", "event", "week",
                              covariates.window.hosp) 
 
 firstdate <- as.Date("2020-12-01")
-lastdate <- as.Date("2021-01-31")
+lastdate <- as.Date("2021-02-04")
 ## for coeffs we have to specify explicitly the midpoint of the time window 
 winsize <- 7 # should be an odd number for date.midpoint to be exactly centred
 startdates <- with(cc.severe, firstdate:max(SPECIMENDATE) - winsize)
@@ -548,9 +556,10 @@ p.rateratio <-
     scale_y_continuous(limits=log(c(0.8, 2.2)),
                        breaks=log(c(seq(0.8, 1, by=0.1), seq(1.2, 2.2, by=0.2))),
                            labels=c(seq(0.8, 1, by=0.1), seq(1.2, 2.2, by=0.2))) +
-    xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) +
-    ylab("Rate ratio (log scale)") +
-    ggtitle("Rate ratio for hospitalisation associated with S gene dropout")
+    labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
+         y="Rate ratio (log scale)", 
+         title="Rate ratio for hospitalisation associated with S gene dropout",
+         tag="(a)")
 p.rateratio
 
 
@@ -590,15 +599,16 @@ rownames(table.withCt) <- replace.names(rownames(table.withCt))
 ## covid symptoms
 with(cases.all, table(flag_covid_symptomatic, Sgene.dropout, exclude=NULL))
 
-print(paste.colpercent(with(cases.all[lastdate.rapid - SPECIMENDATE >=14],
-                            table(daystoadmission, Sgene.dropout, exclude=NULL)), digits=2)[1:21, ])
+#print(paste.colpercent(with(cases.all[lastdate.rapid - SPECIMENDATE >=14],
+#                            table(daystoadmission, Sgene.dropout, exclude=NULL)), digits=2)[1:21, ])
 
-print(paste.colpercent(with(cases.all[date_onset_of_symptoms <= SPECIMENDATE],
-                            table(SPECIMENDATE - date_onset_of_symptoms, Sgene.dropout, exclude=NULL)), digits=2)[1:21, ])
+#print(paste.colpercent(with(cases.all[date_onset_of_symptoms <= SPECIMENDATE],
+#                            table(SPECIMENDATE - date_onset_of_symptoms, Sgene.dropout, #exclude=NULL)), digits=2)[1:21, ])
 
 ######################################################################################
 
 covariates.exposure <- c("agegr20plus", "sex", "region4", "care.home",
+                         "COVID.age", 
                          "qSIMD.integer", "listedgr3",  
                          "hh.over18gr",
                          "preschool.any", "hh.schoolagegr",
@@ -619,17 +629,20 @@ covariates.exposure.glm <- c("mutant", covariates.exposure)
 coeffs.exposure.timewindow <- NULL
 for(timewin in 1:length(startdates)) {
     coeffs.exposure <-
-        summary(glm(formula=mutant ~ .,
+         tryCatch(summary(glm(formula=mutant ~ .,
                     data=cases.all[as.integer(SPECIMENDATE) >= startdates[timewin] &
                                    as.integer(SPECIMENDATE) <= enddates[timewin],
                                    ..covariates.exposure.glm], 
-                    family="binomial"))$coefficients[-1, , drop=FALSE]
-    
-    coeffs.exposure.timewindow <- rbind(coeffs.exposure.timewindow,
-                                        data.table(date.midpoint=rep(startdates[timewin] + floor(winsize / 2),
-                                                                     nrow(table.coeffs.exposure)), 
-                                                   effect=rownames(coeffs.exposure),
-                                                   coeffs.exposure))
+                    family="binomial"))$coefficients[-1, , drop=FALSE],
+                  error=function(cond) return(NULL))
+    if(!is.null(coeffs.exposure)) {
+        coeffs.exposure.timewindow <-
+            rbind(coeffs.exposure.timewindow,
+                  data.table(date.midpoint=rep(startdates[timewin] + floor(winsize / 2),
+                                               nrow(table.coeffs.exposure)), 
+                             effect=rownames(coeffs.exposure),
+                             coeffs.exposure))
+    }
 }
 
 colnames(coeffs.exposure.timewindow)[1:4] <- c("date.midpoint", "effect", "coeff", "se.coeff")
@@ -654,18 +667,20 @@ p.region <-
                        labels=c(seq(1, 4, by=0.5), 5., 6)) +
     theme(legend.position = c(0.2, 0.25)) +
     theme(legend.title = element_blank()) + 
-    xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) +
-    ylab("Rate ratio (log scale)") +
-    ggtitle("Rate ratio for S gene dropout associated with region")
+    labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"), 
+         y="Rate ratio (log scale)", 
+         title="Rate ratio for S gene dropout associated with region",
+         tag="(b)")
 p.region
 
-coeffs.hcw.timewindow <- coeffs.exposure.timewindow[substr(effect, 1, 11)=="occupHealth"]
-coeffs.hcw.timewindow[, effect := gsub("^occup", "", effect)]
+##########################################################################
 
-p.hcw <-
-    ggplot(data=coeffs.hcw.timewindow,
-           aes(x=date.midpoint, y=coeff, color=effect)) +
-    geom_line(size=0.01 * coeffs.hcw.timewindow[, se.coeff]^-2) +
+coeffs.hosp.timewindow <- coeffs.exposure.timewindow[effect=="hosp.recentTRUE"]
+
+p.hosp <-
+    ggplot(data=coeffs.hosp.timewindow,
+           aes(x=date.midpoint, y=coeff)) + #, color=effect)) +
+    geom_line(size=0.01 * coeffs.hosp.timewindow[, se.coeff]^-2) +
     scale_x_date(breaks = seq.Date(from = firstdate,
                                    to = lastdate, by = "week"),
                  labels=gsub("^0", "", 
@@ -677,12 +692,13 @@ p.hcw <-
     scale_y_continuous(limits=log(c(0.5, 1.2)),
                        breaks=log(seq(0.5, 1.2, by=0.1)),
                        labels=c(seq(0.5, 1.2, by=0.1))) +
-    theme(legend.position = c(0.45, 0.8)) +
-    theme(legend.title = element_blank()) + 
-    xlab(paste0("Presentation date: mid-point of ", winsize, "-day window")) +
-    ylab("Rate ratio (log scale)") +
-    ggtitle("Rate ratio for S gene dropout associated with health care worker status")
-p.hcw
+  #  theme(legend.position = c(0.45, 0.8)) +
+ #   theme(legend.title = element_blank()) + 
+    labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"), 
+         y="Rate ratio (log scale)", 
+         title="Rate ratio for S gene dropout associated with recent exposure to hospital",
+         tag="(c)")
+p.hosp
 
 
 rmarkdown::render("ct.Rmd")

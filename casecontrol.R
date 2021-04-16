@@ -9,7 +9,8 @@ gc()
 
 linkdate <- "jun18"
 linkdate <- "jan28"
-#linkdate <- "feb18"
+linkdate <- "feb18"
+linkdate <- "mar16"
 ## all saved data files should be to datadir defined by linkdate
 
 controls <- TRUE
@@ -194,6 +195,70 @@ if(linkdate =="jun18") {
     procedures.last25.filename <-
         paste0(datadir, "CC_SMR01_OPCS4_MAIN.25_ANON_2021-02-18.rds")
     vacc.filename <- paste0(datadir, "vaccinations_2021-02-18.rds")
+} else if(linkdate=="mar16") {
+    datadir <- "./data/2021-03-16/"
+    ct.filename <-  paste0(datadir, "CT_Test_Results_2021-03-16.rds")
+    ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-03-16.rds")
+    if(occup) {
+        hcw_static.fname <- "./data/HCW_data_cleaned/static_hcw_hhd.Rds"
+
+        hcw.filename <- paste0(datadir, "hcw_anon_ids_2021-03-16.rds")
+  
+        teach.filename <- paste0(datadir, "teacher_anon_ids_2021-03-16.rds")
+
+        teach <- RDStodt(teach.filename, keyname="ANON_ID")
+        
+        hcw.static <- RDStodt(hcw_static.fname, keyname="anon_id")
+        str(hcw.static)
+        hcw.static <- hcw.static[!is.na(role)]
+        hcw.static[, role := car::recode(role,
+            "c('npf', 'undetermined')='Health care, not PF / undetermined';
+                          'pf_any'='Health care PF'")]
+
+        ## anon_id in hcw.static is integer appended with _0 or _1
+        ## _0 is Scottish Workforce Information Standard System (SWISS) - transferred from ISD to NHS Education for Scotland (NES) in 2019
+        ## _1 is GP Contractor Database (GPCD)
+        hcw.static[grepl("_0", anon_id), dbase := "SWISS"]
+        hcw.static[grepl("_1", anon_id), dbase := "GP Contractor Database"]
+        hcw.static[, dbase := as.factor(dbase)]
+        hcw.static[, HCW_ANON_ID := as.integer(gsub("_.", "", hcw.static$anon_id))]
+        hcw.static <- unique(hcw.static, by="HCW_ANON_ID") 
+        setnames(hcw.static, "anon_id", "hcw_id")
+        setnames(hcw.static, "hid", "hcw_hid")
+    
+        hcw <- RDStodt(hcw.filename)
+        hcw <- unique(hcw, by="HCW_ANON_ID")
+        str(hcw)
+        hcw <- hcw[!is.na(HCW_ANON_ID) & !is.na(ANON_ID)]
+        #cat("hcw rows matched by HCW_ANON_ID in hcw.static:\n")
+        #print(table(hcw$HCW_ANON_ID %in% hcw.static$HCW_ANON_ID))
+        hcw <- unique(hcw, by="ANON_ID")
+ 
+        setkey(hcw.static, HCW_ANON_ID)
+        setkey(hcw, HCW_ANON_ID)
+        hcw <- hcw.static[hcw]
+        rm(hcw.static)
+        hcw <- hcw[, HCW_ANON_ID := NULL]
+        setkey(hcw, ANON_ID)
+    }
+    rapid.filename <- paste0(datadir, "CC_RAPID_ANON_2021-03-16.rds")
+    sicsag.filename <- paste0(datadir, "CC_SICSAG_ANON_2021-03-16.rds")
+    cc.filename <- paste0(datadir, "CC_linked_ANON_2021-03-16.rds")
+    diagnoses.filename <- paste0(datadir, "CC_SMR01_ICD10_x25_ANON_2021-03-16.rds")
+    diagnoses.last25.filename <- paste0(datadir, "CC_SMR01_ICD10_25_ANON_2021-03-16.rds")
+
+    ## no shielding
+    shielding.full.filename <- paste0(datadir,
+                                      "CC_shielding_patients_anon_20210316.rds")
+    smr00.filename <- paste0(datadir, "CC_SMR00__ANON_2021-03-16.rds")
+    smr04.filename <- paste0(datadir, "CC_SMR04__ANON_2021-03-16.rds")
+    smr06.filename <- paste0(datadir, "CC_SMR06_ICD10_ANON_2021-03-16.rds")
+    scrips.filename <- paste0(datadir, "CC_PIS_x15_ANON_2021-03-16.rds")
+    scrips.last15.filename <- paste0(datadir, "CC_PIS_15_ANON_2021-03-16.rds")
+    procedures.filename <- paste0(datadir, "CC_SMR01_OPCS4_MAIN.x25_ANON_2021-03-16.rds")
+    procedures.last25.filename <-
+        paste0(datadir, "CC_SMR01_OPCS4_MAIN.25_ANON_2021-03-16.rds")
+    vacc.filename <- paste0(datadir, "vaccinations_2021-03-16.rds")
 }
 
 ## this is a character vector containing the names of the objects, not the filenames
@@ -228,7 +293,7 @@ cc.all <- RDStodt(cc.filename, keyname="ANON_ID")
 cat("check for duplicate ANON_ID values\n")
 print(dim(cc.all))
 print(dim(unique(cc.all[, .(ANON_ID)])))
-cc.all <- cc.all[!duplicated(ANON_ID)]
+# cc.all <- cc.all[!duplicated(ANON_ID)]
 
 CoDvars <- grep("CAUSE_OF_DEATH_CODE_", names(cc.all), value=TRUE)
 cc.all[, (CoDvars) := NULL]
@@ -240,6 +305,10 @@ cc.all[lubridate::year(SPECIMENDATE) == 2020 & SPECIMENDATE < as.Date("2020-02-0
        SPECIMENDATE := year.to2021(SPECIMENDATE)]
 ## set year to 2020 for dates after system date
 cc.all[SPECIMENDATE > Sys.Date(), SPECIMENDATE := year.to2020(SPECIMENDATE)]
+
+cc.all[, wave := 1 + as.integer(SPECIMENDATE >= as.Date("2020-06-01"))]
+cc.all[SPECIMENDATE >= as.Date("2020-06-01") &  SPECIMENDATE < as.Date("2020-09-01"),
+      wave := NA]
 
 lastdate.specimen <- max(cc.all$SPECIMENDATE)
 cat("Last specimen date", format(lastdate.specimen,"%d %B %Y"), "\n")
@@ -336,7 +405,7 @@ if(linkdate != "jun18") {
         ## only about 60% of HCW matched in hcw are  identified by the HCW_FLAG field      
         #print(with(cc.all, table(is.na(role), HCW_FLAG, exclude=NULL)))
         #print(with(cc.all, table(role, HCW_FLAG, exclude=NULL)))
-
+        
         ## use hcw role field to code PF health care workers
         cc.all[!is.na(role), occup := role]
         cc.all[, occup := base::factor(occup,
@@ -359,10 +428,16 @@ if(linkdate != "jun18") {
 
     cc.all[, dayssincedose1 := as.integer(SPECIMENDATE - vax_dose_1)]
     cc.all[is.na(dayssincedose1) | dayssincedose1 < 0, dayssincedose1 := -1]
+    cc.all[, dayssincedose2 := as.integer(SPECIMENDATE - vax_dose_2)]
+    cc.all[is.na(dayssincedose2) | dayssincedose2 < 0, dayssincedose2 := -1]
+
     cc.all[, weekssincedose1 := floor(dayssincedose1 / 7)]
     cc.all[dayssincedose1 <0, vaxstatus := 1]
     cc.all[dayssincedose1 >=0 & dayssincedose1 <14, vaxstatus := 2]
     cc.all[dayssincedose1 >=14, vaxstatus := 3]
+    cc.all[, vax14 := as.integer(vaxstatus) > 1]
+    cc.all[, vax14.dose := as.integer(vax14)]
+    cc.all[dayssincedose2 >= 14 , vax14.dose := 2]
 
     cc.all[, vaxnow := !is.na(vax_dose_1)]
     cc.all[, vaxnow := car::recode(vaxnow,
@@ -388,27 +463,24 @@ if(linkdate != "jun18") {
                                      levels=c("No vaccine", "Pfizer", "AstraZeneca"))]
     ## combined variable for vaxstatus and vax_type_1
     cc.all[dayssincedose1 <0, vaxgr := 1]
-    cc.all[dayssincedose1 >=0 & dayssincedose1 <14 & vax_type_1=="Pfizer", vaxgr := 2]
-    cc.all[dayssincedose1 >=0 & dayssincedose1 <14 & vax_type_1=="AstraZeneca", vaxgr := 3]
-    cc.all[dayssincedose1 >=14 & vax_type_1=="Pfizer", vaxgr := 4]
-    cc.all[dayssincedose1 >=14 & vax_type_1=="AstraZeneca", vaxgr := 5]
+    cc.all[dayssincedose1 >=0 & dayssincedose1 <14, vaxgr := 2]
+    cc.all[dayssincedose1 >=14 & vax_type_1=="Pfizer", vaxgr := 3]
+    cc.all[dayssincedose1 >=14 & vax_type_1=="AstraZeneca", vaxgr := 4]
     cc.all[, vaxgr := car::recode(vaxgr,
                                     "1='Not yet vaccinated';
-                                       2='Pfizer vaccine in last 13 days';
-                                       3='AZ vaccine in last 13 days';
-                                       4='Pfizer vaccine at least 14 days earlier';
-                                       5='AZ vaccine at least 14 days earlier'",
+                                       2='First vaccine in last 13 days';
+                                       3='First Pfizer vaccine at least 14 days earlier';
+                                       4='First AZ vaccine at least 14 days earlier'",
                                     as.factor=TRUE,
                                     levels=c("Not yet vaccinated", 
-                                             "Pfizer vaccine in last 13 days",
-                                             "AZ vaccine in last 13 days",
-                                             "Pfizer vaccine at least 14 days earlier",
-                                             "AZ vaccine at least 14 days earlier"))]
+                                             "First vaccine in last 13 days",
+                                             "First Pfizer vaccine at least 14 days earlier",
+                                             "First AZ vaccine at least 14 days earlier"))]
     
 #######################################################################################
     
     source("ct_ecoss.R")
-    
+
 #######################################################################################
     
     ## left join cc.all with first positive test from ct
@@ -710,6 +782,14 @@ if(linkdate != "jun18") {
     ## indeterminate hcai: admission.daysbefore >=3 AND discharge.daysbefore < 0
 
     rapid.timewin <- rapid[, .(ANON_ID, admission.daysbefore, discharge.daysbefore)] %>% unique()
+
+    rapid.timewin[discharge.daysbefore > 14 & discharge.daysbefore < 57,
+                  discharge15to56 := TRUE]
+    rapid.disch15to56 <- rapid.timewin[!duplicated(ANON_ID), .(ANON_ID, discharge15to56)]
+    setkey(rapid.disch15to56, ANON_ID)
+    cc.all <- rapid.disch15to56[cc.all]
+    cc.all[is.na(discharge15to56), discharge15to56 := FALSE]
+
     ## these are mutually exclusive categories 
     rapid.timewin[discharge.daysbefore < 0,
                   hcai := car::recode(admission.daysbefore,
@@ -1273,6 +1353,20 @@ if(shielding) { ## shielding table ###
     cc.all <- shielded.full.cc[cc.all] ## make sure that cc.all is keyed on ANON_ID
 
     cc.all[, shield.any := as.factor(!is.na(shield.group))]
+    cc.all[is.na(shield.group), shield.group := "Ineligible for shielding"]
+    cc.all[, shieldelig.group := car::recode(shield.group,
+                                          "'Pregnant with heartdisease'='Additional conditions'",
+                                          as.factor=TRUE,
+                                          levels=c(
+                                              "Ineligible for shielding",
+                                              "Solid organ transplant",
+                                              "Specific cancers",
+                                              "Severe respiratory",
+                                              "Rare diseases",
+                                              "On immunosuppressants",
+                                              "Additional conditions"
+                                          ))]
+  
     cc.all[is.na(shield.batch), shield.batch := 0]
     cc.all[, shield.batch := as.factor(shield.batch)]
 
@@ -1454,9 +1548,10 @@ if(pis) {
                                        ckd.any==1 | oad.any==1 |
                                        neuro.any==1 | liver.any==1 | immune.any==1))]
     
-    cc.kept[is.na(shield.group), shield.group := ifelse(listed.any==1,
-                                                        "Moderate risk condition",
-                                                        "No risk condition")]
+    cc.kept[shield.group=="Ineligible for shielding",
+            shield.group := ifelse(listed.any==1,
+                                   "Moderate risk condition",
+                                   "No risk condition")]
     cc.kept[, shield.group := car::recode(shield.group,
                                           "'Pregnant with heartdisease'='Additional conditions'",
                                           as.factor=TRUE,
@@ -1625,6 +1720,7 @@ if(TRUE) {
 }
 
 #######################################################################################
+
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
@@ -1638,10 +1734,13 @@ rm(cc.lt75)
 ###########################################
 
 if(linkdate == "jan28") {
+    #source("shielding.R")
+    #rmarkdown::render("transmission.Rmd")
+} else if(linkdate == "feb18") {
+    #source("ct.R")
     source("shielding.R")
-    rmarkdown::render("transmission.Rmd")
-} else {
-    source("ct.R")
+    rmarkdown::render("transmission.Rmd",
+                      output_file=paste0("transmission_", linkdate, ".pdf"))
 }
 
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
@@ -1652,3 +1751,36 @@ print(summaryRprof(tmp)$by.total[1:20, ])
 
 #####################################################
 
+## reinfections appear in wave==1 with SPECIMENDATE matching SpecimenDate1
+
+load(paste0(datadir, "cc.all.RData"))
+with(cc.all, table(wave, SPECIMENDATE==SpecimenDate1))
+
+cc.all[, reinfected := !is.na(SpecimenDate1)]
+
+cc.all[, occup3 := car::recode(occup, "'Teacher'='Other / undetermined'", as.factor=TRUE, 
+                               levels=levels(occup)[-2])]
+
+## get reinfections into wave==2
+wave2 <- cc.all[wave==2 | SPECIMENDATE==SpecimenDate1]
+wave2[SPECIMENDATE==SpecimenDate1, SPECIMENDATE := SpecimenDate2]
+wave2[, reinfected := !is.na(SpecimenDate2) & SPECIMENDATE == SpecimenDate2]
+wave2[, death28 := !is.na(Date.Death) & Date.Death - SPECIMENDATE < 28]
+
+table.wave2 <- with(wave2[CASE==1], table(reinfected))
+
+## what factors in wave 1 predict reinfection in wave 2
+varnames=c("agegr3", "sex", "care.home", "shield.any", "occup3")
+table.reinfection <- tabulate.freqs.regressions(varnames=varnames, outcome="reinfected", 
+                           data=cc.all[wave==1 & CASE==1 & fatalcase==0],
+                           model="logistic")
+colnames(table.reinfection) <- gsub("FALSE", "No reinfection", colnames(table.reinfection))
+colnames(table.reinfection) <- gsub("TRUE", "Reinfection", colnames(table.reinfection))
+
+## reinfection predicts fatal cases in wave 2
+varnames.fatal <- c("AGE", "sex", "care.home", "shield.any", "occup3", "reinfected")
+table.fatal <- tabulate.freqs.regressions(varnames=varnames.fatal, outcome="death28", 
+                           data=wave2[AGE >= 60],
+                           model="logistic")
+colnames(table.fatal) <- gsub("FALSE", "Non-fatal", colnames(table.fatal))
+colnames(table.fatal) <- gsub("TRUE", "Fatal", colnames(table.fatal))

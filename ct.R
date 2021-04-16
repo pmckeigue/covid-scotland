@@ -51,8 +51,8 @@ if(!exists("cc.all")) {
     load(paste0(datadir, "cc.all.RData"))
 }
 
-firstdate <- as.Date("2020-09-01")
-lastdate <- as.Date("2021-02-01")
+firstdate <- as.Date("2020-11-01")
+lastdate <- as.Date("2021-02-12")
 lastdate.tests <- lastdate.specimen - 7
 
 ##########################################################

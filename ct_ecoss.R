@@ -68,11 +68,27 @@ ecoss[, ecoss.result := car::recode(ecoss.result,
                                     levels=c("Positive", "Negative"))]
 ## order levels Positive before Negative so that sorting in ascending order of level and dropping duplicated ANON_IDs will drop negatives
 ## many of those with only negative results are test-positive cases 
-ecoss[!(ANON_ID %in% cc.all$ANON_ID), .N, by=ecoss.result]
-ecoss <- ecoss[ANON_ID %in% cc.all$ANON_ID] # all unmatched IDs have negative or missing result
-
+#ecoss[!(ANON_ID %in% cc.all$ANON_ID), .N, by=ecoss.result]
+#ecoss <- ecoss[ANON_ID %in% cc.all$ANON_ID] # all unmatched IDs have negative or missing result
 ecoss[SourceLab=="", SourceLab := "Not recorded in ECOSS"]
+
 ecoss.pos <- ecoss[ecoss.result=="Positive"]
+setkey(ecoss.pos, SpecimenDate)
+
+ecoss.pos[, wave:= 1 + as.integer(SpecimenDate < as.Date("2020-06-01"))]
+ecoss.pos[SpecimenDate >= as.Date("2020-06-01") &  SpecimenDate < as.Date("2020-09-01"),
+      wave := NA]
+
+ecoss.wave <- ecoss.pos[!is.na(wave)]
+## select first occurrence of each ANON_ID in each wave
+ecoss.wave <- unique(ecoss.wave, by=c("ANON_ID", "wave")) 
+ecoss.wave <- dcast(ecoss.wave, formula=ANON_ID ~ wave, value.var=c("SpecimenDate", "wave"))
+colnames(ecoss.wave)[2:3] <- c("SpecimenDate2", "SpecimenDate1")
+reinfections <- ecoss.wave[!is.na(wave.1_1 + wave.1_2),
+                           .(ANON_ID, SpecimenDate1, SpecimenDate2)]
+setkey(reinfections, ANON_ID)
+cc.all <- reinfections[cc.all]
+
 ecoss.pos <- ecoss.pos[!duplicated(ANON_ID)]
 table(ecoss.pos$ANON_ID %in% cc.all$ANON_ID)
 
@@ -272,4 +288,9 @@ ecoss.table <-
 print(paste.colpercent(ecoss.table)[, c(9:12, 1)])
 
 rm(ecoss.withdate)
+
+
+
+
+
  

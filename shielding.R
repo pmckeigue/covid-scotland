@@ -2,7 +2,6 @@
 ## tables and figures for shielding report
 
 
-
 ## rollmean.dtN returns a data.table with columns date, avdaily (rolling mean) 
 rollmean.dtN <- function(dt, k) {
     ## FIXME: add a by= argument
@@ -56,12 +55,12 @@ freqs.slidingwindow <- function(dt, winsize=7, datevar=NULL, categoricvar=NULL,
     return(freqs.tw) # one row for each level of categoricvar
 }
 
-datadir <- "data/2021-01-28/"
+datadir <- "data/2021-02-18/"
 load(paste0(datadir, "cc.all.RData"))
 
 theme_set(theme_gray(base_size = 14))
 
-lastdate <- as.Date("2020-12-31")
+lastdate <- as.Date("2021-02-01")
 
 ## Table 1 - shielding cohort by eligibility category x age
 
@@ -156,7 +155,7 @@ rownames(table.shielding.byinterval)[nrow(table.shielding.byinterval)] <- "All s
 with(cc.all[shield.group != "No shielding"], table(hh.over18gr, agegr20))
 
 ## calculate estimated proportion of all cases infected after arrival of each batch of letters
-severe.infected.date <- table(cc.severe[care.home=="Independent"][CASE==1, SPECIMENDATE - 7])
+severe.infected.date <- table(cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"][CASE==1, SPECIMENDATE - 7])
 dateby.props <- cumsum(severe.infected.date) / sum(severe.infected.date)
 dateby.props <- dateby.props[match(levels(as.factor(cc.all$Date.Sent)), names(dateby.props))]
 
@@ -166,7 +165,7 @@ dateby.props <- dateby.props[match(levels(as.factor(cc.all$Date.Sent)), names(da
 with(cc.all[shield.group != "No shielding"], table(hh.over18gr, agegr20))
 
 ## calculate estimated proportion of all cases infected after arrival of each batch of letters
-severe.infected.date <- table(cc.severe[care.home=="Independent"][CASE==1, SPECIMENDATE - 7])
+severe.infected.date <- table(cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"][CASE==1, SPECIMENDATE - 7])
 dateby.props <- cumsum(severe.infected.date) / sum(severe.infected.date)
 dateby.props <- dateby.props[match(levels(as.factor(cc.all$Date.Sent)), names(dateby.props))]
 
@@ -180,7 +179,7 @@ table.shielded.severecases.nocare <-
                                           "hh.over18gr", 
                                           "SIMD.quintile", "occup", "hosp.recent"),
                                outcome="CASE",
-                               data=cc.severe[care.home=="Independent"])
+                               data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"])
 
 ## regression of severe case status on listedgr3 and covariates to get coeff for adultsgt1
 table.listedgr3.severecases.nocare <-
@@ -189,7 +188,7 @@ table.listedgr3.severecases.nocare <-
                                           "adultsgt1", 
                                           "SIMD.quintile", "occup", "hosp.recent"),
                                outcome="CASE",
-                               data=cc.severe[care.home=="Independent"])
+                               data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"])
 
 ## regression of severe case status on listedgr3 and covariates to get coeff for hh.schoolage.any
 table.listedgr3.severecases.nocare.anyschoolage <-
@@ -198,17 +197,17 @@ table.listedgr3.severecases.nocare.anyschoolage <-
                                           "hh.over18gr", 
                                           "SIMD.quintile", "occup", "hosp.recent"),
                                outcome="CASE",
-                               data=cc.severe[care.home=="Independent"])
+                               data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"])
 
 ### PARF for severe cases associated with recent hospital exposure and with probable HCAI
 
-r.rapid <- summary(clogit(data=cc.severe[care.home=="Independent"],
+r.rapid <- summary(clogit(data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"],
                CASE ~ rapid.recent + strata(stratum)))$coefficients[2]
 p.rapid <- with(cc.severe[care.home=="Independent" & CASE==1], mean(as.integer(rapid.recent)))
 
 parf.rapid <- p.rapid * (r.rapid - 1) / r.rapid
 
-r.hcai <- summary(clogit(data=cc.severe[care.home=="Independent"],
+r.hcai <- summary(clogit(data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"],
                CASE ~ prob.hcai + strata(stratum)))$coefficients[2]
 p.hcai <- with(cc.severe[care.home=="Independent" & CASE==1], mean(as.integer(prob.hcai)))
 
@@ -249,7 +248,7 @@ p.byelig <- ggplot(data=casedates.byelig,
     scale_y_continuous(expand=c(0, 0)) + 
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = lastdate, by = "month"),
-                 expand=c(0, 0), 
+                 expand=c(0, 10), 
                  labels=gsub("^0", "", 
                              format.Date(seq.Date(from = as.Date("2020-03-01"),
                                                   to = lastdate, by = "month"),
@@ -314,14 +313,14 @@ p.rateratio <-
     geom_line(size=0.01 * coeffs.long[, se.coeff]^-2) +
     scale_color_manual(name="Risk category",
                        values=c("red", "blue")) + 
-    theme(legend.position = c(0.5, 0.5)) +
+    theme(legend.position = c(0.47, 0.82)) +
     theme(legend.title = element_text(size=10), legend.text=element_text(size=10)) + 
-    scale_y_continuous(breaks=log(c(4, 5, 6, 7, 8, 10, 12, 14)),
-                       labels=c(4, 5, 6, 7, 8, 10, 12, 14),
-                       limits=log(c(3, 14)), expand=c(0, 0)) + 
+    scale_y_continuous(breaks=log(c(2, 3, 4, 5, 6, 7, 8, 10, 12)),
+                       labels=c(2, 3, 4, 5, 6, 7, 8, 10, 12),
+                       limits=log(c(2, 12)), expand=c(0, 0)) + 
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = lastdate, by = "month"),
-                 expand=c(0, 0), 
+                 expand=c(0, 10), 
                  labels=gsub("^0", "", 
                      format.Date(seq.Date(from = as.Date("2020-03-01"),
                               to = lastdate, by = "month"),
@@ -336,8 +335,8 @@ p.rateratio <-
     annotate(geom="segment",
              x = dates.letters,
              xend = dates.letters,
-             y=log(3),
-             yend=log(3.5),
+             y=log(2),
+             yend=log(2.3),
              size=as.numeric(num.letters), 
              arrow=arrow(ends="first", length=unit(0.1, "inches")))
 p.rateratio
@@ -379,7 +378,7 @@ p.hosp.rateratio <-
                            labels=c(5, 10, 20, 30, 50)) + 
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = lastdate, by = "month"),
-                 expand=c(0, 0), 
+                 expand=c(0, 10), 
                  labels=gsub("^0", "", 
                      format.Date(seq.Date(from = as.Date("2020-03-01"),
                               to = lastdate, by = "month"),
@@ -433,12 +432,12 @@ p.household.rateratio <-
     ggplot(data=coeffs.household.timewindow, aes(x=date.midpoint, y=coeff, color=RR)) +
     geom_line(size=0.05 * coeffs.household.timewindow[, se.coeff]^-1) +
     xlim(as.Date(c("2020-03-01", "2020-11-30"))) +   
-    scale_y_continuous(breaks=log(c(0.6, 0.8, 1, 1.2, 1.4, 1.6)),
-                       labels=c(0.6, 0.8, 1, 1.2, 1.4, 1.6), 
-                       limits=log(c(0.6, 1.8)), expand=c(0, 0)) + 
+    scale_y_continuous(breaks=log(c(0.6, 0.8, 1, 1.2, 1.4, 1.6, 1.8)),
+                       labels=c(0.6, 0.8, 1, 1.2, 1.4, 1.6, 1.8), 
+                       limits=log(c(0.6, 1.85)), expand=c(0, 0)) + 
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = lastdate, by = "month"),
-                 expand=c(0, 0), 
+                 expand=c(0, 10), 
                  labels=gsub("^0", "", 
                      format.Date(seq.Date(from = as.Date("2020-03-01"),
                               to = lastdate, by = "month"),
@@ -476,14 +475,14 @@ p.hosp <-
     scale_y_continuous(limits=c(0, max(freqs.hosp.ctrls.tw$p, na.rm=TRUE)), expand=c(0, 0)) + 
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = lastdate, by = "month"),
-                 expand=c(0, 0), 
+                 expand=c(0, 10), 
                  labels=gsub("^0", "", 
                              format.Date(seq.Date(from = as.Date("2020-03-01"),
                                                   to = lastdate, by = "month"),
                                          "%d %b")
                              ),
                  limits=c(as.Date("2020-03-01"), lastdate)) +
-    theme(legend.position = c(0.5, 0.5)) +
+    theme(legend.position = c(0.4, 0.5)) +
     theme(legend.title = element_blank()) +
     scale_color_manual(values=c("black", "blue", "red")) +
     #guides(fill = guide_legend(reverse = TRUE)) + 
@@ -550,9 +549,6 @@ setkey(coeffs.hosp.timewindow, date.midpoint)
 coeffs.hosp.timewindow <- controls.all.rollmean[coeffs.hosp.timewindow]
 coeffs.hosp.timewindow <- cases.all.rollmean[coeffs.hosp.timewindow]
 
-## classic definition
-#coeffs.hosp.timewindow[, popattr.frac := expfreq * (rateratio - 1) /
-                        #                        (1 + expfreq * (rateratio - 1))]
 ## Miettinen's definition
 coeffs.hosp.timewindow[, popattr.frac := case.expfreq * (rateratio - 1) / rateratio]
 
@@ -564,10 +560,10 @@ coeffs.hosp.timewindow[date >= as.Date("2020-06-01") & date <= as.Date("2020-09-
 p.fracattr <-
     ggplot(data=coeffs.hosp.timewindow, aes(x=date, y=popattr.frac)) +
     geom_line(size=0.01 * coeffs.hosp.timewindow[, se.coeff]^-2) +
-    scale_y_continuous(limits=c(0, 0.65), expand=c(0, 0)) + 
+    scale_y_continuous(limits=c(0.2, 0.7), expand=c(0, 0)) + 
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = lastdate, by = "month"),
-                 expand=c(0, 0), 
+                 expand=c(0, 10), 
                  labels=gsub("^0", "", 
                              format.Date(seq.Date(from = as.Date("2020-03-01"),
                                                   to = lastdate, by = "month"),
@@ -730,15 +726,15 @@ testpos.coeffs <- tabulate.freqs.regressions(varnames=c("listedgr3", "hosp.recen
 
 table.rapid.coeffs <- tabulate.freqs.regressions(varnames=c("listedgr3", "rapid.recent", "occup"),
                            outcome="CASE",
-                           data=cc.severe[care.home=="Independent"])
+                           data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"])
 
 table.daycase.coeffs <- tabulate.freqs.regressions(varnames=c("listedgr3", "daycase.recent", "occup"),
                            outcome="CASE",
-                           data=cc.severe[care.home=="Independent"])
+                           data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"])
 
 table.opd.coeffs <- tabulate.freqs.regressions(varnames=c("listedgr3", "opd.recent", "occup"),
                            outcome="CASE",
-                           data=cc.severe[care.home=="Independent"])
+                           data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"])
 
 #############################################################
 
@@ -759,7 +755,7 @@ p.nrs <-
     scale_y_continuous(limits=c(0, max(freqs.nrs.deaths.tw$p, na.rm=TRUE)), expand=c(0, 0)) + 
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = lastdate, by = "month"),
-                 expand=c(0, 0), 
+                 expand=c(0, 10), 
                  labels=gsub("^0", "", 
                              format.Date(seq.Date(from = as.Date("2020-03-01"),
                                                   to = lastdate, by = "month"),
@@ -773,6 +769,5 @@ p.nrs
 
 ###########################################################
 
-rmarkdown::render("transmission.Rmd")
-rmarkdown::render("shieldingslides.Rmd")
 
+rmarkdown::render("transmission.Rmd", output_file=paste0("transmission_", linkdate, ".pdf"))

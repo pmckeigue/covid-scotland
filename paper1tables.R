@@ -2,10 +2,6 @@
 
 ########### variable lists for tabulating
 
-if(old) {
-    demog <- c("ethnic3.onomap", "SIMD.quintile", "care.home")
-}
-
 demog.smr <- c("ethnic4.smr", "SIMD.quintile", "care.home")
 
 varnames.extended <- c("care.home", "scrip.any", "diag.any", "listed.any", "diag.other",
@@ -113,10 +109,6 @@ table.agegr.all <- tabulate.freqs.regressions(varnames=varnames.listedpluscovs,
 cat("demographic vars ... ")
 ## demographic vars
 
-if(old) {
-    table.demog.aug <- tabulate.freqs.regressions(varnames=demog, data=cc.severe)
-}
-
 ## separate analysis using SMR ethnicity 
 table.ethnicsmr <- univariate.tabulate(varnames="ethnic4.smr", outcome="CASE",
                                        data=cc.severe[!is.na(cc.severe$ethnic4.smr), ],
@@ -141,8 +133,9 @@ table.listed.conditions.ge60 <-
 
 summary(cc.severe[, ..full.varnames])
 
-multivariate.all <-
-    multivariate.clogit(varnames=full.varnames, data=cc.severe, add.reflevel=TRUE)
+## commented out because crashes with failure to converge
+#multivariate.all <-
+#    multivariate.clogit(varnames=full.varnames, data=cc.severe, add.reflevel=TRUE)
 
 ################# restrict to those without listed conditions #############
 cat("restricting to those without listed conditions ...")
@@ -188,11 +181,14 @@ cat("done\n")
 #########################################################################
 
 ## drugs 
-table.drugs.aug <- tabulate.freqs.regressions(varnames=bnf.chapternames, 
-                                              data=cc.severe[notlisted, ])
+#table.drugs.aug <- tabulate.freqs.regressions(varnames=bnf.chapternames, 
+#                                              data=cc.severe[notlisted, ])
 
 ################################################################
 
 ## tabulate associations with drug chapters in those not in care homes and without listed conditions 
-table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=bnf.chapternames, 
-                                                           data=cc.severe[nocare.notlisted, ])
+#table.drugs.nocare.notlisted <- tabulate.freqs.regressions(varnames=bnf.chapternames, 
+#                                                           data=cc.severe[nocare.notlisted, ])
+
+save(table.listed.conditions.lt60, table.listed.conditions.ge60,
+     file=paste0("tables.listedconditions_", linkdate, ".RData"))

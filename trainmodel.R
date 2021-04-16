@@ -1,3 +1,4 @@
+
 rm(list=ls())
 gc()
 
@@ -174,14 +175,14 @@ options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 
 ## Stan settings
-iter=800
+iter=1200
 warmup=floor(iter/4)
 adapt.delta <- 0.8
 seed=12345
 qr <- TRUE
 regularized <- TRUE
 scale.u <- 2  # scale param for prior on unpenalized, ignored if QR transform used 
-minfreq <- 500 # minimum number of observations in each level of a binary covariate 
+minfreq <- 1000 # minimum number of observations in each level of a binary covariate 
 
 ## shrinkage settings
 
@@ -231,7 +232,9 @@ load(paste0(datadir, "cc.severe.lt75.RData"))
 ## all hospital diagnoses
 
 ## select covariates
-select.cols <- c("SPECIMENDATE", "CASE", "stratum", "hh.over18", "qSIMD.integer", "dm.type3", "shield.group",
+select.cols <- c("SPECIMENDATE", "CASE", "stratum",
+                 "hh.upto4", "hh.5to11", "hh.12to17", "hh.over18", "qSIMD.integer",
+                 "dm.type3", "shield.group",
                  grep("^Ch_", colnames(cc.lt75), value=TRUE),
                  grep("subpara\\.", colnames(cc.lt75), value=TRUE)
                  )

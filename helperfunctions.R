@@ -910,8 +910,11 @@ pvalue.latex <- function(x, n=1, nexp=1) {
             z <- as.numeric(unlist(strsplit(as.character(z), "E"))) # split z at E
             sprintf("\\ensuremath{%.*f\\times 10^{%0*d}}", 0, z[1], nexp, z[2])
         }
-    })
-    return(as.character(pvalue))
+    }
+    )
+    pvalue <- as.character(pvalue)
+    #pvalue[grep("\\\\times", pvalue)] <- "<0.001" ## fix for thresholding at 0.001
+    return(pvalue)
 }
 
 

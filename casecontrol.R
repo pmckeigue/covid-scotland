@@ -1784,3 +1784,8 @@ table.fatal <- tabulate.freqs.regressions(varnames=varnames.fatal, outcome="deat
                            model="logistic")
 colnames(table.fatal) <- gsub("FALSE", "Non-fatal", colnames(table.fatal))
 colnames(table.fatal) <- gsub("TRUE", "Fatal", colnames(table.fatal))
+
+cc.kept[CASE==1 & adm.within28==1 & SPECIMENDATE >= as.Date("2021-01-01"), mean(COVID.age, na.rm=TRUE), by=lubridate::month(SPECIMENDATE)]
+
+paste.colpercent(with(cc.kept[CASE==1 & adm.within28==1 & SPECIMENDATE >= as.Date("2021-01-01")],
+     table(criticalcare, lubridate::month(SPECIMENDATE))), digits=1)

@@ -115,7 +115,7 @@ colnames(table.shield.casegr) <- gsub(" non ", ", non-", colnames(table.shield.c
 
 ## Table 3 - shielding cohort by date of letter
 table.date.letter <- as.matrix(as.data.frame.matrix(
-    with(shielded.full, table(shield.group, Date.Sent))))
+    with(shielded.full, table(shield.group6, Date.Sent))))
 col5name <- colnames(table.date.letter)[5]
 table.date.letter <- rbind(table.date.letter, colSums(table.date.letter))
 rownames(table.date.letter)[nrow(table.date.letter)] <- "All shielding categories"
@@ -162,8 +162,6 @@ dateby.props <- dateby.props[match(levels(as.factor(cc.all$Date.Sent)), names(da
 
 #####################################
 
-with(cc.all[shield.group != "No shielding"], table(hh.over18gr, agegr20))
-
 ## calculate estimated proportion of all cases infected after arrival of each batch of letters
 severe.infected.date <- table(cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"][CASE==1, SPECIMENDATE - 7])
 dateby.props <- cumsum(severe.infected.date) / sum(severe.infected.date)
@@ -190,6 +188,23 @@ table.listedgr3.severecases.nocare <-
                                outcome="CASE",
                                data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date"])
 
+table.listedgr3.wave1 <-
+    tabulate.freqs.regressions(varnames=c("listedgr3",
+                                           "preschool.any", "hh.schoolagegr",
+                                          "adultsgt1", 
+                                          "SIMD.quintile", "occup", "hosp.recent"),
+                               outcome="CASE",
+                               data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date" & SPECIMENDATE < as.Date("2020-09-01")])
+
+table.listedgr3.wave2 <-
+    tabulate.freqs.regressions(varnames=c("listedgr3",
+                                           "preschool.any", "hh.schoolagegr",
+                                          "adultsgt1", 
+                                          "SIMD.quintile", "occup", "hosp.recent"),
+                               outcome="CASE",
+                               data=cc.severe[care.home=="Independent" & vaxstatus=="No vaccine by presentation date" & SPECIMENDATE >= as.Date("2020-09-01")])
+
+                               
 ## regression of severe case status on listedgr3 and covariates to get coeff for hh.schoolage.any
 table.listedgr3.severecases.nocare.anyschoolage <-
     tabulate.freqs.regressions(varnames=c("listedgr3",
@@ -329,7 +344,7 @@ p.rateratio <-
                  limits=c(as.Date("2020-03-01"), lastdate)) +
     labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
          y="Rate ratio (log scale)",
-         title="Association with risk category",
+         title="Association of severe COVID-19 with risk category",
          tag="(a)",
          caption="Arrows indicate dates that shielding advice letters were sent, with thickness proportional to number of letters") + 
     annotate(geom="segment",
@@ -387,7 +402,7 @@ p.hosp.rateratio <-
                  limits=c(as.Date("2020-03-01"), lastdate)) +
     labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
          y="Rate ratio (log scale)",
-         title="Association with recent hospital exposure",
+         title="Association of severe COVID-19 with recent hospital exposure",
          tag="(b)")
 
 #################################################################################
@@ -488,7 +503,7 @@ p.hosp <-
     #guides(fill = guide_legend(reverse = TRUE)) + 
     labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
          y="Frequency", 
-         title="Recent hospital exposure in controls",
+         title="Recent hospital exposure in controls matched to severe cases",
          tag="(a)")
 
 ###########################################################
@@ -704,7 +719,7 @@ colnames(table.hcai.rapid.tw) <- c("Less recent time window only",
 table.hcai.rapid <- data.frame(as.data.frame.matrix(table.hcai.rapid.recent),
                                as.data.frame.matrix(table.hcai.rapid.tw))
 table.hcai.rapid <- rbind(table.hcai.rapid, colSums(table.hcai.rapid))
-rownames(table.hcai.rapid)[6] <- "All ECDPC categories"
+rownames(table.hcai.rapid)[6] <- "All ECDC categories"
 
 table.hcai.rapid.recent <- rbind(paste.colpercent(table.hcai.rapid.recent),
                                  colSums(table.hcai.rapid.recent))
@@ -770,4 +785,5 @@ p.nrs
 ###########################################################
 
 
-rmarkdown::render("transmission.Rmd", output_file=paste0("transmission_", linkdate, ".pdf"))
+rmarkdown::render("transmissionBMED-D-21-00640hc.Rmd")
+#rmarkdown::render("transmission.Rmd", output_file=paste0("transmission_", linkdate, ".pdf"))

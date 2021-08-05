@@ -1,18 +1,35 @@
+dt.diagorscrip
+function(diag.regex=NULL, bnf.regex=NULL, diag.name) {
+    ## cc.specimendate keyed on anon_id, specimendate
+    ## cc.diagnoses keyed on anon_id, specimendate
+    ## extract records from cc.diagnoses that are unique on key, where icd10 matches regex
+    ## create new column for this diagnosis, and retain key columns plus new column
+    ## left join cc.specimendate with these records, creating a new column 
+    diag.matched <- NULL
+    scrips.matched <- NULL
+    if(!is.null(diag.regex)) {
+       diag.matched <- unique(cc.diagnoses[grep(diag.regex, icd10), .(anon_id, specimen_date)])
+    }
+    if(!is.null(bnf.regex)) {
+        scrips.matched <- unique(cc.scripsbnf[grep(bnf.regex, substr(bnf_item_code, 1, 6)),
+                                              .(anon_id, specimen_date)])
+    }
+    diagorscrip <- unique(rbind(diag.matched, scrips.matched))
+    setkey(diagorscrip, anon_id, specimen_date)
+    diagorscrip[, eval(diag.name) := 1]
+    cc.diagorscrip <- diagorscrip[cc.specimendate[, .(anon_id, specimen_date)]]
+    setnafill(cc.diagorscrip, fill=0, cols=3)
+    setkey(cc.diagorscrip, anon_id, specimen_date)
+    return(cc.diagorscrip)
+}
 
 ################  IHD ###################################
-
 ## nitrates are BNF code 020601
-ids.icd.IHD <- unique(diagnoses$ANON_ID[grep("^I2[0-5]", diagnoses$ICD10)])
-ids.bnf.IHD <- unique(scrips$ANON_ID[substr(as.character(scrips$bnf_paragraph_code), 1, 6) == "020601" |
-                                     substr(as.character(scrips$bnf_paragraph_code), 1, 6) == "020603"])
-table(ids.bnf.IHD %in% ids.icd.IHD)
+
+cc.ihd <- dt.diagorscrip(diag.regex="^I2[0-5]", bnfregex="02060(1|3)", diag.name="ihd")
 
 ## procedure codes for CABG and PTCA
 ids.procedures.IHD <- unique(procedures$ANON_ID[grep("^K4[012349]|^K50", procedures$MAIN_OPERATION)])
-
-ids.IHD <- unique(c(ids.icd.IHD, ids.bnf.IHD, ids.procedures.IHD))
-cc.all$IHD.any <- as.factor(as.integer(cc.all$ANON_ID %in% ids.IHD))
-cc.severe$IHD.any <- as.factor(as.integer(cc.severe$ANON_ID %in% ids.IHD))
 
 ##### other heart disease ####################################
 ## heart disease is I05 to I52

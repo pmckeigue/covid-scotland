@@ -45,15 +45,15 @@ rollmean.dtN <- function(dt, k) {
 
 datadir <- "./data/2021-02-18/"
 
-load("ct.RData") ## FIXME - should have been saved to datadir
+#load("ct.RData") ## FIXME - should have been saved to datadir
 
-if(!exists("cc.all")) {
-    load(paste0(datadir, "cc.all.RData"))
-}
+#if(!exists("cc.all")) {
+#    load(paste0(datadir, "cc.all.RData"))
+#}
 
 firstdate <- as.Date("2020-11-01")
-lastdate <- as.Date("2021-02-12")
-lastdate.tests <- lastdate.specimen - 7
+lastdate <- max(ct$SpecimenDate, na.rm=TRUE)
+lastdate.tests <- lastdate #lastdate.specimen - 7
 
 ##########################################################
 
@@ -76,8 +76,8 @@ with(ct, tapply(diff2channels, Sgene.dropout, quantile, na.rm=TRUE))
 table(ct$sgtf, ct$Sgene.dropout)
 
 ## create variables for max and min sgtf
-ct[, max.sgtf := max(sgtf, na.rm=TRUE), by=ANON_ID]
-ct[, min.sgtf := min(sgtf, na.rm=TRUE), by=ANON_ID]
+ct[, max.sgtf := max(sgtf, na.rm=TRUE), by=anon_id]
+ct[, min.sgtf := min(sgtf, na.rm=TRUE), by=anon_id]
 ct[is.infinite(max.sgtf), max.sgtf := NA]
 ct[is.infinite(-min.sgtf), min.sgtf := NA]
 ct[max.sgtf==3, truepos := "Other test definite dropout"]
@@ -155,9 +155,8 @@ p.mediansbydate <-
 p.mediansbydate
 
 ## area plot of time series by S gene dropout
-
 setkey(ct, SpecimenDate)
-ct.first <- ct[!duplicated(ANON_ID)]  ## restrict to first positive test
+ct.first <- ct[!duplicated(anon_id)]  ## restrict to first positive test
 ct.Sgene <- ct.first[!is.na(Sgene.dropout), .N, by=c("SpecimenDate", "Sgene.dropout")]
 
 p.variantbydate <- ggplot(data=ct.Sgene, aes(x=SpecimenDate, y=N,
@@ -185,6 +184,9 @@ p.variantbydate
 winsize.casedates <- 3
 ## use by= to get rolling means by category
 
+############################################################################
+if(FALSE) {
+
 casedates.bysource <- cc.severe[CASE==1, .N, by=.(SPECIMENDATE, exp.group)]
 setkey(casedates.bysource, SPECIMENDATE)
 casedates.bysource <- casedates.bysource[, rollmean.dtN(dt=.SD, k=winsize.casedates),
@@ -209,8 +211,6 @@ p.bysource <- ggplot(data=casedates.bysource[date < as.Date("2021-01-20")],
     xlab(paste0("Specimen date: mid-point of ", winsize.casedates, "-day window")) +
          ylab("Daily severe cases")
 p.bysource
-
-############################################################################
 
 cases.all <- cc.kept[!is.na(Sgene.dropout) & Sgene.dropout != "Undetermined" & SPECIMENDATE >= firstdate]
 cases.all[, severe.case := as.integer(group == "A")]
@@ -700,5 +700,5 @@ p.hosp <-
          tag="(c)")
 p.hosp
 
-
 rmarkdown::render("ct.Rmd")
+}

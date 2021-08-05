@@ -1,5 +1,15 @@
 ## helperfunctions for COVID analyses
 
+median.iqr <- function(x, dec=NULL) {
+    xq <- quantile(x, probs=c(0.5, 0.25, 0.75), na.rm=TRUE)
+    if(is.null(dec)) {
+        dec <- max(1, -log10(abs(xq[1])))
+    }
+    xq <- round(xq, dec)
+    return(paste0(xq[1], " (", xq[2], " to ", xq[3], ")"))
+}
+                        
+
 add.index <- function(dt)  { # why does this return NA values for ANON_ID? 
     dt$case.index <- 1:nrow(dt)
     dt$case.interval <- c(NA, as.integer(diff(dt$SPECIMENDATE)))
@@ -72,9 +82,9 @@ recode.tw <- function(x) {
     }
 
 group.tw <- function(lessrecent, recent) {
-        timewingr <- ifelse(recent==0 & lessrecent==1, 1, # exposed in less recent window only
-                     ifelse(recent==1 & lessrecent==0, 2, # exposed in recent window only
-                     ifelse(recent==1 & lessrecent==1, 3, # exposed in both windows
+        timewingr <- ifelse(recent==0 & lessrecent >0, 1, # exposed in less recent window only
+                     ifelse(recent >0 & lessrecent==0, 2, # exposed in recent window only
+                     ifelse(recent >0 & lessrecent >0, 3, # exposed in both windows
                             NA)))
         return(recode.tw(timewingr))
     }
@@ -135,7 +145,7 @@ icdToInt <- function(x) {
 
 RDStodt <- function(rds.filename, keyname=NULL) {
     ## read RDS file 
-    ## convert numeric to int, character with < 20 unique values to factor
+    ## convert numeric to int, character with < 32 unique values to factor
     dt <- as.data.table(readRDS(rds.filename))
     numeric.cols <- names(which(unlist(sapply(dt, is.numeric))))
     if(length(numeric.cols) > 0) {
@@ -147,7 +157,7 @@ RDStodt <- function(rds.filename, keyname=NULL) {
 
     factor.cols <- names(which(unlist(sapply(dt,
                                              function(x) is.character(x) &
-                                                         length(unique(x)) <= 20))))
+                                                         length(unique(x)) <= 32))))
     if(length(factor.cols) > 0) {
         dt[, (factor.cols) := lapply(.SD, as.factor), .SDcols = factor.cols]
     }
@@ -367,7 +377,9 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                      "preschool.any",
                                      "is.hcw",
                                      "Sgene.dropout",
-                                     "av2channels"
+                                     "av2channels",
+                                     "inpat.recent",
+                                     "numdrugs"
                                 ),
                            longname=c("Age", "Males",
                                       "Death within 28 days of test",
@@ -412,7 +424,9 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                       "At least one child under 5",
                                       "Health-care worker",
                                       "S gene dropout",
-                                      "Mean Ct of ORF1ab and N genes"
+                                      "Mean Ct of ORF1ab and N genes",
+                                      "Recent hospital stay",
+                                      "Number of drug classes"
                                       ))
 
 clean.header <- function(x) {
@@ -943,15 +957,8 @@ univariate.tabulate <- function(varnames, outcome="CASE", data, drop.reflevel=TR
         keep.x <- TRUE
         ## test whether variable is factor or numeric
         z <- data[[varnames[i]]] 
-        if(is.numeric(z)) { # median (IQR) for numeric variables 
-            x <- tapply(z, outcomevar,
-                        function(x) {
-                            xq <- quantile(x, probs=c(0.5, 0.25, 0.75), na.rm=TRUE)
-                            dec <- max(1, -log10(abs(xq[1])))
-                            xq <- round(xq, dec)
-                            return(paste0(xq[1], "(", xq[2], "-", xq[3], ")"))
-                        }
-                        )
+        if(is.numeric(z) & length(unique(z)) > 2) { # median (IQR) for numeric variables 
+            x <- tapply(z, outcomevar, median.iqr)
             x <- matrix(x, nrow=1)
             rownames(x) <- varnames[i]
         } else { # freqs for factor variables

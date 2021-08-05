@@ -1,3 +1,8 @@
+library(data.table)
+library(ggplot2)
+
+source("helperfunctions.R")
+
 year.to2020 <- function(x) {
     lubridate::year(x) <- 2020
     return(x)
@@ -8,6 +13,10 @@ year.to2021 <- function(x) {
     return(x)
 }
 
+datadir <- "./data/2021-07-12/"
+ct.filename <-  paste0(datadir, "CC_CT_Test_Results_2021-07-12.rds")
+ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-07-12.rds")
+ 
 ################## read Ct table ####################################
 
 ct <- RDStodt(ct.filename) # all rows are unique
@@ -48,7 +57,7 @@ ct[TRUE, ct.id := .I] # set an ID for the record in the Ct table
 
 ############### read ECOSS tests table ####################
 
-ecoss <- RDStodt(ecoss.tests.filename, keyname="ANON_ID")
+ecoss <- RDStodt(ecoss.tests.filename, keyname="anon_id")
 ecoss <- unique(ecoss) ## about 1% of rows are duplicated
 setnames(ecoss, "SPECIMENDATE", "SpecimenDate_ecosswrong", skip_absent=TRUE) # where did this field come from? 
 setnames(ecoss, "date_ecoss_specimen", "SpecimenDate", skip_absent=TRUE)
@@ -66,45 +75,29 @@ ecoss[, ecoss.result := car::recode(ecoss.result,
                                          'NEGATIVE'='Negative';
                                          'POSITIVE'='Positive'", 
                                     levels=c("Positive", "Negative"))]
-## order levels Positive before Negative so that sorting in ascending order of level and dropping duplicated ANON_IDs will drop negatives
+## order levels Positive before Negative so that sorting in ascending order of level and dropping duplicated anon_ids will drop negatives
 ## many of those with only negative results are test-positive cases 
-#ecoss[!(ANON_ID %in% cc.all$ANON_ID), .N, by=ecoss.result]
-#ecoss <- ecoss[ANON_ID %in% cc.all$ANON_ID] # all unmatched IDs have negative or missing result
+#ecoss[!(anon_id %in% cc.all$anon_id), .N, by=ecoss.result]
+#ecoss <- ecoss[anon_id %in% cc.all$anon_id] # all unmatched IDs have negative or missing result
 ecoss[SourceLab=="", SourceLab := "Not recorded in ECOSS"]
 
 ecoss.pos <- ecoss[ecoss.result=="Positive"]
 setkey(ecoss.pos, SpecimenDate)
+ecoss.pos <- ecoss.pos[!duplicated(anon_id)]
 
-ecoss.pos[, wave:= 1 + as.integer(SpecimenDate < as.Date("2020-06-01"))]
-ecoss.pos[SpecimenDate >= as.Date("2020-06-01") &  SpecimenDate < as.Date("2020-09-01"),
-      wave := NA]
-
-ecoss.wave <- ecoss.pos[!is.na(wave)]
-## select first occurrence of each ANON_ID in each wave
-ecoss.wave <- unique(ecoss.wave, by=c("ANON_ID", "wave")) 
-ecoss.wave <- dcast(ecoss.wave, formula=ANON_ID ~ wave, value.var=c("SpecimenDate", "wave"))
-colnames(ecoss.wave)[2:3] <- c("SpecimenDate2", "SpecimenDate1")
-reinfections <- ecoss.wave[!is.na(wave.1_1 + wave.1_2),
-                           .(ANON_ID, SpecimenDate1, SpecimenDate2)]
-setkey(reinfections, ANON_ID)
-cc.all <- reinfections[cc.all]
-
-ecoss.pos <- ecoss.pos[!duplicated(ANON_ID)]
-table(ecoss.pos$ANON_ID %in% cc.all$ANON_ID)
-
-setkey(ecoss, ANON_ID, SpecimenDate)
-ecoss[ANON_ID %in% ecoss[duplicated(ecoss), ANON_ID]]
+setkey(ecoss, anon_id, SpecimenDate)
 
 #############################################################
 
 cat(nrow(ct), "records in Ct table\n")
-cat(length(unique(ct$ANON_ID)), "unique ANON_IDs\n")
-cat("Table of Ct ANON_IDs in ECOSS", table(ct$ANON_ID %in% ecoss$ANON_ID), "\n")
-cat("Table of Ct ANON_IDs in ECOSS test-positives",
-    table(ct$ANON_ID %in% ecoss[ecoss.result=="Positive", ANON_ID]), "\n")
-cat("Table of test-positive cases (defined in cc.all by exclusion of other ascertainment) in ECOSS test-positives",
-    table(cc.all[testpositive.case==TRUE, ANON_ID] %in%
-          ecoss[ecoss.result=="Positive", ANON_ID]), "\n")
+cat(length(unique(ct$anon_id)), "unique anon_ids\n")
+cat("Table of Ct anon_ids in ECOSS", table(ct$anon_id %in% ecoss$anon_id), "\n")
+cat("Table of Ct anon_ids in ECOSS test-positives",
+    table(ct$anon_id %in% ecoss[ecoss.result=="Positive", anon_id]), "\n")
+
+#cat("Table of test-positive cases (defined in cc.all by exclusion of other ascertainment) in ECOSS test-positives",
+#    table(cc.all[testpositive.case==TRUE, anon_id] %in%
+#          ecoss[ecoss.result=="Positive", anon_id]), "\n")
 
 ## 4 channels: genes are ORF1ab, N, S, MS2
 ## all negative results have Ct value coded missing
@@ -119,6 +112,10 @@ setnames(ct, old=ct.names, new=ct.newnames)
 setnames(ct, old=test.names, new=test.newnames)
 
 for(j in ct.newnames) set(x=ct, i=NULL, j = j, value = as.numeric(ct[[j]]))
+
+ct[N_Ct > 50, N_Ct := NA]
+ct[S_Ct > 50, S_Ct := NA]
+ct[ORF1ab_Ct > 50, ORF1ab_Ct := NA]
 
 ct[, av2channels := 0.5 * (ORF1ab_Ct + N_Ct)]
 ct[, diff2channels := N_Ct - ORF1ab_Ct]
@@ -145,7 +142,7 @@ ct[S_result=="NEGATIVE" & ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" &
 ct[, sgtf.orig := factor(sgtf.orig,
                          levels = c("No dropout", "Undetermined", "Definite dropout"))]
 
-ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" & !is.na(S_result)],
+p.dropoutct <- ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" & !is.na(S_result)],
        aes(x=ORF1ab_Ct, y=N_Ct, color=sgtf.orig)) +
     geom_point() +
     scale_color_manual(values=c("blue", "orange", "red")) +
@@ -157,6 +154,7 @@ ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" & !is.na(S_resul
     geom_segment(aes(x=31, y=31, xend=10, yend=31), linetype=3, color="black") +
     geom_abline(slope=1, intercept=-1, color="green") +
     ggtitle("Relation of S gene dropout (original definition with both other channels < 31) to ORF and N gene Ct values")
+p.dropoutct
 
 ## sgtf.fix1 restricts definite dropout to those with N - ORF > -1.5
 ct[, sgtf.fix1 := sgtf.orig]
@@ -166,7 +164,7 @@ ct[, sgtf.fix1 := factor(sgtf.fix1,
 
 with(ct, table(sgtf.orig, sgtf.fix1))
              
-ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" & !is.na(S_result)],
+p.sepline <- ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" & !is.na(S_result)],
        aes(x=ORF1ab_Ct, y=N_Ct, color=sgtf.fix1)) +
     geom_point() +
     scale_color_manual(values=c("blue", "orange", "red")) +
@@ -178,16 +176,17 @@ ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" & !is.na(S_resul
     geom_segment(aes(x=31, y=31, xend=31, yend=10), linetype=3, color="black") +
     geom_segment(aes(x=29.5, y=31, xend=8.5, yend=10), linetype=3, color="black") +
     ggtitle("Separation line at N - ORF = 1.5")
+p.sepline
 
 ## use sgtf.fix1 to assign true neg / pos status using replicates where possible 
-ct[, max.sgtf := max(as.integer(sgtf.fix1), na.rm=TRUE), by=ANON_ID]
-ct[, min.sgtf := min(as.integer(sgtf.fix1), na.rm=TRUE), by=ANON_ID]
+ct[, max.sgtf := max(as.integer(sgtf.fix1), na.rm=TRUE), by=anon_id]
+ct[, min.sgtf := min(as.integer(sgtf.fix1), na.rm=TRUE), by=anon_id]
 ct[is.infinite(max.sgtf), max.sgtf := NA]
 ct[is.infinite(-min.sgtf), min.sgtf := NA]
 ct[max.sgtf==3, truepos := "Other test definite dropout"]
 ct[min.sgtf==1, truepos := "Other test no dropout"]
 
-ggplot(data=ct[sgtf.fix1=="Undetermined" & !is.na(truepos)], 
+p.testvalid <-ggplot(data=ct[sgtf.fix1=="Undetermined" & !is.na(truepos)], 
        aes(x=ORF1ab_Ct, y=N_Ct, color=truepos)) +
     geom_point() +
     scale_color_manual(values=c("red", "blue")) +
@@ -204,6 +203,7 @@ ggplot(data=ct[sgtf.fix1=="Undetermined" & !is.na(truepos)],
     geom_segment(aes(x=33, y=31, xend=33, yend=10), color="green") +
     geom_segment(aes(x=28, y=31, xend=7, yend=10), color="green") +
     ggtitle("Tests with S gene dropout classified as Undetermined with separation line at N - ORF = 1.5, by status at repeat test. New separation lines at N - ORF = 3 and ORF = 33")
+p.testvalid
 
 ## assign S_gene dropout using difference between N and ORF signals
 ## refine this by restricting diff2channels to <=2 and N Ct to < 30
@@ -224,8 +224,8 @@ ct[is.na(S_result), Sgene.dropout := NA]
 # with(ct, print(table(sgtf.orig, Sgene.dropout, exclude=NULL)))
 
 ## use sgene.dropout to generate variables that can be used to reassign undetermined values where possible 
-ct[, max.Sgene.dropout := max(as.integer(Sgene.dropout), na.rm=TRUE), by=ANON_ID]
-ct[, min.Sgene.dropout := min(as.integer(Sgene.dropout), na.rm=TRUE), by=ANON_ID]
+ct[, max.Sgene.dropout := max(as.integer(Sgene.dropout), na.rm=TRUE), by=anon_id]
+ct[, min.Sgene.dropout := min(as.integer(Sgene.dropout), na.rm=TRUE), by=anon_id]
 ct[is.infinite(max.Sgene.dropout), max.Sgene.dropout := NA]
 ct[is.infinite(-min.Sgene.dropout), min.Sgene.dropout := NA]
 ct[max.Sgene.dropout==3, truepos := "Other test definite dropout"]
@@ -238,10 +238,10 @@ ct[min.Sgene.dropout==1, truepos := "Other test no dropout"]
 # print(table(is.na(ct$date_appointment)))
 ## 177 appointment dates are missing
 
-ct.nodate <- ct[is.na(date_appointment), .(ANON_ID, ct.id, date_appointment, date_reporting)]
-ecoss.withdate <- ecoss[SourceLab == "NHS:COV", .(ANON_ID, SpecimenDate, SourceLab)]
-setkey(ecoss.withdate, ANON_ID)
-setkey(ct.nodate, ANON_ID)
+ct.nodate <- ct[is.na(date_appointment), .(anon_id, ct.id, date_appointment, date_reporting)]
+ecoss.withdate <- ecoss[SourceLab == "NHS:COV", .(anon_id, SpecimenDate, SourceLab)]
+setkey(ecoss.withdate, anon_id)
+setkey(ct.nodate, anon_id)
 
 ## left join ct.nodate with ecoss.withdate
 ct.nodate <- ecoss.withdate[ct.nodate] 
@@ -268,12 +268,11 @@ print(table(is.na(ct$date_appointment)))
 setnames(ct, "date_appointment", "SpecimenDate") 
 maxdate.ct <- max(ct$SpecimenDate, na.rm=TRUE)
 
-setkey(ct, ANON_ID, SpecimenDate) ## ct contains only unique values of key
-setkey(ecoss, ANON_ID, SpecimenDate) ## about 1% of key values are duplicated
+setkey(ct, anon_id, SpecimenDate) ## ct contains only unique values of key
+setkey(ecoss, anon_id, SpecimenDate) ## about 1% of key values are duplicated
 
 ## this step imports the flag_lighthouse_labs_testing variable into ecoss
-ecoss <- ct[, .(ANON_ID, SpecimenDate, flag_lighthouse_labs_testing, ct.result)][ecoss]
-save(ct, file="ct.RData")
+ecoss <- ct[, .(anon_id, SpecimenDate, flag_lighthouse_labs_testing, ct.result)][ecoss]
 
 ecoss[, flag_lighthouse_labs_testing := factor(car::recode(flag_lighthouse_labs_testing, 
                                                       "NA='NHS test';
@@ -285,7 +284,11 @@ ecoss.table <-
     with(ecoss, 
          table(flag_lighthouse_labs_testing, lubridate::month(SpecimenDate, label=TRUE))
          )
-print(paste.colpercent(ecoss.table)[, c(9:12, 1)])
+print(paste.colpercent(ecoss.table)[, c(9:12, 1:6)])
+
+save(ecoss, file=paste0(datadir, "ecoss.RData"))
+save(ct, file=paste0(datadir, "ct.RData"))
+
 
 rm(ecoss.withdate)
 

@@ -13,10 +13,19 @@ year.to2021 <- function(x) {
     return(x)
 }
 
-datadir <- "./data/2021-07-12/"
-ct.filename <-  paste0(datadir, "CC_CT_Test_Results_2021-07-12.rds")
-ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-07-12.rds")
- 
+linkdate <- "jul12"
+linkdate <- "jul28"
+
+if(linkdate == "jul12") {
+        datadir <- "./data/2021-07-12/"
+        ct.filename <-  paste0(datadir, "CC_CT_Test_Results_2021-07-12.rds")
+        ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-07-12.rds")
+} else if(linkdate=="jul28") {
+    datadir <- "./data/2021-07-28/"
+    ct.filename <-  paste0(datadir, "CC_CT_Test_Results_2021-07-28.rds")
+    ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-07-28.rds")
+}
+
 ################## read Ct table ####################################
 
 ct <- RDStodt(ct.filename) # all rows are unique

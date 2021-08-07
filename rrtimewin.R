@@ -3,7 +3,7 @@ firstdate <- as.Date("2020-03-01")
 winsize <- 42 
 startdates <- with(cc.all, firstdate:max(specimen_date) - winsize)
 enddates <- startdates + winsize
-lastdate <- as.Date("2021-07-01")
+lastdate <- as.Date("2021-07-14")
 
 coeffs.timewindow <- NULL
 for(timewin in 1:length(startdates)) {
@@ -33,7 +33,7 @@ coeffs.timewindow[, linesize := `se(coef)`^-1.5]
 coeffs.timewindow[, linesize := 2 * linesize / max(linesize, na.rm=TRUE), by="effect"]
 setorder(coeffs.timewindow, effect)
 
-breakpoints <- c(0.2, 0.5, 1, 2, 5, 10, 20, 50)
+breakpoints <- c(0.2, 0.3, 0.5, 1, 2, 3, 5, 10, 20, 30, 50)
 p.rateratio <-
     ggplot(data=coeffs.timewindow, aes(x=date.midpoint, y=coef, color=effect)) +
         geom_line(size=coeffs.timewindow$linesize) +

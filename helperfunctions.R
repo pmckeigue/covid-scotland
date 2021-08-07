@@ -145,22 +145,34 @@ icdToInt <- function(x) {
 
 RDStodt <- function(rds.filename, keyname=NULL) {
     ## read RDS file 
-    ## convert numeric to int, character with < 32 unique values to factor
-    dt <- as.data.table(readRDS(rds.filename))
+    dt <- setDT(readRDS(rds.filename)) # modifies data frame by reference
+
+    ## recode <32 value character cols as factor 
+    factor.cols <- names(which(unlist(sapply(dt,
+                                             function(x) is.character(x) &
+                                                         length(unique(x)) < 32))))
+    if(length(factor.cols) > 0) {
+        for (col in factor.cols) {
+            set(dt, j=col, value=as.factor(dt[[col]]))
+        }
+        #dt[, (factor.cols) := lapply(.SD, as.factor), .SDcols = factor.cols]
+    }
+    gc()
+    
+    ## recode integer-valued numeric cols as integer
     numeric.cols <- names(which(unlist(sapply(dt, is.numeric))))
     if(length(numeric.cols) > 0) {
         integer.cols <- names(which(unlist(sapply(dt[, ..numeric.cols],
                                                   function(x) is.numeric(x) &
                                                               isTRUE(all.equal(x, floor(x)))))))
-        dt[, (integer.cols) := lapply(.SD, as.integer), .SDcols = integer.cols]
+        if(length(integer.cols) > 0) {
+            for (col in integer.cols) {
+                set(dt, j=col, value=as.integer(dt[[col]]))
+            }
+            #dt[, (integer.cols) := lapply(.SD, as.integer), .SDcols = integer.cols]
+        }
     }
-
-    factor.cols <- names(which(unlist(sapply(dt,
-                                             function(x) is.character(x) &
-                                                         length(unique(x)) <= 32))))
-    if(length(factor.cols) > 0) {
-        dt[, (factor.cols) := lapply(.SD, as.factor), .SDcols = factor.cols]
-    }
+    
     if(!is.null(keyname)) {
         setkeyv(dt, keyname)
     }

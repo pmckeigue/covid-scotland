@@ -24,6 +24,20 @@ dt.diagorscrip <- function(diag.regex=NULL, bnf.regex=NULL, diag.name) {
     return(cc.diagorscrip)
 }
 
+
+smr06 <- RDStodt(smr06.filename)
+setnames(smr06, "icd10s_cancer_site", "icd10")
+smr06[, incidence_date := as.Date(incidence_date)]
+smr06[, joindate := incidence_date]
+setkey(cc.specimendate, anon_id, lookback5yr, specimen_date)
+setkey(smr06, anon_id, incidence_date, joindate)
+cc.smr06 <- foverlaps(smr06,
+                          cc.specimendate[, .(anon_id, specimen_date, lookback5yr)],
+                          type="within", nomatch=NULL)
+cc.smr06 <- cc.smr06[, .(anon_id, specimen_date, incidence_date, icd10)]
+rm(smr06)
+setkey(cc.smr06, anon_id, specimen_date)
+
 ##  diabetes ################################################
 
 cc.diabetes <- dt.diagorscrip(diag.regex="^E1[0-4]", bnf.regex="^0601", diag.name="diabetes")
@@ -93,15 +107,35 @@ cc.immune <- dt.diagorscrip(diag.regex="^B2[0-3|^D8[0-9]",
                             bnf.regex="^(0802)|(050301)",
                             diag.name="immune")
 
+############# autoimmune rheumatology
+
+cc.rheumatol <- dt.diagorscrip(diag.regex="^M0[5-8]|^M3[0-5]",
+                                  diag.name="rheumatol")
+
+setkey(rheumatol.wide, anon_id)
+setkey(cc.specimendate, anon_id)
+cc.rheumatol.list <- rheumatol.wide[cc.specimendate]
+setkey(cc.specimendate, anon_id, specimen_date)
+
+############# IBD
+
+cc.ibd <- dt.diagorscrip(diag.regex="^K5[01]",
+                                  diag.name="ibd")
+
 ############# neoplasms ################
 
 cc.neoplasm <- dt.diagorscrip(diag.regex="^C[0-9]|^D[0-4]",
                               bnf.regex="^0801",
                               diag.name="neoplasm")
 
-#ids.icd.neoplasm.lastyear <-
-#    unique(diagnoses[as.integer(SPECIMENDATE - DISCHARGE_DATE) + 25 > 365 &
-#                     grepl("^C[0-9]|^D[0-4]", ICD10), ANON_ID])
+cc.bloodcancer <- dt.diagorscrip(diag.regex="^C8[1-8]|^C9[0-6]",
+                                 diag.name="bloodcancer")
+
+cc.bloodcancer.smr06 <- cc.smr06[grep("^C8[1-8]|^C9[0-6]", icd10)]
+cc.bloodcancer <- cc.bloodcancer.smr06[cc.bloodcancer]
+with(cc.bloodcancer, table(bloodcancer, !is.na(icd10)))
+cc.bloodcancer[!is.na(icd10), bloodcancer := 1]
+cc.bloodcancer <- cc.bloodcancer[, .(anon_id, specimen_date, bloodcancer)]
 
 ###### disorders of esophagus, stomach and duodenum ############################
 
@@ -117,7 +151,11 @@ cc.comorbid <- cc.liver[cc.comorbid]
 cc.comorbid <- cc.immune[cc.comorbid]
 cc.comorbid <- cc.neoplasm[cc.comorbid]
 cc.comorbid <- cc.esoph.stomach.duod[cc.comorbid]
-
+cc.comorbid <- cc.neoplasm[cc.comorbid]
+cc.comorbid <- cc.bloodcancer[cc.comorbid]
+cc.comorbid <- cc.rheumatol[cc.comorbid]
+cc.comorbid <- cc.ibd[cc.comorbid]
+                            
 rm(cc.ihd)
 rm(cc.heart.other)
 rm(cc.circulatory.other)
@@ -128,4 +166,9 @@ rm(cc.liver)
 rm(cc.immune)
 rm(cc.neoplasm)
 rm(cc.esoph.stomach.duod)
+rm(cc.bloodcancer)
+rm(cc.rheumatol)
+rm(cc.ibd)
+rm(cc.smr06)
+
 gc()

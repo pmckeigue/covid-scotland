@@ -28,14 +28,8 @@ fatal.predict <- FALSE
 
 ## install all required R packages
 list.of.packages = c("car", 
-                     "survival", 
                      "MASS", 
-                     "wevid", 
                      "rmarkdown",
-                     "bookdown",
-                     "rticles",
-                     "kableExtra",
-                     "pander", 
                      "ggplot2", 
                      "doParallel", 
                      "readxl", 
@@ -53,7 +47,6 @@ library(car)
 library(survival)
 library(MASS)
 library(ggplot2)
-#library(doParallel)
 library(readxl)
 library(DescTools)
 library(icd)
@@ -334,47 +327,17 @@ cc.all[, vaxgr := car::recode(vaxgr,
 #######################################################################################
     
 # source("ct_ecoss.R") # run first time only
-load(paste0(datadir, "ecoss.RData"))
+load(paste0(datadir, "ecoss.firstpos.RData"))
      
 #######################################################################################
 
-if(FALSE) { # import Ct
-    ## left join cc.all with first positive test from ct
-ct <- ct[!is.na(Sgene.dropout)]  ## drop records where the S gene signal is NA
-setkey(ct, SpecimenDate)
-ct.first <- ct[!duplicated(anon_id)]
-setnames(ct.first, "SpecimenDate", "Ct.SpecimenDate") # don't want these fields imported twice
-setnames(ct.first, "flag_lighthouse_labs_testing", "Ct.Lighthouse.flag") 
-                                        #ct.first[, SourceLab := NULL]
-setkey(ct.first, anon_id)
-
-cc.all <- ct.first[, ][cc.all]
-## some controls later tested positive in the Lighthouse lab but were not ascertained as cases by the cutoff date for case ascertainment 
-rm(ct.first)
-rm(ct)
-
-## use max and min sgtf to recode undetermined values where possible
-cc.all[Sgene.dropout=="Undetermined" & max.Sgene.dropout==3, Sgene.dropout := "Definite dropout"]
-cc.all[Sgene.dropout=="Undetermined" & min.Sgene.dropout==1, Sgene.dropout := "No dropout"]
-
-if("flag_covid_symptomatic" %in% names(cc.all)) {
-        cc.all[flag_covid_symptomatic=="", flag_covid_symptomatic := NA]
-        cc.all[, symptomatic := as.integer(flag_covid_symptomatic=="true")]
-    }
-}
-
 ## left join cc.all with first positive test from ECOSS
     ## sort within ID by test result (positive before negative) and date within test result
-ecoss.pos <- ecoss[ecoss.result=="Positive"]
-setkey(ecoss.pos, SpecimenDate) 
-ecoss.first <- ecoss.pos[!duplicated(anon_id)]
-setkey(ecoss.first, anon_id)
+setkey(ecoss.firstpos, anon_id)
 setkey(cc.all, anon_id)
 ## left join cc.all with ecoss on anon_id
-cc.all <- ecoss.first[cc.all]
-rm(ecoss.pos)
-rm(ecoss.first)
-rm(ecoss)
+cc.all <- ecoss.firstpos[cc.all]
+rm(ecoss.firstpos)
 gc()
 
 ## check that specimen_date of test-positive cases is first specimen date in ecoss
@@ -648,7 +611,7 @@ setkey(cc.hcai, anon_id, specimen_date)
 print(nrow(cc.hcai[cc.all]))
 cc.all <- cc.hcai[cc.all]
 rm(cc.hcai)
-
+rm(rapid)
 cc.all[is.na(hcai), hcai := "Community onset"]
 cc.all[, hcai := factor(hcai,
                                levels=c("Community onset",
@@ -984,13 +947,8 @@ with(cc.all[casegroup=="A"], print(table(CASE, rapid.timewingr, exclude=NULL)))
 with(cc.all[casegroup=="A"], print(table(CASE, psych.timewingr, exclude=NULL)))
 with(cc.all[casegroup=="A"], print(table(CASE, opd.timewingr, exclude=NULL)))
 
-####################################################
-## create hosp.recent variable from disch, rapid, smr04, smr00
-    ## hosp.recent if any exposure in recent time window
-
 ####################################################################
 
-## import most recent SMR01 discharge date into rapid
 cc.all[qSIMD.integer==9, qSIMD.integer := NA]
 
 ### incidence and mortality using national population estimates #####
@@ -1035,14 +993,13 @@ cc.all[, ethnic4.smr := factor(ethnic4.smr,
 setkey(cc.all, anon_id, specimen_date)
 ######################################################
 
-rm(rapid)
 gc()
-
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
 #################### import shielding data ####
-        
+source("shieldlist.R")
+
 shielded.full <- fread(shielding.full.filename)
 setkey(shielded.full, anon_id)
 setnames(shielded.full, "group", "shield.group", skip_absent=TRUE)
@@ -1295,6 +1252,19 @@ source("rrtimewin.R")
 
 rmarkdown::render("vaxshieldupdate.Rmd")
 
+setkey(cc.all, anon_id)
+cc.all <- rheumatol.wide[cc.all]
+cc.all[is.na(diagnosis.group) & rheumatol==1, diagnosis.group := "Discharge diagnosis only"]
+cc.all[is.na(diagnosis.group) & rheumatol==0, diagnosis.group := "No rheumatology diagnosis"] 
+cc.all[, diagnosis.group := factor(diagnosis.group,
+                                   levels=c("No rheumatology diagnosis",
+                                            "Discharge diagnosis only",
+                                            "RArelated",
+                                            "AXSPA",
+                                            "Other"))]
+tabulate.freqs.regressions(varnames="diagnosis.group",
+                           data=cc.all[casegroup=="A" | casegroup=="B"])
+
 ## TODO: procedures, tabulate reinfections,  
 
 if(FALSE) {
@@ -1324,49 +1294,6 @@ setnafill(cc.kept, cols=icdcols, fill=0)
 ## cc.kept[, .(icdcols)] returns the column names as a data.table
 ## cc.kept[, ..icdcols] returns a data.table selected by column
 
-## derive number of chapters with at least one diag 
-x <- cc.kept[, ..icdcols]
-cc.kept[, num.icdchapters := rowSums(x)]
-rm(x)
-cc.kept[, num.icdchapters.gr := as.factor(car::recode(num.icdchapters,
-                                                      "0='No discharge records';
-                         1:2='1-2 ICD-10 chapters';
-                        3:hi='3 or more chapters'"))]
-cc.kept[, num.icdchapters.gr := relevel(num.icdchapters.gr, ref="No discharge records")]
-
-################################################################################
-
-## generate and merge indicators for any diag in each  ICD subchapter
-icdsubchapters.anydiag <- diagnoses[, .N, by=c("anon_id", "subchnum")] %>%
-    dcast(anon_id ~ subchnum, value.var="N")
-## recode as 0, 1
-setnafill(icdsubchapters.anydiag, cols=2:ncol(icdsubchapters.anydiag), fill=0)
-for (j in 2:ncol(icdsubchapters.anydiag)) set(icdsubchapters.anydiag, j=j,
-                                              value=as.integer(icdsubchapters.anydiag[[j]] > 0))
-subchnums <- as.integer(colnames(icdsubchapters.anydiag)[-1])
-colnames(icdsubchapters.anydiag)[-1] <-
-    paste0("Ch_", 
-           as.roman(icd.subchapters$chnum[match(subchnums, icd.subchapters$subchnum)]), ": ",
-           icdsubchapters$start[match(subchnums, icd.subchapters$subchnum)], "-",
-           icdsubchapters$end[match(subchnums, icd.subchapters$subchnum)], " ", 
-           icdsubchapters$name[match(subchnums, icd.subchapters$subchnum)])
-
-## drop rare ICD subchapters (freq < 0.1%)
-keep.cols <- colSums(icdsubchapters.anydiag) >= 0.001 * nrow(icdsubchapters.anydiag)  
-icdsubchapters.anydiag <- icdsubchapters.anydiag[, ..keep.cols]
-setkey(icdsubchapters.anydiag, anon_id)
-cc.kept <- icdsubchapters.anydiag[cc.kept]
-rm(icdsubchapters.anydiag)
-icdcols <- grep("^Ch_", colnames(cc.kept)) ## no period after Ch 
-setnafill(cc.kept, cols=icdcols, fill=0)
-
-## derive number of subchapters with at least one diag 
-x <- cc.kept[, ..icdcols]
-cc.kept[, num.icdsubchapters := rowSums(x)]
-rm(x)
-rm(diagnoses)
-rm(procedures)
-gc()
 
 ## calculate risk score in controls and set intercept to equate observed and expected severe cases
 if(TRUE) {
@@ -1432,40 +1359,6 @@ print(tail(objmem))
 
 
 #####################################################
-
-## reinfections appear in wave==1 with SPECIMENDATE matching SpecimenDate1
-
-#load(paste0(datadir, "cc.all.RData"))
-with(cc.all, table(wave, specimen_date==SpecimenDate1))
-
-cc.all[, reinfected := !is.na(SpecimenDate1)]
-
-cc.all[, occup3 := car::recode(occup, "'Teacher'='Other / undetermined'", as.factor=TRUE, 
-                               levels=levels(occup)[-2])]
-
-## get reinfections into wave==2
-wave2 <- cc.all[wave==2 | specimen_date==SpecimenDate1]
-wave2[specimen_date==SpecimenDate1, specimen_date := SpecimenDate2]
-wave2[, reinfected := !is.na(SpecimenDate2) & specimen_date == SpecimenDate2]
-wave2[, death28 := !is.na(date_of_death) & date_of_death - specimen_date < 28]
-
-table.wave2 <- with(wave2[CASE==1], table(reinfected))
-
-## what factors in wave 1 predict reinfection in wave 2
-varnames=c("agegr3", "sex", "care.home", "shield.any", "occup3")
-table.reinfection <- tabulate.freqs.regressions(varnames=varnames, outcome="reinfected", 
-                           data=cc.all[wave==1 & CASE==1 & fatalcase==0],
-                           model="logistic")
-colnames(table.reinfection) <- gsub("FALSE", "No reinfection", colnames(table.reinfection))
-colnames(table.reinfection) <- gsub("TRUE", "Reinfection", colnames(table.reinfection))
-
-## reinfection predicts fatal cases in wave 2
-varnames.fatal <- c("age_years", "sex", "care.home", "shield.any", "occup3", "reinfected")
-table.fatal <- tabulate.freqs.regressions(varnames=varnames.fatal, outcome="death28", 
-                           data=wave2[age_years >= 60],
-                           model="logistic")
-colnames(table.fatal) <- gsub("FALSE", "Non-fatal", colnames(table.fatal))
-colnames(table.fatal) <- gsub("TRUE", "Fatal", colnames(table.fatal))
 
 cc.kept[CASE==1 & adm.within28==1 & specimen_date >= as.Date("2021-01-01"), mean(COVID.age, na.rm=TRUE), by=lubridate::month(specimen_date)]
 

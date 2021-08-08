@@ -24,6 +24,7 @@ if(linkdate == "jul12") {
     datadir <- "./data/2021-07-28/"
     ct.filename <-  paste0(datadir, "CC_CT_Test_Results_2021-07-28.rds")
     ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-07-28.rds")
+    lastdate <- as.Date("2021-07-28")
 }
 
 ################## read Ct table ####################################
@@ -44,23 +45,15 @@ setnames(ct, "test_result", "ct.result")
 ## jan 6 linkage has no variable date_appointment
 setnames(ct, "date_ecoss_specimen", "date_appointment", skip_absent=TRUE)
 
-ct[, date_appointment := as.Date(date_appointment)] # mostly missing
+ct[, date_appointment := as.Date(date_appointment)] # 948 missing
 ct[, date_onset_of_symptoms := as.Date(date_onset_of_symptoms)] 
-ct[, date_reporting := as.Date(date_reporting)] # only 3 missing values and these have all fields missing except ID
+ct[, date_reporting := as.Date(date_reporting)] # no missing values or wrong values
+## mode is 2 days
 
-#print(ct[date_appointment > Sys.Date(), .(date_appointment, date_onset_of_symptoms, date_reporting)])
-#print(ct[date_appointment < as.Date("2020-03-01"), .(date_appointment, date_onset_of_symptoms, date_reporting)])
+ct[date_appointment < as.Date("2020-08-01") | date_appointment > lastdate,
+   date_appointment := date_reporting - 2]
 
-ct[date_appointment > Sys.Date() & lubridate::month(date_appointment) > 9,
-   date_appointment := year.to2020(date_appointment)]
-
-ct[date_appointment < as.Date("2020-03-01") & lubridate::month(date_appointment) < 3,
-   date_appointment := year.to2021(date_appointment)]
-
-ct[date_appointment > Sys.Date() | date_appointment < as.Date("2020-03-01"),
-   date_appointment := NA]
-
-ct[date_onset_of_symptoms < as.Date("2020-02-01"), date_onset_of_symptoms := NA]
+ct[date_onset_of_symptoms < as.Date("2020-03-01"), date_onset_of_symptoms := NA]
 
 ct[TRUE, ct.id := .I] # set an ID for the record in the Ct table
 
@@ -74,6 +67,17 @@ setnames(ecoss, "Type", "ecoss.result", skip_absent=TRUE)
 setnames(ecoss, "test_result", "ecoss.result", skip_absent=TRUE)
 setnames(ecoss, "ecoss_submitting_laboratory", "SourceLab", skip_absent=TRUE)
 ecoss[, SpecimenDate := as.Date(SpecimenDate)]
+
+ecoss[SpecimenDate > lastdate &
+   lubridate::month(SpecimenDate) >= lubridate:: month(lastdate),
+   SpecimenDate := year.to2020(SpecimenDate)]
+
+ecoss[SpecimenDate < as.Date("2020-03-01") &
+   lubridate::month(SpecimenDate) < 3,
+   SpecimenDate := year.to2021(SpecimenDate)]
+
+ecoss[SpecimenDate > Sys.Date() | SpecimenDate < as.Date("2020-03-01"),
+   SpecimenDate := NA]
 
 ## SpecimenType field is tissue / compartment sampled
 ## Tests field is free text comments
@@ -92,9 +96,43 @@ ecoss[SourceLab=="", SourceLab := "Not recorded in ECOSS"]
 
 ecoss.pos <- ecoss[ecoss.result=="Positive"]
 setkey(ecoss.pos, SpecimenDate)
-ecoss.pos <- ecoss.pos[!duplicated(anon_id)]
+ecoss.firstpos <- ecoss.pos[!duplicated(anon_id)]
+setkey(ecoss.firstpos, anon_id, SpecimenDate)
 
-setkey(ecoss, anon_id, SpecimenDate)
+diff0 <- function(x) c(0, diff(x))
+ecoss.pos[, interval := diff0(SpecimenDate), by=anon_id]
+
+reinfections <- ecoss.pos[interval >=90] # CDC criterion - 3076 reinfections
+setnames(reinfections, "SpecimenDate", "specimen_date")
+reinfections.daily <- reinfections[, .N, by=specimen_date]
+reinfections.rollmean <- reinfections.daily[, rollmean.dtN(dt=.SD, k=21)]
+
+ecoss.90days <- copy(ecoss.firstpos)
+ecoss.90days[, date.90days := SpecimenDate + 90]
+setorder(ecoss.90days, date.90days)
+ecoss.90days.daily <- ecoss.90days[, .N, by=date.90days]
+ecoss.90days.dates <- data.table(date.90days=seq.Date(from=min(reinfections$specimen_date),
+                                                      to=max(reinfections$specimen_date),
+                                                      by=1))
+setkey(ecoss.90days.dates, date.90days)
+setkey(ecoss.90days.daily, date.90days)
+ecoss.90days.daily <- ecoss.90days.daily[ecoss.90days.dates]
+setnafill(ecoss.90days.daily, fill=0, cols="N")
+ecoss.90days.daily[, N := cumsum(N)]
+## FIXME: subtract cumulative deaths of test-positive cases 
+setnames(ecoss.90days.daily, "date.90days", "specimen_date")
+ecoss.90days.rollmean <- ecoss.90days.daily[, rollmean.dtN(dt=.SD, k=21)]
+setnames(ecoss.90days.rollmean, "avdaily", "atrisk")
+setkey(ecoss.90days.rollmean, date)
+setkey(reinfections.rollmean, date)
+reinfections.rollmean <- reinfections.rollmean[ecoss.90days.rollmean]
+reinfections.rollmean[, incidence := 10^5 * avdaily / atrisk]
+
+## fill missing dates with popatrisk = 0
+## then compute rolling mean by 14-day time window
+
+ggplot(data=reinfections.rollmean, aes(x=date, y=incidence)) +
+    geom_line()
 
 #############################################################
 
@@ -293,13 +331,13 @@ ecoss.table <-
     with(ecoss, 
          table(flag_lighthouse_labs_testing, lubridate::month(SpecimenDate, label=TRUE))
          )
-print(paste.colpercent(ecoss.table)[, c(9:12, 1:6)])
+print(paste.colpercent(ecoss.table)[, c(9:12, 1:7)])
 
-save(ecoss, file=paste0(datadir, "ecoss.RData"))
+save(ecoss.firstpos, file=paste0(datadir, "ecoss.firstpos.RData"))
 save(ct, file=paste0(datadir, "ct.RData"))
 
 
-rm(ecoss.withdate)
+#rm(ecoss.withdate)
 
 
 

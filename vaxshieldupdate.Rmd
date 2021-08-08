@@ -1,0 +1,808 @@
+---
+title: "Efficacy of COVID-19 vaccination in individuals designated as clinically extremely vulnerable in Scotland: update examining effect of second dose"
+author:
+  - name: Paul M McKeigue\textsuperscript{\getAff{Usher}}
+    affiliation: HPS
+  - name: Helen M Colhoun\textsuperscript{\getAff{IGMM}}
+#    corresponding: yes
+#    email: helen.colhoun@igmm.ed.ac.uk
+    affiliation: HPS
+address: 
+- code: Usher
+  address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland. PM - Professor of Genetic Epidemiology and Statistical Genetics. NL - Clinical Senior Lecturer in Critical Care  
+- code: IGMM
+  address: Institute of Genetics and Cancer, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland. HC - AXA Chair in Medical Informatics and Epidemiology
+- code: HPS
+  address: Public Health Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+
+header-includes:
+  \usepackage{newunicodechar}
+  \usepackage[T1]{fontenc}
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{geometry}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \floatplacement{figure}{H}
+  \usepackage{array}
+  \usepackage{threeparttable}
+  \usepackage{longtable}
+output: 
+  rticles::nejm_article:
+    includes:
+      in_header: ./preamble.tex
+    latex_engine: lualatex
+    keep_tex: true
+    fig_caption: yes
+    md_extensions: -autolink_bare_uris
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+bibliography: ./covid.bib
+csl: ./f1000.csl # ./plos.csl
+always_allow_html: true
+urlcolor: blue
+linenumbers: false
+linkcolor: cyan
+---
+
+```{r vax, echo=FALSE, warning=FALSE, message=FALSE}
+library(data.table)
+library(ggplot2)
+library(kableExtra)
+
+source("helperfunctions.R")
+
+rollmean.dtN <- function(dt, k) {
+    ## FIXME: add a by= argument
+    N.dates <- dt[, .N, by=SPECIMENDATE]
+    setkey(N.dates, SPECIMENDATE)
+    all.dates <- data.table(date=seq(from=min(N.dates$SPECIMENDATE),
+                                     to=max(N.dates$SPECIMENDATE),
+                                     by=1))
+    setkey(all.dates, date)
+
+    ## add rows for missing dates by a left join
+    all.dates <- N.dates[all.dates]
+    all.dates[is.na(N), N := 0]
+    return(data.table(date=dt$SPECIMENDATE,
+                      avdaily=zoo::rollmean(dt$N, k=k, fill=NA)))
+}
+
+rollsum.datewin <- function(dt, k, datevar) {
+    ## returns a table of rolling sums of width k centred on date
+    ## dt is a dataset of totals (N) by date, which may have no rows for some dates in the
+    ## range of interest
+    ## add rows for missing dates by a left join of all.dates with dt
+    all.dates <- data.table(date=seq(from=min(dt[[datevar]]),
+                                     to=max(dt[[datevar]]),
+                                     by=1))
+    setkey(all.dates, date)
+    # setkeyv(dt, datevar) can't set physical key here
+    all.dates <- dt[all.dates]
+
+    return(data.table(date=all.dates[[datevar]],
+                      rsum=zoo::rollsum(all.dates[, N], k=k, fill=0, align="center")))
+}
+
+format.estcipv <- function(x.ci, x.pval) {
+    x <- gsub(" \\(", " \\(95\\% CI ", as.character(x.ci))
+    x <- gsub(", ", " to ", x)
+    x <- gsub("\\)", paste0(", _p_=\\", x.pval, "\\)"), x)
+    x <- gsub("times", "\\\\times", x)
+    return(x)
+}
+
+format.estci <- function(x.ci) {
+    x <- gsub(" \\(", " \\(95\\% CI ", as.character(x.ci))
+    x <- gsub(", ", " to ", x)
+    #x <- gsub("\\)", paste0(", _p_=\\", x.pval, "\\)"), x)
+    #x <- gsub("times", "\\\\times", x)
+    return(x)
+}
+
+options(knitr.kable.NA = '.')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+lastdate.cases <- as.Date("2021-07-12")
+
+## vaccination analysis
+## frequency tables by risk group and dose
+## by shield group and dose
+## by risk group and dose-product
+
+#cc.all[, agegr20plus5 := car::recode(age_years,
+#                                    "0:19='0 to 19'; 20:29='20 to 29'; 30:39='30 to 39'; #40:49='40 to 49'; 50:hi='50 years and over'",
+                                        #                                    as.factor=TRUE)]
+
+cc.all[, shield.group := as.character(shield.group)]
+cc.all[bloodcancer==1,
+       shield.group := car::recode(shield.group, "'Specific cancers'='Blood cancers'")] 
+cc.all[bloodcancer==0,
+       shield.group := car::recode(shield.group, "'Specific cancers'='Other specific cancers'")]
+cc.all[, shield.group := factor(shield.group,
+                                levels=c("No risk condition",
+                                         "Moderate risk condition",
+                                         "Solid organ transplant",
+                                         "Blood cancers",
+                                         "Other specific cancers",
+                                         "Severe respiratory",
+                                         "Rare diseases",
+                                         "On immunosuppressants",
+                                         "Additional conditions"))]
+severe.byagevax <- with(cc.all[CASE==1 & casegroup=="A" &
+                             specimen_date >= as.Date("2021-04-01") & specimen_date <= lastdate.cases],
+                      table(agegr20plus5, vax14.factor))
+severe.byagevax.rowsums <- rowSums(severe.byagevax)
+severe.byagevax <- cbind(severe.byagevax, severe.byagevax.rowsums)
+severe.byagevax <- paste.colpercent(severe.byagevax)
+colnames(severe.byagevax)[4] <- "All"
+
+severe.byagerisk <- with(cc.all[CASE==1 & casegroup=="A" &
+                             specimen_date >= as.Date("2021-04-01") & specimen_date <= lastdate.cases],
+                      table(agegr20plus5, listedgr3))
+severe.byagerisk.colsums <- colSums(severe.byagerisk)
+severe.byagerisk <- rbind(severe.byagerisk, severe.byagerisk.colsums)
+severe.byagerisk <- paste.rowpercent(severe.byagerisk)
+rownames(severe.byagerisk)[6] <- "All"
+
+casesnorisk <- cc.all[casegroup=="A" & listedgr3=="No risk condition" & 
+                              specimen_date >= as.Date("2021-04-01") & specimen_date <= lastdate.cases &
+                              age_years < 50] # 91 cases
+
+setkey(casesnorisk, anon_id, specimen_date)
+setkey(cc.diagnoses, anon_id, specimen_date)
+casesnorisk.diagnoses <- cc.diagnoses[casesnorisk]
+
+casesnorisk.chnums <- unique(casesnorisk.diagnoses,
+                                by=c("anon_id", "specimen_date", "chnum"))
+
+chnum.table <- with(casesnorisk.chnums, table(chnum, CASE))
+colnames(chnum.table) <- c("Controls", "Cases")
+chnum.table <- data.table(chnum=as.integer(rownames(chnum.table)),
+                             as.data.frame.matrix(chnum.table))
+chnum.table[, descr := icdchapters$name[as.integer(chnum)]]
+chnum.table[, total := Controls + Cases]
+chnum.table[, Controls := paste0(Controls, " (",
+                                 round(100 * Controls / casesnorisk[CASE==0, .N]),
+                                 "\\%)")]
+chnum.table[, Cases := paste0(Cases, " (",
+                                 round(100 * Cases / casesnorisk[CASE==1, .N]),
+                                 "\\%)")]
+chnum.table[, chnum := as.roman(chnum)]
+chnum.table <- chnum.table[total >= 20, .(chnum, descr, Controls, Cases)]
+
+## 7 with alcohol diagnoses F00
+
+casesnorisk.scrips <- cc.scripsbnf[casesnorisk]
+casesnorisk.scrips[, bnfchnum := substr(bnf_item_code, 1, 2)]
+casesnorisk.bnfchnums <- unique(casesnorisk.scrips, 
+                                by=c("anon_id", "specimen_date", "bnfchnum"))
+bnfchnum.table <- with(casesnorisk.bnfchnums, table(bnfchnum, CASE))
+colnames(bnfchnum.table) <- c("Controls", "Cases")
+bnfchnum.table <- data.table(bnfchnum=as.integer(rownames(bnfchnum.table)),
+                             as.data.frame.matrix(bnfchnum.table))
+bnfchnum.table[, total := Controls + Cases]
+bnfchnum.table[, Controls := paste0(Controls, " (",
+                                 round(100 * Controls / casesnorisk[CASE==0, .N]),
+                                 "\\%)")]
+bnfchnum.table[, Cases := paste0(Cases, " (",
+                                 round(100 * Cases / casesnorisk[CASE==1, .N]),
+                                 "\\%)")]
+bnfchnum.table[, descr := bnfchapters$chaptername[bnfchnum]]
+bnfchnum.table <- bnfchnum.table[total >= 20, .(bnfchnum, descr, Controls, Cases)]
+
+table.numdrugs <- cbind(summary(casesnorisk[CASE==0]$numdrugs),
+                        summary(casesnorisk[CASE==1]$numdrugs))
+colnames(table.numdrugs) <- c("Controls", "Cases")
+
+########################################################
+freqs1.riskgroups <- univariate.tabulate(varnames=c("care.home", "qSIMD.integer", "hh.over18", 
+                                                     "numdrugs", "inpat.recent",
+                                                     "listedgr3", 
+                                                     "vax14.factor"),
+                                        data=cc.all[casegroup=="A" & age_years < 50 & 
+                                                #    care.home=="Independent" & 
+                                                    specimen_date >= as.Date("2021-04-01") & specimen_date <= lastdate.cases],
+                                        drop.reflevel=FALSE)
+freqs2.riskgroups <- univariate.tabulate(varnames=c("care.home", "qSIMD.integer", "hh.over18", 
+                                                     "numdrugs", "inpat.recent",
+                                                     "listedgr3", 
+                                                     "vax14.factor"),
+                                        data=cc.all[casegroup=="A" & age_years >= 50 & 
+                                                #    care.home=="Independent" & 
+                                                    specimen_date >= as.Date("2021-04-01") & specimen_date <= lastdate.cases],
+                                        drop.reflevel=FALSE)
+freqs.riskgroups <- cbind(freqs1.riskgroups, freqs2.riskgroups)
+rownames(freqs.riskgroups) <- replace.names(rownames(freqs.riskgroups))
+
+freqs.vaxgr <- univariate.tabulate(varnames=c("care.home", "qSIMD.integer", "hh.over18", 
+                                                   "numdrugs", "inpat.recent", "shield.group", 
+                                                   "vaxgr"),
+                                        data=cc.all[casegroup=="A" &
+                                               #     care.home=="Independent" & 
+                                                    specimen_date >= as.Date("2020-12-01")],
+                                        drop.reflevel=FALSE)
+rownames(freqs.vaxgr) <- replace.names(rownames(freqs.vaxgr))
+
+
+###############################
+# rate ratios by risk group x dose
+table.riskgr <- summary(clogit(data=cc.all[casegroup=="A" & #care.home=="Independent" & 
+                           specimen_date >= as.Date("2020-12-01")],
+                           formula=CASE ~ care.home + hh.over18 + numdrugs + inpat.recent +
+                               listedgr3/vax14.factor + strata(stratum)))
+table.riskgr <- table.riskgr$coefficients
+effect <- rownames(table.riskgr)
+table.riskgr <- as.data.table(table.riskgr)
+table.riskgr[, rateratio := or.ci(coef, `se(coef)`)]
+table.riskgr[, pvalue := format.pvalue(z, `Pr(>|z|)`)]
+table.riskgr <- table.riskgr[, .(rateratio, pvalue)]
+table.riskgr <- data.table(effect=effect, # freqs.riskgr,
+                               table.riskgr)
+table.riskgr[, effect := gsub("^care.home", "", effect)]
+table.riskgr[, effect := gsub("^listedgr3", "", effect)]
+table.riskgr[, effect := gsub("TRUE$", "", effect)]
+table.riskgr[, effect := gsub(":vax14\\.factor", ": vax dose ", effect)]
+table.riskgr[, effect := replace.names(effect)]
+table.riskgr <- table.riskgr[c(1:6, 7, 10, 8, 11, 9, 12), ]
+
+# rate ratios by shield group x dose
+table.shieldgr <- summary(clogit(data=cc.all[casegroup=="A" & #care.home=="Independent" & 
+                           #specimen_date <= as.Date("2021-03-16") &
+                           specimen_date >= as.Date("2020-12-01")],
+                           formula=CASE ~ care.home + hh.over18 + numdrugs + inpat.recent +
+                               shield.group/vax14.dose + strata(stratum)))
+table.shieldgr <- table.shieldgr$coefficients
+effect <- rownames(table.shieldgr)
+table.shieldgr <- as.data.table(table.shieldgr)
+table.shieldgr[, rateratio := or.ci(coef, `se(coef)`)]
+table.shieldgr[, pvalue := format.pvalue(z, `Pr(>|z|)`)]
+table.shieldgr <- table.shieldgr[, .(rateratio, pvalue)]
+table.shieldgr <- data.table(effect=effect, # freqs.riskgr,
+                               table.shieldgr)
+table.shieldgr[, effect := gsub("^care.home", "", effect)]
+table.shieldgr[, effect := gsub("^shield\\.group", "", effect)]
+table.shieldgr[, effect := gsub("TRUE$", "", effect)]
+table.shieldgr[, effect := gsub(":vax14\\.dose", ": vax dose", effect)]
+table.shieldgr[, effect := replace.names(effect)]
+
+##  rate ratios by risk group x dose-product
+table.vaxgr <- summary(clogit(data=cc.all[casegroup=="A" & #care.home=="Independent" & 
+                           specimen_date >= as.Date("2020-12-01")],
+                           formula=CASE ~ care.home + hh.over18 + numdrugs + inpat.recent +
+                               listedgr3/vaxgr + strata(stratum)))
+table.vaxgr <- table.vaxgr$coefficients
+effect <- rownames(table.vaxgr)
+table.vaxgr <- as.data.table(table.vaxgr)
+table.vaxgr[, rateratio := or.ci(coef, `se(coef)`)]
+table.vaxgr[, pvalue := format.pvalue(z, `Pr(>|z|)`)]
+table.vaxgr <- table.vaxgr[, .(rateratio, pvalue)]
+table.vaxgr <- data.table(effect=effect, # freqs.vaxgr,
+                               table.vaxgr)
+table.vaxgr[, effect := gsub("^care.home", "", effect)]
+table.vaxgr[, effect := gsub("^listedgr3", "", effect)]
+table.vaxgr[, effect := gsub("TRUE$", "", effect)]
+table.vaxgr[, effect := gsub(":vaxgr", ": ", effect)]
+table.vaxgr[, effect := replace.names(effect)]
+table.vaxgr <- table.vaxgr[c(1:6,
+                             7, 13, 10, 16,
+                             8, 14, 11, 17,
+                             9, 15, 12, 18), ]
+
+```
+
+This is an update of a report based on data up to 16 March 2021 that was  [posted](https://f1000research.com/articles/10-663) as a preprint.  This update is based on  data extracted on 28 July 2021.  With this updated dataset we are able to look at the effects of two vaccine doses versus one.  
+
+# Methods 
+This analysis is based on the REACT-SCOT matched case-control study, established at the beginning of the epidemic to investigate risk factors for severe COVID-19 in the population of Scotland [@mckeigue_rapid_2020].  We used this study to take advantage of data linkages already established. The design has been described in detail previously [@mckeigue_rapid_2020]. In brief, for every incident case of COVID-19 in the population ten controls matched for one-year age, sex and primary care practice and alive on the day of presentation of the case that they were matched to were selected using the Community Health Index database.  COVID-19 cases are those with a positive nucleic acid test, or a hospital admission or death with COVID-19 ICD-10 codes. The REACT-SCOT case-control dataset is refreshed regularly and is linked to the vaccination database and to the regularly updated dataset of all individuals deemed eligible for the shielding programme.  This analysis is based on cases presenting from 1 December 2020 to 14 July 2021, so that we have at least 14 days of follow-up for each case.  This allows case severity status (hospitalisation, entry to critical care or death) to be assigned.  
+
+As previously [@mckeigue_rapid_2020], to minimise ascertainment bias we pre-specified the primary outcome measure as severe COVID-19,  defined as diagnosed cases with entry to critical care within 28 days of presentation or fatal outcome (any death within 28 days of a positive test or any death for which COVID-19 was coded as underlying cause).  Cases and controls were classified into three broad risk categories: no risk condition; at least one of the moderate risk conditions designated by public health agencies [@mckeigue_rapid_2020]; or eligible for shielding [@mckeigue_relation_2021].   For further analyses, the shielding category was subdivided as described previously  into six categories: solid organ transplant, specific cancers, severe respiratory conditions, other rare conditions, on immunosuppressants, and additional conditions [@mckeigue_relation_2021].   
+
+Vaccination status was coded as the number of doses administered at least 14 days before presentation date. Vaccine doses administered less than 14 days before presentation date are ignored.  
+
+The effect of vaccination in each of the clinical vulnerability categories was estimated in a conditional logistic regression model (R function `survival::clogit`, package version_3.2-7, R version 3.6.3) fitted to the full dataset, specifying effects \ensuremath{\beta_{R2}, \dots, \beta_{RJ}} for the log rate ratio associated with risk categories 2 to \ensuremath{J} (\ensuremath{\beta_{R1} = 0} for the reference category \ensuremath{J=1}), and nested effects \ensuremath{\beta_{V1}, \dots, \beta_{VJ}} for the log rate ratio associated with vaccination in each of the \ensuremath{J} risk categories. With this incidence density sampling design, the conditional odds ratio is the rate ratio.  The efficacy of vaccination is 1 minus the rate ratio.  The strata in the conditional logistic regression model are matched sets: typically one case and up to 10 controls, but where two cases with the same age, sex and GP practice present on the same day the matched set comprises two cases and up to 20 controls.  When estimating the rate ratio within a risk group such as a shielding category, only cases and controls in that risk group are retained in the matched sets.   Matched sets in which all are vaccinated or none are vaccinated do not contribute to the rate ratio.   The unconditional odds ratios calculated from frequency tables of the vaccination status of cases and controls in each risk group cannot be used to estimate rate ratios [@breslow_estimation_1978;@greenland_need_1982].   The design controls not only for the matching factors of age, sex and general practice but also for calendar time.  Other variables included as covariates in the models had been previously identified as strongly associated with severe COVID-19: care home residence, number of adults in the household, number of distinct drug classes (BNF subparagraph codes) for which prescriptions were dispensed between 15 and 240 days before presentation date, and any hospital in-patient stay from 5 to 14 days before presentation date. 
+
+# Results
+
+Fig \ref{fig:plotcases} shows daily numbers of severe cases (averaged over 3-day sliding windows) by risk category.  
+
+Fig \ref{fig:plotrateratios} shows the time course of rate ratios (computed over 42-day sliding windows) for risk category, vaccination dose (coded as 0, 1, 2 doses), and recent (5 to 14 days before presentation date) hospital exposure as inpatient. 
+
+Table \ref{tab:freqsvaxgr} tabulates risk/shielding group, vaccination status by product, and other risk factors in cases and controls with presentation dates from 1 December 2020 to 14 July 2021. 
+
+Table \ref{tab:freqsriskgroups} tabulates risk factors and vaccination status in cases and controls restricted to presentation dates after March 2021
+
+Table \ref{tab:severeagevax} tabulates severe cases presenting after March 2021 by age group and vaccination status. 
+
+Table \ref{tab:casesnoriskchnums} tabulates severe cases and controls aged under 50 without risk conditions presenting after March 2021 by frequency of ICD-10 chapters represented in hospital discharge diagnostic codes from 5 years to 25 days before presentation date. 
+
+Table \ref{tab:casesnoriskbnfchnums} tabulates severe cases and controls aged under 50 without risk conditions presenting after March 2021 by frequency of BNF chapters represented in prescriptions dispensed from 240 to 15 days before presentation date. 
+
+Table \ref{tab:rateratiosriskgroups} shows rate ratios associated with 1 and 2 vaccine doses (with 0 doses as reference category) in each of the three broad risk categories
+
+Table \ref{tab:rateratiosshieldgroups} shows rate ratios per vaccine dose, by broad risk category and shielding eligibility group
+
+Table \ref{tab:rateratiosvaxgroups} shows rate ratios associated with 1 and 2 doses of each class of vaccine (with 0 doses as reference category) in each of the three broad risk categories. 
+
+Supplementary Tables repeat these tables with the case definition broadened to all hospitalized or fatal cases. 
+
+Table \ref{tab:hospfreqsvaxgr} tabulates risk/shielding group, vaccination status by product, and other risk factors in cases and controls with presentation dates from 1 December 2020 to 14 July 2021. 
+
+Table \ref{tab:hospfreqsriskgroups} tabulates risk factors and vaccination status in cases and controls restricted to presentation dates after March 2021
+
+Table \ref{tab:hosprateratiosriskgroups} shows rate ratios associated with 1 and 2 vaccine doses (with 0 doses as reference category) in each of the three broad risk categories
+
+Table \ref{tab:hosprateratiosshieldgroups} shows rate ratios per vaccine dose, by broad risk category and shielding eligibility group
+
+Table \ref{tab:hosprateratiosvaxgroups} shows rate ratios associated with 1 and 2 doses of each class of vaccine (with 0 doses as reference category) in each of the three broad risk categories. 
+
+
+# Conclusions
+
+To reduce the numbers of severe cases, interventions should focus on 
+
+* delivering two doses of vaccine to everyone aged over 50, and at least one dose to everyone aged 30-49
+
+* protecting clinically extremely vulnerable individuals, especially by preventing nosocomial transmission and support for other adults in the household to avoid exposure. 
+
+To put this in proportion, over 4 months in which there were 122 severe (but mostly non-fatal) cases of COVID-19 in people aged under 50 in Scotland, at current rates there will have been about 400 drug-related deaths in this age group.  
+
+# References
+<div id="refs"></div>
+
+\newpage
+
+```{r plotcases, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.width=6, fig.asp=0.8, fig.cap="\\label{fig:plotcases} Daily severe cases by risk category"}
+
+theme_set(theme_gray(base_size = 10))
+
+p.byelig
+
+```
+
+```{r plotrateratios, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.width=6, fig.asp=0.8, fig.cap="\\label{fig:plotrateratios} Rate ratios by 42-day sliding window. For each time window, the conditional logistic regression model includes all variables shown in the plot, together with care home residence."}
+
+theme_set(theme_gray(base_size = 10))
+
+p.rateratio
+
+```
+
+\newpage
+
+```{r freqsvaxgroups, echo=FALSE, message=FALSE}
+
+knitr::kable(freqs.vaxgr, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="freqsvaxgr",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             caption="Numbers of controls and cases of severe COVID-19 by risk group and vaccine product") %>%
+    add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                         "Number of adults in household coded as 1 for care home residents.", 
+                         "Severe COVID-19 defined as entry to critical care or death within 28 days of presentation.", 
+                         "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                     "Rate ratios estimated in multivariable conditional logistic regression with all variables in model",  
+                        "Number of drugs is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                         "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                         "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+                 notation="none") %>%
+    kableExtra::group_rows("Risk/shielding eligibility group", 6, 14, bold=FALSE) %>% 
+    kableExtra::group_rows("Vaccination status", 15, 19, bold=FALSE) %>% 
+    column_spec(1, width="5cm") %>%
+    column_spec(2, width="4cm") %>%
+    column_spec(3, width="3cm") %>%
+   kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+```{r freqsriskgroups, echo=FALSE, message=FALSE}
+knitr::kable(freqs.riskgroups, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="freqsriskgroups",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             caption="Numbers of controls and cases of severe COVID-19 after March 2021 by risk group and vaccination status") %>%
+    add_header_above(c(" "=1, "Age 0-49 years"=2, "Age 50 years and over"=2)) %>%
+    add_footnote(label=c("Presentation dates from 1 April 2021 to 14 July 2021.",
+                         "Number of adults in household coded as 1 for care home residents.", 
+                         "Severe COVID-19 defined as entry to critical care or death within 28 days of presentation.", 
+                         "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                         "Number of drug classes is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                         "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                         "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+                 notation="none") %>%
+    kableExtra::group_rows("Vaccination status", 9, 11, bold=FALSE) %>% 
+    column_spec(1, width="6cm") %>%
+    column_spec(2, width="3cm") %>%
+    column_spec(3, width="2.5cm") %>%
+    column_spec(4, width="3cm") %>%
+    column_spec(5, width="2.5cm") %>%
+   kable_styling(latex_options=c("HOLD_position", "scale_down")) 
+
+```
+
+
+```{r severebyagevax, echo=FALSE, message=FALSE}
+
+knitr::kable(severe.byagevax, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="severeagevax",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             caption="Severe cases after March 2021 by age group and vaccination status") %>%
+        add_header_above(c("Age group"=1, "Vaccine doses"=3)) %>%
+
+    kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+
+```{r casesnoriskchnums, echo=FALSE, message=FALSE}
+
+knitr::kable(chnum.table, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="casesnoriskchnums",
+             row.names=FALSE, 
+			 align=c('r', 'l', 'r', 'r'), 
+             caption="Severe cases and controls aged under 50 without risk conditions presenting after March 2021: ICD-10 chapters represented at least once in discharge diagnoses  from 5 years to 25 days before presentation date") %>%
+    column_spec(2, width="7cm") %>%
+    add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                         "Table filtered to retain only ICD-10 chapters represented by at least 20 individuals.",
+                         "The most frequent ICD subchapter in cases was F00 (alcohol-related disorders): 7 cases."),
+                             notation="none") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+
+```{r casesnoriskbnfchnums, echo=FALSE, message=FALSE}
+
+knitr::kable(bnfchnum.table, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="casesnoriskbnfchnums",
+             row.names=FALSE, 
+			 align=c('r', 'l', 'r', 'r'), 
+             caption="Severe cases and controls aged under 50 without risk conditions presenting after March 2021: BNF chapters represented at least once in prescriptions dispensed during 240 to 15 days before presentation date") %>%
+    column_spec(2, width="7cm") %>%
+    add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                         "Table filtered to retain only BNF chapters represented by at least 20 individuals."),
+                             notation="none") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+
+```{r rateratiosriskgroups, echo=FALSE, message=FALSE}
+
+knitr::kable(table.riskgr, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="rateratiosriskgroups",
+             row.names=FALSE,
+             col.names=c("Effect", "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"),
+			 align=c('l', 'c', 'c'), 
+             caption="Rate ratios for severe COVID-19 nested within risk groups: vaccine dose as categoric variable with unvaccinated as reference category") %>%
+    kableExtra::group_rows("No risk condition, unvaccinated as reference category", 7, 8, bold=FALSE) %>% 
+    kableExtra::group_rows("Moderate risk condition, unvaccinated as reference category", 9, 10, bold=FALSE)  %>% 
+    kableExtra::group_rows("Eligible for shielding, unvaccinated as reference category", 11, 12, bold=FALSE)  %>% 
+    add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                         "Number of adults in household coded as 1 for care home residents.", 
+                         "Severe COVID-19 defined as entry to critical care or death within 28 days of presentation.", 
+                         "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                         "Rate ratios estimated in multivariable conditional logistic regression with all variables in model",  
+                         "Number of drug classes is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                         "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                         "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+                 notation="none") %>%
+    column_spec(1, width="6cm") %>%
+    column_spec(2, width="4cm") %>%
+    column_spec(3, width="3cm") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+
+
+```{r rateratiosshieldgroups, echo=FALSE, message=FALSE}
+
+knitr::kable(table.shieldgr, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="rateratiosshieldgroups",
+             row.names=FALSE,
+             col.names=c("Effect", "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"),
+			 align=c('l', 'c', 'c'), 
+             caption="Rate ratios for severe COVID-19 nested within shielding eligibility groups: vaccine dose encoded as numeric variable taking values 0, 1, 2") %>%
+    kableExtra::group_rows("Risk / shielding eligibility group, no risk condition as reference category", 5, 12, bold=FALSE) %>% 
+    kableExtra::group_rows("Vaccine effect as rate ratio per dose", 13, 20, bold=FALSE)  %>% 
+add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                     "Number of adults in household coded as 1 for care home residents.", 
+                     "Severe COVID-19 defined as entry to critical care or death within 28 days of presentation.", 
+                     "Controls matched for age, sex, and primary care practice on date of presentation of case.",
+                     "Rate ratios estimated in multivariable conditional logistic regression with all variables in model",  
+                     "Number of drug classes is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                     "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                     "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+             notation="none") %>%
+    column_spec(1, width="8cm") %>%
+column_spec(2, width="4cm") %>%
+column_spec(3, width="3cm") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+
+```{r rateratiosvaxgroups, echo=FALSE, message=FALSE}
+
+knitr::kable(table.vaxgr, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="rateratiosvaxgroups",
+             row.names=FALSE,
+             col.names=c("Effect", "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"),
+			 align=c('l', 'c', 'c'), 
+             caption="Rate ratios for severe COVID-19 nested within risk groups: vaccine dose and product encoded as categoric variable with unvaccinated as reference category") %>%
+    kableExtra::group_rows("No risk condition, unvaccinated as reference category", 7, 10, bold=FALSE) %>% 
+    kableExtra::group_rows("Moderate risk condition, unvaccinated as reference category", 11, 14, bold=FALSE)  %>% 
+    kableExtra::group_rows("Eligible for shielding, unvaccinated as reference category", 15, 18, bold=FALSE)  %>% 
+add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                     "Number of adults in household coded as 1 for care home residents.", 
+                     "Severe COVID-19 defined as entry to critical care or death within 28 days of presentation.", 
+                     "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                     "Number of drug classes is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                     "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                     "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+             notation="none") %>%
+    column_spec(1, width="8cm") %>%
+column_spec(2, width="4cm") %>%
+column_spec(3, width="3cm") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+\newpage
+
+# Supplementary Tables
+\beginsupplement
+
+
+```{r hosp, echo=FALSE, messsage=FALSE} 
+
+########################################################
+freqs1.riskgroups <- univariate.tabulate(varnames=c("care.home", "qSIMD.integer", "hh.over18", 
+                                                     "numdrugs", "inpat.recent",
+                                                     "listedgr3", 
+                                                     "vax14.factor"),
+                                        data=cc.all[(casegroup=="A" | casegroup=="B") & age_years < 50 & 
+                                                #    care.home=="Independent" & 
+                                                    specimen_date >= as.Date("2021-04-01") & specimen_date <= lastdate.cases],
+                                        drop.reflevel=FALSE)
+freqs2.riskgroups <- univariate.tabulate(varnames=c("care.home", "qSIMD.integer", "hh.over18", 
+                                                     "numdrugs", "inpat.recent",
+                                                     "listedgr3", 
+                                                     "vax14.factor"),
+                                        data=cc.all[(casegroup=="A" | casegroup=="B") & age_years >= 50 & 
+                                                #    care.home=="Independent" & 
+                                                    specimen_date >= as.Date("2021-04-01") & specimen_date <= lastdate.cases],
+                                        drop.reflevel=FALSE)
+freqs.riskgroups <- cbind(freqs1.riskgroups, freqs2.riskgroups)
+rownames(freqs.riskgroups) <- replace.names(rownames(freqs.riskgroups))
+
+freqs.vaxgr <- univariate.tabulate(varnames=c("care.home", "qSIMD.integer", "hh.over18", 
+                                                   "numdrugs", "inpat.recent", "shield.group", 
+                                                   "vaxgr"),
+                                        data=cc.all[(casegroup=="A" | casegroup=="B") &
+                                               #     care.home=="Independent" & 
+                                                    specimen_date >= as.Date("2020-12-01")],
+                                        drop.reflevel=FALSE)
+rownames(freqs.vaxgr) <- replace.names(rownames(freqs.vaxgr))
+
+
+###############################
+# rate ratios by risk group x dose
+table.riskgr <- summary(clogit(data=cc.all[(casegroup=="A" | casegroup=="B") & #care.home=="Independent" & 
+                           specimen_date >= as.Date("2020-12-01")],
+                           formula=CASE ~ care.home + hh.over18 + numdrugs + inpat.recent +
+                               listedgr3/vax14.factor + strata(stratum)))
+table.riskgr <- table.riskgr$coefficients
+effect <- rownames(table.riskgr)
+table.riskgr <- as.data.table(table.riskgr)
+table.riskgr[, rateratio := or.ci(coef, `se(coef)`)]
+table.riskgr[, pvalue := format.pvalue(z, `Pr(>|z|)`)]
+table.riskgr <- table.riskgr[, .(rateratio, pvalue)]
+table.riskgr <- data.table(effect=effect, # freqs.riskgr,
+                               table.riskgr)
+table.riskgr[, effect := gsub("^care.home", "", effect)]
+table.riskgr[, effect := gsub("^listedgr3", "", effect)]
+table.riskgr[, effect := gsub("TRUE$", "", effect)]
+table.riskgr[, effect := gsub(":vax14\\.factor", ": vax dose ", effect)]
+table.riskgr[, effect := replace.names(effect)]
+table.riskgr <- table.riskgr[c(1:6, 7, 10, 8, 11, 9, 12), ]
+
+# rate ratios by shield group x dose
+table.shieldgr <- summary(clogit(data=cc.all[(casegroup=="A" | casegroup=="B") & #care.home=="Independent" & 
+                           #specimen_date <= as.Date("2021-03-16") &
+                           specimen_date >= as.Date("2020-12-01")],
+                           formula=CASE ~ care.home + hh.over18 + numdrugs + inpat.recent +
+                               shield.group/vax14.dose + strata(stratum)))
+table.shieldgr <- table.shieldgr$coefficients
+effect <- rownames(table.shieldgr)
+table.shieldgr <- as.data.table(table.shieldgr)
+table.shieldgr[, rateratio := or.ci(coef, `se(coef)`)]
+table.shieldgr[, pvalue := format.pvalue(z, `Pr(>|z|)`)]
+table.shieldgr <- table.shieldgr[, .(rateratio, pvalue)]
+table.shieldgr <- data.table(effect=effect, # freqs.riskgr,
+                               table.shieldgr)
+table.shieldgr[, effect := gsub("^care.home", "", effect)]
+table.shieldgr[, effect := gsub("^shield\\.group", "", effect)]
+table.shieldgr[, effect := gsub("TRUE$", "", effect)]
+table.shieldgr[, effect := gsub(":vax14\\.dose", ": vax dose", effect)]
+table.shieldgr[, effect := replace.names(effect)]
+
+##  rate ratios by risk group x dose-product
+table.vaxgr <- summary(clogit(data=cc.all[(casegroup=="A" | casegroup=="B") & #care.home=="Independent" & 
+                           specimen_date >= as.Date("2020-12-01")],
+                           formula=CASE ~ care.home + hh.over18 + numdrugs + inpat.recent +
+                               listedgr3/vaxgr + strata(stratum)))
+table.vaxgr <- table.vaxgr$coefficients
+effect <- rownames(table.vaxgr)
+table.vaxgr <- as.data.table(table.vaxgr)
+table.vaxgr[, rateratio := or.ci(coef, `se(coef)`)]
+table.vaxgr[, pvalue := format.pvalue(z, `Pr(>|z|)`)]
+table.vaxgr <- table.vaxgr[, .(rateratio, pvalue)]
+table.vaxgr <- data.table(effect=effect, # freqs.vaxgr,
+                               table.vaxgr)
+table.vaxgr[, effect := gsub("^care.home", "", effect)]
+table.vaxgr[, effect := gsub("^listedgr3", "", effect)]
+table.vaxgr[, effect := gsub("TRUE$", "", effect)]
+table.vaxgr[, effect := gsub(":vaxgr", ": ", effect)]
+table.vaxgr[, effect := replace.names(effect)]
+table.vaxgr <- table.vaxgr[c(1:6,
+                             7, 13, 10, 16,
+                             8, 14, 11, 17,
+                             9, 15, 12, 18), ]
+
+```
+
+
+```{r hospfreqsvaxgroups, echo=FALSE, message=FALSE}
+
+knitr::kable(freqs.vaxgr, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="hospfreqsvaxgr",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             caption="Numbers of controls and cases of hospitalized or fatal COVID-19 by risk group and vaccine product") %>%
+    add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                         "Number of adults in household coded as 1 for care home residents.", 
+                         "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                     "Rate ratios estimated in multivariable conditional logistic regression with all variables in model",  
+                        "Number of drugs is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                         "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                         "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+                 notation="none") %>%
+    kableExtra::group_rows("Risk/shielding eligibility group", 6, 13, bold=FALSE) %>% 
+    kableExtra::group_rows("Vaccination status", 14, 18, bold=FALSE) %>% 
+    column_spec(1, width="5cm") %>%
+    column_spec(2, width="4cm") %>%
+    column_spec(3, width="3cm") %>%
+   kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+```{r hospfreqsriskgroups, echo=FALSE, message=FALSE}
+knitr::kable(freqs.riskgroups, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="hospfreqsriskgroups",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             caption="Numbers of controls and cases of hospitalized or fatal COVID-19 after March 2021 by risk group and vaccination status") %>%
+    add_header_above(c(" "=1, "Age 0-49 years"=2, "Age 50 years and over"=2)) %>%
+    add_footnote(label=c("Presentation dates from 1 April 2021 to 14 July 2021.",
+                         "Number of adults in household coded as 1 for care home residents.", 
+                         "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                         "Number of drug classes is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                         "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                         "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+                 notation="none") %>%
+    kableExtra::group_rows("Vaccination status", 9, 11, bold=FALSE) %>% 
+    column_spec(1, width="6cm") %>%
+    column_spec(2, width="3cm") %>%
+    column_spec(3, width="2.5cm") %>%
+    column_spec(4, width="3cm") %>%
+    column_spec(5, width="2.5cm") %>%
+   kable_styling(latex_options=c("HOLD_position", "scale_down")) 
+
+```
+
+
+```{r hosprateratiosriskgroups, echo=FALSE, message=FALSE}
+
+knitr::kable(table.riskgr, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="hosprateratiosriskgroups",
+             row.names=FALSE,
+             col.names=c("Effect", "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"),
+			 align=c('l', 'c', 'c'), 
+             caption="Rate ratios for hospitalized or fatal COVID-19 nested within risk groups: vaccine dose as categoric variable with unvaccinated as reference category") %>%
+    kableExtra::group_rows("No risk condition, unvaccinated as reference category", 7, 8, bold=FALSE) %>% 
+    kableExtra::group_rows("Moderate risk condition, unvaccinated as reference category", 9, 10, bold=FALSE)  %>% 
+    kableExtra::group_rows("Eligible for shielding, unvaccinated as reference category", 11, 12, bold=FALSE)  %>% 
+add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                     "Number of adults in household coded as 1 for care home residents.", 
+                     "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                     "Rate ratios estimated in multivariable conditional logistic regression with all variables in model",  
+                     "Number of drug classes is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                     "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                     "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+             notation="none") %>%
+    column_spec(1, width="6cm") %>%
+column_spec(2, width="4cm") %>%
+column_spec(3, width="3cm") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+```{r hosprateratiosshieldgroups, echo=FALSE, message=FALSE}
+
+knitr::kable(table.shieldgr, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="hosprateratiosshieldgroups",
+             row.names=FALSE,
+             col.names=c("Effect", "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"),
+			 align=c('l', 'c', 'c'), 
+             caption="Rate ratios for hospitalized or fatal COVID-19 nested within shielding eligibility groups: vaccine dose encoded as numeric variable taking values 0, 1, 2") %>%
+    kableExtra::group_rows("Risk / shielding eligibility group, no risk condition as reference category", 5, 12, bold=FALSE) %>% 
+    kableExtra::group_rows("Vaccine effect as rate ratio per dose", 13, 20, bold=FALSE)  %>% 
+add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                     "Number of adults in household coded as 1 for care home residents.", 
+                     "Controls matched for age, sex, and primary care practice on date of presentation of case.",
+                     "Rate ratios estimated in multivariable conditional logistic regression with all variables in model",  
+                     "Number of drug classes is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                     "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                     "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+             notation="none") %>%
+    column_spec(1, width="8cm") %>%
+column_spec(2, width="4cm") %>%
+column_spec(3, width="3cm") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+```{r hosprateratiosvaxgroups, echo=FALSE, message=FALSE}
+
+knitr::kable(table.vaxgr, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="hosprateratiosvaxgroups",
+             row.names=FALSE,
+             col.names=c("Effect", "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"),
+			 align=c('l', 'c', 'c'), 
+             caption="Rate ratios for hospitalized or fatal COVID-19 nested within risk groups: vaccine dose and product encoded as categoric variable with unvaccinated as reference category") %>%
+    kableExtra::group_rows("No risk condition, unvaccinated as reference category", 7, 10, bold=FALSE) %>% 
+    kableExtra::group_rows("Moderate risk condition, unvaccinated as reference category", 11, 14, bold=FALSE)  %>% 
+    kableExtra::group_rows("Eligible for shielding, unvaccinated as reference category", 15, 18, bold=FALSE)  %>% 
+add_footnote(label=c("Presentation dates from 1 December 2020 to 14 July 2021.",
+                     "Number of adults in household coded as 1 for care home residents.", 
+                     "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                     "Number of drug classes is number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.", 
+                     "Recent hospital stay is any in-patient stay from 5 to 14 days before presentation date.", 
+                     "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+             notation="none") %>%
+    column_spec(1, width="8cm") %>%
+column_spec(2, width="4cm") %>%
+column_spec(3, width="3cm") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+
+```

@@ -271,10 +271,10 @@ vacc[, vaxdate := as.Date(vaxdate)]
 vacc <- vacc[, .(anon_id, vacc_dose_number, vaxdate, vacc_product_name,
                      vacc_batch_number)]
 setkey(vacc, anon_id, vacc_dose_number) 
-vacc <- unique(vacc, by=key(vacc)) # https://riptutorial.com/data-table/example/26336/unique-and-duplicated-no-longer-works-on-keyed-data-table
+vacc <- unique(vacc, by=key(vacc))
 vacc.wide <- dcast(vacc, anon_id ~ vacc_dose_number,
-                         value.var=c("vaxdate", "vacc_product_name",
-                                     "vacc_batch_number"))
+                   value.var=c("vaxdate", "vacc_product_name",
+                               "vacc_batch_number"))
                        # fun.aggregate=toString)
 rm(vacc)
 
@@ -317,12 +317,12 @@ cc.all[, vaxgr := car::recode(vaxgr,
                                        3='1 dose AZ vaccine';
                                        4='2 doses mRNA vaccine';
                                        5='2 doses AZ vaccine'",
-                                    as.factor=TRUE,
-                                    levels=c("Not vaccinated", 
-                                             "1 dose mRNA vaccine", 
-                                             "1 dose AZ vaccine", 
-                                             "2 doses mRNA vaccine", 
-                                             "2 doses AZ vaccine"))]
+                              as.factor=TRUE,
+                              levels=c("Not vaccinated", 
+                                       "1 dose mRNA vaccine", 
+                                       "1 dose AZ vaccine", 
+                                       "2 doses mRNA vaccine", 
+                                       "2 doses AZ vaccine"))]
 
 #######################################################################################
     
@@ -992,45 +992,28 @@ cc.all[, ethnic4.smr := factor(ethnic4.smr,
 
 setkey(cc.all, anon_id, specimen_date)
 ######################################################
+rm(outpat.timewin)
+rm(cc.recentsmr00)
+rm(procedures)
+rm(cc.nexthosp)
+rm(smr04)
+rm(casegroups)
+rm(teach)
+rm(num.casectrl.strata)
+rm(households.multicase)
+rm(sicsag)
+rm(rapid.timewin)
+rm(cc.recentdaycases)
+
 
 gc()
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
 #################### import shielding data ####
-source("shieldlist.R")
 
-shielded.full <- fread(shielding.full.filename)
-setkey(shielded.full, anon_id)
-setnames(shielded.full, "group", "shield.group", skip_absent=TRUE)
-setnames(shielded.full, "batch", "shield.batch", skip_absent=TRUE)
-setnames(shielded.full, "age", "age_years", skip_absent=TRUE)
-shielded.full[, sex := as.factor(car::recode(sex, "1='Male'; 2='Female'"))]
-setkey(shielded.full, shield.batch)
-shielded.full <- batches[shielded.full]
-shielded.full[, removal := nchar(removal)]
-
-shielded.full[, shield.group := car::recode(shield.group,
-                                                "1='Solid organ transplant';
-                                      2='Specific cancers';
-                                      3='Severe respiratory';
-                                      4='Rare diseases';
-                                      5='On immunosuppressants';
-                                      6='Pregnant with heart disease';
-                                      7='Additional conditions'",
-                                      as.factor=TRUE,
-                                      levels=c(
-                                          "Solid organ transplant",
-                                         "Specific cancers",
-                                         "Severe respiratory",
-                                         "Rare diseases",
-                                         "On immunosuppressants",
-                                         "Pregnant with heart disease",
-                                         "Additional conditions"
-                                     ))]
-## remove obvious wrong assignments
-shielded.full <- shielded.full[!(shield.group == "Pregnant with heart disease" &
-                                 (sex=="Male" | age_years > 55))]
+source("shieldlist.R", verbose=TRUE)
+rm(cases)
 
 ## left join of cc.all with subset of shielded.full in which anon_id is nonmissing
 setkey(shielded.full, anon_id)
@@ -1040,7 +1023,7 @@ cc.all <- shielded.full[, .(anon_id, shield.batch, Date.Sent,
 cc.all[, shield.any := as.factor(!is.na(shield.group))]
 cc.all[is.na(shield.group), shield.group := "Ineligible for shielding"]
 cc.all[, shieldelig.group := car::recode(shield.group,
-                                          "'Pregnant with heartdisease'='Additional conditions'",
+                                          "'Pregnant with heart disease'='Additional conditions'",
                                           as.factor=TRUE,
                                           levels=c(
                                               "Ineligible for shielding",
@@ -1055,27 +1038,6 @@ cc.all[, shieldelig.group := car::recode(shield.group,
 cc.all[is.na(shield.batch), shield.batch := 0]
 cc.all[, shield.batch := as.factor(shield.batch)]
 
-## import case status into shielded.full
-
-cases <- cc.all[CASE==1, .(anon_id, casegr, casegr2, casegr3)]
-setkey(cases, anon_id)
-shielded.full <- cases[shielded.full]
-
-shielded.full[, casegr := as.character(casegr)]
-shielded.full[is.na(casegr), casegr := "Not diagnosed as case"]
-shielded.full[, casegr := factor(casegr, levels=c("Not diagnosed as case",
-                                                  levels(cc.all$casegr)))]
-shielded.full[, casegr2 := as.character(casegr2)]
-shielded.full[is.na(casegr2), casegr2 := "Not diagnosed as case"]
-shielded.full[, casegr2 := factor(casegr2, levels=c("Not diagnosed as case",
-                                                    levels(cc.all$casegr2)))]
-shielded.full[, casegr3 := as.character(casegr3)]
-shielded.full[is.na(casegr3), casegr3 := "Not diagnosed as case"]
-shielded.full[, casegr3 := factor(casegr3, levels=c("Not diagnosed as case",
-                                                    levels(cc.all$casegr3)))]
-shielded.full[, agegr20 := as.factor(car::recode(as.integer(age_years),
-                                                     "0:39='0-39'; 40:59='40-59';
-                               60:74='60-74'; 75:hi='75 or more'"))]
 
 ## rm(controls.deceased)
 

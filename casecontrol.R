@@ -192,27 +192,21 @@ if(!controls) { # cases only
     cc.all[, CASE := as.integer(is_case)]
     cc.all[, stratum := as.integer(stratum)]
 }
-cc.all[CASE==1, testpositive.case := diag_case==0 & cod_case==0]
 
 ## include cases ascertained through discharge diagnosis
-    ## case ascertainment uses three sources in order:
-    ##   test positives, discharge diagnoses, death certs
-    ## is.case is defined to assign case status
-    ## diag.case is a 0-1 variable encoding cases ascertained through discharge diagnosis
-    ## cod.case encodes ascertainment through death cert
-with(cc.all, table(is_case, cod_case)) # 137 have is_case==false and cod_case==1
-with(cc.all, table(is_case, diag_case)) # 74 have is.fase==false and diag_case==1 and is_case==0
-#with(cc.all[diag_case==1 & cod_case==0],
-#     table(icu + hdu > 0, !is.na(date_of_death))) # 4 cases ascertained through discharge diagnosis were not in critical care and have a death certificate with no mention of COVID.
-## Sharon & Jen have assigned these a dummy specimen date 7 days before date of admission
-## we reconstruct the date of admission as 7 days after the specimen date,
-## then code as severe if the date of death was within 28 days of admission.
+## case ascertainment uses three sources in order:
+## test positives, discharge diagnoses, death certs
+## is.case is defined to assign case status
+## diag_case is a 0-1 variable encoding cases ascertained through discharge diagnosis
+## these cases are assigned a dummy specimen date 7 days before date of admission
+## cod_case encodes ascertainment through death cert
+## testpositive.case is assigned by exclusion
+cc.all[CASE==1, testpositive.case := diag_case==0 & cod_case==0]
+with(cc.all[CASE==1], table(testpositive.case, cod_case))
+with(cc.all[CASE==1], table(testpositive.case, diag_case))
 
 cc.all[age_years < 0, age_years := 0]
 
-#cc.all[is.na(Prisoner_Flag), Prisoner_Flag := FALSE]
-## all cases not ascertained through diag or cod must be testpositive cases
-## 3052 cases not testpositive cases
 cc.all[, region := factor(car::recode(hb2019name, # NUTS 2 classification, but West Central should include North Lanarkshire
                                       recode=
                              "c('NHS Fife', 'NHS Lothian', 'NHS Tayside', 'NHS Forth Valley')='Eastern';
@@ -419,13 +413,16 @@ rapid <- RDStodt(rapid.filename, keyname="anon_id")
 setnames(rapid, "admission_date", "AdmissionDate.rapid", skip_absent=TRUE)
 setnames(rapid, "discharge_date", "DischargeDate.rapid", skip_absent=TRUE)
 lastdate.rapid <- max(c(rapid$AdmissionDate.rapid, rapid$DischargeDate.rapid), na.rm=TRUE) 
-rapid[is.na(DischargeDate.rapid), DischargeDate := lastdate.rapid]
+rapid[is.na(DischargeDate.rapid), DischargeDate.rapid := lastdate.rapid]
 rapid[, joindate := AdmissionDate.rapid]
 setkey(rapid, anon_id, joindate)
 setkey(cc.specimendate, anon_id, joindate)
 
 ## left join of cc.specimendate with next admission date in rapid
 ## so roll backwards up to 28 days from admission date
+## variable AdmissionDate.rapid is the first admission date within 28 days
+## variable daystoadmission is the number of days from specimen date to admission 
+## excludes admission dates before specimen date 
 cc.nexthosp <- rapid[cc.specimendate, roll=-28] # roll backwards from admission date
 ## retain only records for which an admission date after specimendate was found in rapid
 cc.nexthosp <- cc.nexthosp[!is.na(AdmissionDate.rapid)]
@@ -445,6 +442,67 @@ cc.all[censoringdays.admission < 0, censoringdays.admission := 0]
 
 cc.all[, adm.within14 := as.integer(!is.na(daystoadmission) & daystoadmission <= 14)] 
 cc.all[, adm.within28 := as.integer(!is.na(daystoadmission) & daystoadmission <= 28)]
+
+##########################################################
+## we want specimen dates that are within interval from admission to discharge in rapid
+## x table is cc.specimendate, y table is rapid, type="within"
+
+setkey(cc.specimendate, anon_id, specimen_date, joindate)
+setkey(rapid, anon_id, AdmissionDate.rapid, DischargeDate.rapid)
+
+cc.inhosp <- foverlaps(cc.specimendate[, .(anon_id, specimen_date, joindate)],
+                          rapid[, .(anon_id, AdmissionDate.rapid, DischargeDate.rapid)],
+                          type="within", nomatch=NULL)
+cc.inhosp[, admission.daysbefore := as.integer(specimen_date - AdmissionDate.rapid)]
+## define variable inhosp: tested positive on or after admission date and before discharge date
+cc.inhosp[, inhosp := as.integer(admission.daysbefore >= 0 &
+                                 as.integer(DischargeDate.rapid - specimen_date) > 1)]
+
+## ECDC definitions
+## definite hcai: admission.daysbefore >= 15 AND discharge.daysbefore < 0
+## probable hcai: admission.daysbefore >= 8 AND discharge.daysbefore <= 14
+## indeterminate hcai: admission.daysbefore >=3 AND discharge.daysbefore < 0
+
+## PHE / LSHTM definition
+## Community-Onset Suspected Healthcare-Associated (COSHA)
+## admission.daysbefore >= -2 AND discharge.daysbefore <= 14
+
+## our definition
+## these definitions are mutually exclusive so can be coded as a categoric variable with 0 = no hcai
+## definite hcai: admission.daysbefore >= 15 AND discharge.daysbefore < 0
+## probable hcai: admission.daysbefore >= 8 AND discharge.daysbefore < 0
+## indeterminate hcai: admission.daysbefore >=3 AND discharge.daysbefore < 0
+
+cc.inhosp[, hcai := car::recode(admission.daysbefore,
+                           "0:2='Non-hospital onset'; 3:7='Indeterminate'; 8:14='Probable'; 15:hi='Definite'",
+                           as.factor=TRUE,
+                           levels=c("Definite", "Probable", "Indeterminate", "Non-hospital onset"))] ## ordering
+setorder(cc.inhosp, -hcai) ## order so that most definite code for hcai is first
+cc.hcai <- unique(cc.inhosp, by=c("anon_id", "specimen_date"))
+## reorder levels now that we have retained most definite code
+cc.hcai[, hcai := factor(hcai, levels=levels(hcai)[4:1])]
+
+setkey(cc.hcai, anon_id, specimen_date)
+print(nrow(cc.hcai[cc.all]))
+cc.all <- cc.hcai[cc.all]
+rm(cc.hcai)
+cc.all[is.na(hcai), hcai := "Community onset"]
+cc.all[, hcai := factor(hcai,
+                               levels=c("Community onset",
+                                        "Non-hospital onset", 
+                                        "Indeterminate",
+                                        "Probable", 
+                                        "Definite"))]
+cc.all[, prob.hcai := hcai == "Probable" | hcai =="Definite"]
+print(nrow(cc.all))
+
+cc.inhosp <- unique(cc.inhosp[inhosp==1, .(anon_id, specimen_date, inhosp)])
+setkey(cc.inhosp, anon_id, specimen_date)
+print(nrow(cc.inhosp[cc.all]))
+cc.all <- cc.inhosp[cc.all]
+
+rm(cc.inhosp)
+setnafill(cc.all, cols="inhosp", fill=0)
 
 #################################################
 
@@ -550,7 +608,7 @@ rapid.timewin <- timewin.admissions(rapid)
 setnames(rapid.timewin, "timewingr", "rapid.timewingr")
 setkey(rapid.timewin, anon_id, specimen_date)
 cc.all <- rapid.timewin[cc.all]
-
+rm(rapid)
 #######################################################
 
 cc.all[, daycase.recent := as.logical(daycase.timewingr=="Recent TW only" | daycase.timewingr=="Both TWs")]
@@ -569,67 +627,6 @@ cc.all[, hosp.recent := daycase.recent | disch.recent | rapid.recent | psych.rec
 cc.all[, inpat.recent := disch.recent | rapid.recent | psych.recent]
 
 #########################################################
-
-
-## ECDPC definitions
-## definite hcai: admission.daysbefore >= 15 AND discharge.daysbefore < 0
-## probable hcai: admission.daysbefore >= 8 AND discharge.daysbefore <= 14
-## indeterminate hcai: admission.daysbefore >=3 AND discharge.daysbefore < 0
-
-## PHE / LSHTM definition
-## Community-Onset Suspected Healthcare-Associated (COSHA)
-## admission.daysbefore >= -2 AND discharge.daysbefore <= 14
-
-## our definition
-## these definitions are mutually exclusive so can be coded as a categoric variable with 0 = no hcai
-## definite hcai: admission.daysbefore >= 15 AND discharge.daysbefore < 0
-## probable hcai: admission.daysbefore >= 8 AND discharge.daysbefore < 0
-## indeterminate hcai: admission.daysbefore >=3 AND discharge.daysbefore < 0
-
-## we want specimen dates that are within interval from admission to discharge in rapid
-## x table is cc.specimendate, y table is rapid, type="within"
-
-setkey(cc.specimendate, anon_id, specimen_date, joindate)
-setkey(rapid, anon_id, admissiondate, dischargedate)
-cc.inhosp <- foverlaps(cc.specimendate[, .(anon_id, specimen_date, joindate)],
-                          rapid[, .(anon_id, admissiondate, dischargedate)],
-                          type="within", nomatch=NULL)
-cc.inhosp[, admission.daysbefore := as.integer(specimen_date - admissiondate)]
-## define variable inhosp: tested positive on or after admission date and before discharge date
-cc.inhosp[, inhosp := as.integer(admission.daysbefore >= 0 &
-                                 as.integer(dischargedate - specimen_date) > 1)]
-cc.inhosp[, hcai := car::recode(admission.daysbefore,
-                           "0:2='Non-hospital onset'; 3:7='Indeterminate'; 8:14='Probable'; 15:hi='Definite'",
-                           as.factor=TRUE,
-                           levels=c("Definite", "Probable", "Indeterminate", "Non-hospital onset"))] ## ordering
-setorder(cc.inhosp, -hcai) ## order so that most definite code for hcai is first
-cc.hcai <- unique(cc.inhosp, by=c("anon_id", "specimen_date"))
-## reorder levels now that we have retained most definite code
-cc.hcai[, hcai := factor(hcai, levels=levels(hcai)[4:1])]
-
-setkey(cc.hcai, anon_id, specimen_date)
-print(nrow(cc.hcai[cc.all]))
-cc.all <- cc.hcai[cc.all]
-rm(cc.hcai)
-rm(rapid)
-cc.all[is.na(hcai), hcai := "Community onset"]
-cc.all[, hcai := factor(hcai,
-                               levels=c("Community onset",
-                                        "Non-hospital onset", 
-                                        "Indeterminate",
-                                        "Probable", 
-                                        "Definite"))]
-cc.all[, prob.hcai := hcai == "Probable" | hcai =="Definite"]
-print(nrow(cc.all))
-
-
-cc.inhosp <- unique(cc.inhosp[inhosp==1, .(anon_id, specimen_date, inhosp)])
-setkey(cc.inhosp, anon_id, specimen_date)
-print(nrow(cc.inhosp[cc.all]))
-cc.all <- cc.inhosp[cc.all]
-rm(cc.inhosp)
-setnafill(cc.all, cols="inhosp", fill=0)
-
 #####################################################
 
 source("icdchapters.R")
@@ -728,23 +725,25 @@ cc.all[, exp.group := factor(exp.group,
 
 ## merge SICSAG data and overwrite icu and hdu values incorrectly coded 0
 sicsag <- RDStodt(sicsag.filename, keyname="anon_id")
-sicsag[, admit_hosp := as.Date(admit_hosp)]
-sicsag[, admit_unit := as.Date(admit_unit)]
+setnames(sicsag, "admit_hosp", "date.admit_hosp")
+setnames(sicsag, "admit_unit", "date.admit_unit")
+sicsag[, date.admit_hosp := as.Date(date.admit_hosp)]
+sicsag[, date.admit_unit := as.Date(date.admit_unit)]
 sicsag[, disc_date := as.Date(disc_date)]
 sicsag[date_disc_hosp=="", date_disc_hosp := NA]
 sicsag[, date_disc_hosp := as.Date(date_disc_hosp)]
 ## get first and last date of entry in SICSAG table 
-mindate.sicsag <- min(sicsag$admit_unit, na.rm=TRUE) 
-maxdate.sicsag <- max(sicsag$admit_unit, na.rm=TRUE) 
+mindate.sicsag <- min(sicsag$date.admit_unit, na.rm=TRUE) 
+maxdate.sicsag <- max(sicsag$date.admit_unit, na.rm=TRUE) 
 ## what are covid_icu_or_hdu codes 4 and 5?
 sicsag <- sicsag[covid_icu_or_hdu==1 | covid_icu_or_hdu==3]
-sicsag[, joindate := admit_hosp]
+sicsag[, joindate := date.admit_hosp]
 setkey(sicsag, anon_id, joindate)
 setkey(cc.specimendate, anon_id, joindate)
 ## left join cc.specimendate, rolling backward from hospital admission date
 cc.sicsag <- sicsag[cc.specimendate[, .(anon_id, specimen_date, joindate)], roll=-28]  ## 2880 records
-cc.sicsag <- cc.sicsag[!is.na(admit_unit)]
-cc.sicsag[, daystocriticalcare := as.integer(admit_unit - specimen_date)]
+cc.sicsag <- cc.sicsag[!is.na(date.admit_unit)]
+cc.sicsag[, daystocriticalcare := as.integer(date.admit_unit - specimen_date)]
 
 ## about 40% of cases coded as COVID critical care in cc.all are not matched in SICSAG
 #print(table(cc.all[icu==1 | hdu==1, anon_id] %in% cc.sicsag$anon_id))
@@ -764,11 +763,11 @@ cc.all[covid_icu_or_hdu==3, hdu := 1]
 cc.all[is.na(covid_icu_or_hdu), icu := 0]
 cc.all[is.na(covid_icu_or_hdu), hdu := 0]
 
-mindate.sicsag <- min(cc.all$admit_unit, na.rm=TRUE)
-maxdate.sicsag <- max(sicsag$admit_unit, na.rm=TRUE)
+mindate.sicsag <- min(cc.all$date.admit_unit, na.rm=TRUE)
+maxdate.sicsag <- max(sicsag$date.admit_unit, na.rm=TRUE)
       
 cc.all[, censoringdays.critical := as.integer(
-             pmin(maxdate.sicsag, admit_unit, na.rm=TRUE) - specimen_date)]
+             pmin(maxdate.sicsag, date.admit_unit, na.rm=TRUE) - specimen_date)]
 cc.all[, critical.within14 := as.integer(!is.na(daystocriticalcare) & daystocriticalcare <= 14)] 
 cc.all[, critical.within28 := as.integer(!is.na(daystocriticalcare) & daystocriticalcare <= 28)] 
 
@@ -842,10 +841,9 @@ with(cc.all[CASE==1], table(dead28, deathwithin28, exclude=NULL))
 with(cc.all[CASE==1], table(icu, hdu, exclude=NULL)) 
 cc.all[, criticalcare := icu==1 | hdu==1]
 
-## adm28 should be 0 for cases who did not test positive
-## should include those admitted within 28 days (adm.within28=1) AND those already in hospital on date they tested positive
+## anyhosp28 includes those admitted within 28 days of a positive test (adm.within28==1) AND those already in hospital on specimendate
 
-cc.all[, adm28 := as.integer((adm.within28==1 | inhosp==1) & testpositive.case)]
+cc.all[, anyhosp28 := as.integer((adm.within28==1 | inhosp==1) & CASE==1)]
 
 with(cc.all[CASE==1 & covid_ucod==1], table(deathwithin28, exclude=NULL))
 ## 3701 cases with covid_cod have deathwithin28==1
@@ -869,7 +867,7 @@ cc.all[CASE==1 & (criticalcare | deathwithin28 | covid_ucod==1),
        group := "A"]
 
 ## assign remaining test-positive cases hospitalized within 28 days of positive test as group B
-cc.all[testpositive.case & group=="Unclassified" & (adm28 > 0), group := "B"]
+cc.all[testpositive.case & group=="Unclassified" & (anyhosp28 == 1), group := "B"]
 ## assign all remaining test-positive cases to group C
 cc.all[testpositive.case & group=="Unclassified", group := "C"]
 ## assign remaining cases with mention on death cert to group D
@@ -920,7 +918,7 @@ table(cc.all$CASE, cc.all$casegroup, exclude=NULL)
 cc.all <- cc.all[!is.na(casegroup)]
 cc.all[, casegr := ifelse(is_case & is.na(severe.casegr),
                           "Not severe", as.character(severe.casegr))]
-cc.all[casegr == "Not severe" & !is.na(admit_unit), casegr := "Not severe, hospitalized"]
+cc.all[casegr == "Not severe" & anyhosp28 == 1, casegr := "Not severe, hospitalized"]
 cc.all[, casegr := car::recode(casegr, "'Not severe'='Not severe, not hospitalized'",
                                as.factor=TRUE,
                                levels=c("Not severe, not hospitalized",
@@ -1005,7 +1003,6 @@ rm(sicsag)
 rm(rapid.timewin)
 rm(cc.recentdaycases)
 
-
 gc()
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
@@ -1013,7 +1010,8 @@ print(tail(objmem))
 #################### import shielding data ####
 
 source("shieldlist.R", verbose=TRUE)
-rm(cases)
+
+load(paste0(datadir, "shielded.full.RData"))
 
 ## left join of cc.all with subset of shielded.full in which anon_id is nonmissing
 setkey(shielded.full, anon_id)
@@ -1043,7 +1041,6 @@ cc.all[, shield.batch := as.factor(shield.batch)]
 
 ## read raw scrips file in separate script
 ## read scrips file and import BNF chapter variables #############
-rm(rapid)
 rm(cc.recent.smr00)
 colsToDelete <- grep("daysbefore", names(cc.specimendate), value=TRUE)
 set(cc.specimendate, , colsToDelete, NULL)
@@ -1203,16 +1200,36 @@ cc.all[, listedgr3 := car::recode(listedgr3,
                                                 "Moderate risk condition",
                                                 "Eligible for shielding"))]
 
-save(cc.all, file=paste0(datadir, "cc.all.RData"))
+cc.chnums <- unique(cc.diagnoses,
+                    by=c("anon_id", "specimen_date", "chnum"))
+cc.chnums <- cc.chnums[, .N, by=c("anon_id", "specimen_date")]
+setnames(cc.chnums, "N", "numicdchapters")
+setkey(cc.chnums, anon_id, specimen_date)
+setkey(cc.all, anon_id, specimen_date)
+cc.all <- cc.chnums[cc.all]
+setnafill(cc.all, fill=0, cols="numicdchapters")
 
-###################################
+recodecancers <- FALSE
+if(recodecancers) {
+    cc.all[, shield.group := as.character(shield.group)]
+    cc.all[bloodcancer==1,
+           shield.group := car::recode(shield.group, "'Specific cancers'='Blood cancers'")] 
+    cc.all[bloodcancer==0,
+           shield.group := car::recode(shield.group, "'Specific cancers'='Other specific cancers'")]
+    cc.all[, shield.group := factor(shield.group,
+                                    levels=c("No risk condition",
+                                             "Moderate risk condition",
+                                             "Solid organ transplant",
+                                             "Blood cancers",
+                                             "Other specific cancers",
+                                             "Severe respiratory",
+                                             "Rare diseases",
+                                             "On immunosuppressants",
+                                             "Additional conditions"))]
+}
 
-Rprof()
-print(summaryRprof(tmp)$by.total[1:20, ])
-
-source("rrtimewin.R")
-
-rmarkdown::render("vaxshieldupdate.Rmd")
+## recode vax dose as 0, 0.5, 1
+cc.all[, vax14.dose := vax14.dose / max(vax14.dose)]
 
 setkey(cc.all, anon_id)
 cc.all <- rheumatol.wide[cc.all]
@@ -1224,6 +1241,18 @@ cc.all[, diagnosis.group := factor(diagnosis.group,
                                             "RArelated",
                                             "AXSPA",
                                             "Other"))]
+
+################################################
+save(cc.all, file=paste0(datadir, "cc.all.RData"))
+###################################
+
+Rprof()
+print(summaryRprof(tmp)$by.total[1:20, ])
+
+source("rrtimewin.R")
+
+rmarkdown::render("vaxshieldupdate.Rmd")
+
 tabulate.freqs.regressions(varnames="diagnosis.group",
                            data=cc.all[casegroup=="A" | casegroup=="B"])
 
@@ -1231,31 +1260,9 @@ tabulate.freqs.regressions(varnames="diagnosis.group",
 
 if(FALSE) {
 
-## generate and merge indicators for any diag in each  ICD chapter
-icdchapters.anydiag <- diagnoses[, .N, by=c("anon_id", "chnum")] %>%
-    dcast(anon_id ~ chnum, value.var="N")
-## recode as 0, 1
-setnafill(icdchapters.anydiag, cols=2:ncol(icdchapters.anydiag), fill=0)
-for (j in 2:ncol(icdchapters.anydiag)) set(icdchapters.anydiag, j=j,
-                                           value=as.integer(icdchapters.anydiag[[j]] > 0))
-## use Roman numerals for ICD chapters
-chnums <- as.integer(colnames(icdchapters.anydiag)[-1])
-colnames(icdchapters.anydiag)[-1] <-
-    paste0("Ch.", as.roman(chnums), "_",
-           icdchapters$shortname[match(chnums, icdchapters$chnum)])
-## drop rare ICD chapters (freq < 1%)
-keep.cols <- colSums(icdchapters.anydiag) >= 0.01 * nrow(icdchapters.anydiag) ## drops perinatal chapter
-icdchapters.anydiag <- icdchapters.anydiag[, ..keep.cols]
-setkey(icdchapters.anydiag, anon_id)
-cc.kept <- icdchapters.anydiag[cc.kept]
-rm(icdchapters.anydiag)
-icdcols <- grep("^Ch\\.", colnames(cc.kept)) # begins with Ch._
-setnafill(cc.kept, cols=icdcols, fill=0)
-
 ## cc.kept[, (icdcols)] returns the column names as a vector
 ## cc.kept[, .(icdcols)] returns the column names as a data.table
 ## cc.kept[, ..icdcols] returns a data.table selected by column
-
 
 ## calculate risk score in controls and set intercept to equate observed and expected severe cases
 if(TRUE) {
@@ -1319,11 +1326,6 @@ rm(cc.lt75)
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
-
 #####################################################
 
-cc.kept[CASE==1 & adm.within28==1 & specimen_date >= as.Date("2021-01-01"), mean(COVID.age, na.rm=TRUE), by=lubridate::month(specimen_date)]
-
-paste.colpercent(with(cc.kept[CASE==1 & adm.within28==1 & specimen_date >= as.Date("2021-01-01")],
-     table(criticalcare, lubridate::month(specimen_date))), digits=1)
 }

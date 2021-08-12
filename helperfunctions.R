@@ -391,6 +391,8 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                      "Sgene.dropout",
                                      "av2channels",
                                      "inpat.recent",
+                                     "numdrugs.notcv",
+                                     "numicdchapters",
                                      "numdrugs"
                                 ),
                            longname=c("Age", "Males",
@@ -438,6 +440,8 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                       "S gene dropout",
                                       "Mean Ct of ORF1ab and N genes",
                                       "Recent hospital stay",
+                                      "Number of non-cardiovascular drug classes",
+                                      "Number of hospital diagnoses", 
                                       "Number of drug classes"
                                       ))
 

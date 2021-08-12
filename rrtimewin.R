@@ -1,4 +1,11 @@
+
+datadir <- "data/2021-07-28/"
+
+#load(paste0(datadir, "cc.all.RData"))
+
+
 firstdate <- as.Date("2020-03-01")
+
 ## for coeffs we have to specify explicitly the midpoint of the time window 
 winsize <- 42 
 startdates <- with(cc.all, firstdate:max(specimen_date) - winsize)
@@ -33,12 +40,13 @@ coeffs.timewindow[, linesize := `se(coef)`^-1.5]
 coeffs.timewindow[, linesize := 2 * linesize / max(linesize, na.rm=TRUE), by="effect"]
 setorder(coeffs.timewindow, effect)
 
-breakpoints <- c(0.2, 0.3, 0.5, 1, 2, 3, 5, 10, 20, 30, 50)
+## Figure: rate ratios by date of presentation
+breakpoints <- c(0.05, 0.1, 0.2, 0.5, 1, 2, 3, 5, 10, 20, 30)
 p.rateratio <-
     ggplot(data=coeffs.timewindow, aes(x=date.midpoint, y=coef, color=effect)) +
         geom_line(size=coeffs.timewindow$linesize) +
         labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
-             y="Rate ratio (log scale)") + 
+             y="Rate ratio for severe COVID-19 (log scale)") + 
         scale_y_continuous(breaks=log(breakpoints),
                            labels=breakpoints,
                            limits=log(c(min(breakpoints), max(breakpoints))),
@@ -74,7 +82,7 @@ rollmean.dtN <- function(dt, k) {
                       avdaily=zoo::rollmean(dt$N, k=k, fill=NA)))
 }
 
-## Figure 1: severe cases by date of presentation
+## Figure: severe cases by date of presentation
 winsize.casedates <- 3
 
 casedates.allgr <-  cc.all[CASE==1 & casegroup=="A", .N, by=specimen_date]
@@ -111,6 +119,3 @@ p.byelig <- ggplot(data=casedates.byelig,
          ylab("Daily severe cases")
 p.byelig
 
-png("dailysevere.png")
-p.byelig
-dev.off()

@@ -1,7 +1,7 @@
 
 datadir <- "./data/2021-07-28/"
 shielding.full.filename <- paste0(datadir,
-                                         "CC_shielding_patients_anon_2021-07-28.csv")
+                                  "CC_shielding_patients_anon_2021-07-28.csv")
 
 shielded.full <- fread(shielding.full.filename)
 setkey(shielded.full, anon_id)
@@ -35,6 +35,7 @@ shielded.full[, shield.group := car::recode(shield.group,
 shielded.full <- shielded.full[!(shield.group == "Pregnant with heart disease" &
                                  (sex=="Male" | age_years > 55))]
 
+save(shielded.full, file=paste0(datadir, "shielded.full.RData")) # this will be used for a left join of cc.all with shielding cohort
 
 ## import case status into shielded.full
 cases <- cc.all[CASE==1, .(anon_id, specimen_date, casegr, casegr2, casegr3)]
@@ -68,7 +69,6 @@ shielded.full[is.na(exitdate), exitdate := max(shielded.full$specimen_date, na.r
 shielded.full[, entrydate := as.Date("2020-03-01")]
 shielded.full[entrydate >= exitdate, entrydate := NA]
 
-save(shielded.full, file=paste0(datadir, "shielded.full.RData"))
 rm(shielded.full)
 
 ####### rheumatology ######################################

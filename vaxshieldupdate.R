@@ -1,4 +1,5 @@
 library(data.table)
+library(survival)
 library(ggplot2)
 
 source("helperfunctions.R")
@@ -51,6 +52,14 @@ format.estci <- function(x.ci) {
     return(x)
 }
 
+datadir <- "data/2021-07-28/"
+if(!exists("cc.all")) {
+    load(paste0(datadir, "cc.all.RData"))
+}
+
+source("rrtimewin.R")
+
+interval.length <- 28  # for poisson regression of shielding cohort
 lastdate.cases <- as.Date("2021-07-12")
 
 ## tabulate case groups by vax status in shielding cohort
@@ -62,9 +71,10 @@ paste.rowpercent(with(cc.all[CASE==1 & specimen_date >= as.Date("2020-12-01") &
                              vax14.factor=="2"], 
                       table(shield.group, casegroup)))
 
-
+if(FALSE) {
 ## tabulate severe cases after 1 April
-severe.byagevax <- with(cc.all[CASE==1 & casegroup=="A" &
+ 
+    severe.byagevax <- with(cc.all[CASE==1 & casegroup=="A" &
                              specimen_date >= as.Date("2021-04-01") & specimen_date <= lastdate.cases],
                       table(agegr20plus5, vax14.factor))
 severe.byagevax.rowsums <- rowSums(severe.byagevax)
@@ -145,7 +155,7 @@ bnfchnum.table <- bnfchnum.table[total >= 20, .(bnfchnum, descr, Controls, Cases
 table.numdrugs <- cbind(summary(casesnorisk[CASE==0]$numdrugs),
                         summary(casesnorisk[CASE==1]$numdrugs))
 colnames(table.numdrugs) <- c("Controls", "Cases")
-
+}
 ########################################################
 ## tabulate freqs of risk factors including shielding conditions in cases and controls
 
@@ -415,3 +425,33 @@ model.hosp.shieldonly.vax2 <-
                                            vax14.dose==1 & 
                                specimen_date >= as.Date("2020-12-01")],
                    formula=CASE ~ shield.any + strata(stratum)))
+##################################################
+
+
+########### plots ##################################
+
+load(paste0(datadir, "shieldcohort.models.RData"))
+
+shield.all[, rateper1000 := 1000 * riskyear]
+
+p.anycase <- ggplot(data=shield.all, aes(x=date, y=rateper1000, color=casegr)) +
+    geom_line() +
+    labs(x=paste0("Presentation date: start of ", interval.length, "-day interval"),
+         y="Rate per 1000 per year") +
+    scale_y_continuous(breaks=seq(0, 100, by=10), expand=c(0, 0)) +  
+    scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
+                                   to = as.Date("2021-07-25"), by = "month"),
+                 expand=c(0, 10), 
+                 labels=gsub("^0", "", 
+                             format.Date(seq.Date(from = as.Date("2020-03-01"),
+                                                  to = as.Date("2021-07-25"), by = "month"),
+                                         "%d %b")
+                             ),
+                 limits=c(as.Date("2020-12-01"), as.Date("2021-07-25")))  +
+    theme(legend.title = element_blank()) +
+    theme(legend.position = c(0.6, 0.7)) 
+
+p.anycase
+
+rmarkdown::render("vaxshieldupdate.Rmd")
+

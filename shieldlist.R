@@ -1,4 +1,12 @@
 
+batches <- as.data.table(read.table("data/BatchReference.csv", sep="\t", header=TRUE))
+setnames(batches, "Batch", "shield.batch")
+batches$shield.batch <- as.integer(gsub("Batch", "", batches$shield.batch))
+setkey(batches, shield.batch)
+batches$Date.Sent <- gsub("Friday ", "", batches$Date.Sent)
+batches$Date.Sent <- gsub("^([[:digit:]]+)([stndrdth]{2} )", "\\1 ", batches$Date.Sent)
+batches$Date.Sent <- as.Date(batches$Date.Sent, "%d %B %Y")
+
 datadir <- "./data/2021-07-28/"
 shielding.full.filename <- paste0(datadir,
                                   "CC_shielding_patients_anon_2021-07-28.csv")
@@ -37,6 +45,7 @@ shielded.full <- shielded.full[!(shield.group == "Pregnant with heart disease" &
 
 save(shielded.full, file=paste0(datadir, "shielded.full.RData")) # this will be used for a left join of cc.all with shielding cohort
 
+load(paste0(datadir, "cc.all.RData"))
 ## import case status into shielded.full
 cases <- cc.all[CASE==1, .(anon_id, specimen_date, casegr, casegr2, casegr3)]
 setkey(cases, anon_id)
@@ -69,6 +78,7 @@ shielded.full[is.na(exitdate), exitdate := max(shielded.full$specimen_date, na.r
 shielded.full[, entrydate := as.Date("2020-03-01")]
 shielded.full[entrydate >= exitdate, entrydate := NA]
 
+save(shielded.full, file=paste0(datadir, "shielded.full.RData"))
 rm(shielded.full)
 
 ####### rheumatology ######################################

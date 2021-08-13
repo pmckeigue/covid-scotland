@@ -58,13 +58,6 @@ Rprof(tmp <- tempfile())
 source("helperfunctions.R")
 
 ##################################################################
-batches <- as.data.table(read.table("data/BatchReference.csv", sep="\t", header=TRUE))
-setnames(batches, "Batch", "shield.batch")
-batches$shield.batch <- as.integer(gsub("Batch", "", batches$shield.batch))
-setkey(batches, shield.batch)
-batches$Date.Sent <- gsub("Friday ", "", batches$Date.Sent)
-batches$Date.Sent <- gsub("^([[:digit:]]+)([stndrdth]{2} )", "\\1 ", batches$Date.Sent)
-batches$Date.Sent <- as.Date(batches$Date.Sent, "%d %B %Y")
 
 controls <- TRUE
 shielding <- TRUE

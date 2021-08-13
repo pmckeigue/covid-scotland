@@ -3,14 +3,13 @@ datadir <- "data/2021-07-28/"
 
 #load(paste0(datadir, "cc.all.RData"))
 
-
 firstdate <- as.Date("2020-03-01")
+lastdate <- as.Date("2021-07-14")
 
 ## for coeffs we have to specify explicitly the midpoint of the time window 
 winsize <- 42 
 startdates <- with(cc.all, firstdate:max(specimen_date) - winsize)
 enddates <- startdates + winsize
-lastdate <- as.Date("2021-07-14")
 
 coeffs.timewindow <- NULL
 for(timewin in 1:length(startdates)) {
@@ -20,7 +19,7 @@ for(timewin in 1:length(startdates)) {
                        .(CASE, care.home, listedgr3, vax14.dose, vax14.factor, occup, inpat.recent, stratum)]
     if(length(with(tdata, table(CASE, occup))) > 2) {
         date.midpoint <- startdates[timewin] + floor(winsize / 2)
-        coeffs <- tryCatch(summary(clogit(formula=CASE ~ care.home + listedgr3 + inpat.recent + vax14.dose + strata(stratum), data=tdata))$coefficients,
+        coeffs <- tryCatch(summary(clogit(formula=CASE ~ care.home + listedgr3 + inpat.recent + vax14.factor + strata(stratum), data=tdata))$coefficients,
                            error=function(cond) return(NULL)
                            )
         if(!is.null(coeffs)) {
@@ -32,36 +31,39 @@ for(timewin in 1:length(startdates)) {
 }
 coeffs.timewindow[, date.midpoint := as.Date(date.midpoint, origin="1970-01-01")]
 coeffs.timewindow <- coeffs.timewindow[grep("care.home", effect, invert=TRUE)]
+coeffs.timewindow <- coeffs.timewindow[grep("inpat.recent", effect, invert=TRUE)]
 coeffs.timewindow[, effect := gsub("^care.home", "", effect)]
 coeffs.timewindow[, effect := gsub("^listedgr3", "", effect)]
 coeffs.timewindow[, effect := gsub("TRUE$", "", effect)]
+coeffs.timewindow[, effect := gsub("vax14\\.factor", "Vaccine dose ", effect)]
 coeffs.timewindow[, effect := replace.names(effect)]
 coeffs.timewindow[, linesize := `se(coef)`^-1.5]
 coeffs.timewindow[, linesize := 2 * linesize / max(linesize, na.rm=TRUE), by="effect"]
 setorder(coeffs.timewindow, effect)
 
 ## Figure: rate ratios by date of presentation
-breakpoints <- c(0.05, 0.1, 0.2, 0.5, 1, 2, 3, 5, 10, 20, 30)
+breakpoints <- c(0.05, 0.1, 0.2, 0.5, 1, 2, 3, 5, 10, 20)
 p.rateratio <-
     ggplot(data=coeffs.timewindow, aes(x=date.midpoint, y=coef, color=effect)) +
-        geom_line(size=coeffs.timewindow$linesize) +
-        labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
-             y="Rate ratio for severe COVID-19 (log scale)") + 
-        scale_y_continuous(breaks=log(breakpoints),
-                           labels=breakpoints,
-                           limits=log(c(min(breakpoints), max(breakpoints))),
-                           expand=c(0, 0)) +
-        scale_x_date(breaks = seq.Date(from = as.Date("2020-12-01"),
-                                       to = lastdate, by = "month"),
-                     expand=c(0, 10), 
-                     labels=gsub("^0", "", 
-                                 format.Date(seq.Date(from = as.Date("2020-12-01"),
-                                                      to = lastdate, by = "month"),
-                                             "%d %b")
-                                 ),
-                     limits=c(as.Date("2020-12-01"), lastdate)) +
-        theme(legend.position = c(0.2, 0.2)) 
- p.rateratio
+    geom_line(size=coeffs.timewindow$linesize) +
+    labs(x=paste0("Presentation date: mid-point of ", winsize, "-day window"),
+         y="Rate ratio for severe COVID-19 (log scale)") + 
+    scale_y_continuous(breaks=log(breakpoints),
+                       labels=breakpoints,
+                       limits=log(c(min(breakpoints), max(breakpoints))),
+                       expand=c(0, 0)) +
+    scale_x_date(breaks = seq.Date(from = as.Date("2020-12-01"),
+                                   to = lastdate, by = "month"),
+                 expand=c(0, 10), 
+                 labels=gsub("^0", "", 
+                             format.Date(seq.Date(from = as.Date("2020-12-01"),
+                                                  to = lastdate, by = "month"),
+                                         "%d %b")
+                             ),
+                 limits=c(as.Date("2020-12-01"), lastdate)) +
+    theme(legend.title = element_blank()) +
+    theme(legend.position = c(0.15, 0.15)) 
+p.rateratio
 
 png("rateratiotimeplot.png")
 p.rateratio
@@ -113,7 +115,6 @@ p.byelig <- ggplot(data=casedates.byelig,
                  ),
                  limits=c(as.Date("2020-12-01"), lastdate)) +
     theme(legend.position = c(0.5, 0.7)) +
-    theme(legend.title = element_blank()) +
     scale_fill_manual(values=c("grey", "blue", "red")) +
     xlab(paste0("Presentation date: mid-point of ", winsize.casedates, "-day window")) +
          ylab("Daily severe cases")

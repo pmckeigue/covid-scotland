@@ -49,8 +49,6 @@ linkcolor: cyan
 ```{r vax, echo=FALSE, warning=FALSE, message=FALSE}
 library(kableExtra)
 
-source("vaxshieldupdate.R")
-
 options(knitr.kable.NA = '.')
 options(knitr.table.format = "latex") # adds tab: prefix to labels
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
@@ -90,7 +88,7 @@ This report updates and extends the earlier analyses, with the following objecti
 We used the REACT-SCOT study to take advantage of data linkages already established. The design has been described in detail previously [@mckeigue_rapid_2020]. In brief, for every incident case of COVID-19 in the population ten controls matched for one-year age, sex and primary care practice and alive on the day of presentation of the case that they were matched to were selected using the Community Health Index database.  COVID-19 cases are those with a positive nucleic acid test, or a hospital admission or death with COVID-19 ICD-10 codes. The REACT-SCOT case-control dataset is refreshed regularly and is linked to the vaccination database and to the regularly updated dataset of all individuals deemed eligible for the shielding programme.  This analysis is based on cases presenting from 1 December 2020 to 14 July 2021, so that we have at least 14 days of follow-up for each case.  This allows case severity status (hospitalisation, entry to critical care or death) to be assigned. For time-window analyses of length \ensuremath{2n + 1} days the time-window centred on 1 December 2020 includes the \ensuremath{n} days before that date.   
 
 ## Classification of risk categories
-As previously [@mckeigue_rapid_2020], to minimise ascertainment bias we pre-specified the primary outcome measure as severe COVID-19,  defined as diagnosed cases with entry to critical care within 28 days of presentation or fatal outcome (any death within 28 days of a positive test or any death for which COVID-19 was coded as underlying cause).  Cases and controls were classified into three broad risk categories: no risk condition; at least one of the moderate risk conditions designated by public health agencies [@mckeigue_rapid_2020]; or eligible for shielding [@mckeigue_relation_2021].   For further analyses, the shielding category was subdivided as described previously  into six categories: solid organ transplant, specific cancers, severe respiratory conditions, other rare conditions, on immunosuppressants, and additional conditions [@mckeigue_relation_2021].   This corresponds to the list used by Public Health Scotland  [@health_protection_scotland_search_2020], with the small numbers in the group "pregnant with heart disease combined with the "other conditions" category.  For additional analyses the category "specific cancers" was split to allocate cancers of blood-forming organs (ICD-10 codes C81-C88, C90-C96) to a separate category.  
+As previously [@mckeigue_rapid_2020], to minimise ascertainment bias we pre-specified the primary outcome measure as severe COVID-19,  defined as diagnosed cases with entry to critical care within 28 days of presentation or fatal outcome (any death within 28 days of a positive test or any death for which COVID-19 was coded as underlying cause).  Cases and controls were classified into three broad risk categories: no risk condition; at least one of the moderate risk conditions designated by public health agencies [@mckeigue_rapid_2020]; or eligible for shielding [@mckeigue_relation_2021].  For further analyses, the shielding category was subdivided as described previously  into six categories: solid organ transplant, specific cancers, severe respiratory conditions, other rare conditions, on immunosuppressants, and additional conditions [@mckeigue_relation_2021].   This corresponds to the list used by Public Health Scotland  [@health_protection_scotland_search_2020], with the small numbers in the group "pregnant with heart disease combined with the "other conditions" category.  For additional analyses the category "specific cancers" was split to allocate cancers of blood-forming organs (ICD-10 codes C81-C88, C90-C96) to a separate category.  
 
 ## Statistical analysis
 Vaccination status was coded as the number of doses administered at least 14 days before presentation date. Vaccine doses administered less than 14 days before presentation date are ignored.  For estimates of effect by risk category, where the numbers of events are large, vaccination status was modelled as a factor comparing 1 dose or 2 doses with 0 doses as reference category.  For estimates of effect within shielding eligibility groups, and for comparisons between the mRNA and AZ vaccines where the numbers of events in each category are smaller, vaccination status was modelled as a numeric variable taking values \ensuremath{0, \frac{1}{2}, 1}  so that the effect parameter represents the rate ratio associated with 2 doses assuming the effect of 0, 1, 2 doses to be linear on the scale of the log rate ratio. 
@@ -98,17 +96,16 @@ Vaccination status was coded as the number of doses administered at least 14 day
 Covariates included in the models were those that have been previously identified as strong predictors of severe disease in this population: care home residence, number of adults in household, number of drug classes dispensed and recent hospital stay [@mckeigue_rapid_2020;@mckeigue_relation_2021a;@mckeigue_relation_2021].  For care home residents the number of of adults in the household was coded as 1.  The number of drug classes was calculated as the number of distinct BNF subparagraph codes for which a prescription was dispensed between 15 and 240 days before presentation date.  As we have previously shown that severe COVID-19 in Scotland is associated with the number of non-cardiovascular but not the number of cardiovascular drug classes [@mckeigue_relation_2021a], the covariate included in the model was the number of non-cardiovascular drug classes.  The number of hospital diagnoses was calculated as the number of distinct ICD-10 chapters represented at least once in hospital discharge records between 25 days and 5 years before presentation date. Recent hospital stay was defined as any in-patient stay from 5 to 14 days before presentation date.
 
 The effect of vaccination in each of the clinical vulnerability categories was estimated in a conditional logistic regression model (R function `survival::clogit`, package version_3.2-7, R version 3.6.3) fitted to the full dataset, specifying effects \ensuremath{\beta_{R2}, \dots, \beta_{RJ}} for the log rate ratio associated with risk categories 2 to \ensuremath{J} (\ensuremath{\beta_{R1} = 0} for the reference category \ensuremath{J=1}), and nested effects \ensuremath{\beta_{V1}, \dots, \beta_{VJ}} for the log rate ratio associated with vaccination in each of the \ensuremath{J} risk categories. With this incidence density sampling design, the conditional odds ratio is the rate ratio.  The efficacy of vaccination is 1 minus the rate ratio.  The strata in the conditional logistic regression model are matched sets: typically one case and up to 10 controls, but where two cases with the same age, sex and GP practice present on the same day the matched set comprises two cases and up to 20 controls.  When estimating the rate ratio within a risk group such as a shielding category, only cases and controls in that risk group are retained in the matched sets.   Matched sets in which all are vaccinated or none are vaccinated do not contribute to the rate ratio.   The unconditional odds ratios calculated from frequency tables of the vaccination status of cases and controls in each risk group cannot be used to estimate rate ratios [@breslow_estimation_1978;@greenland_need_1982].   The design controls not only for the matching factors of age, sex and general practice but also for calendar time.  Other variables included as covariates in the models had been previously identified as strongly associated with severe COVID-19: care home residence, number of adults in the household, number of distinct drug classes (BNF subparagraph codes) for which prescriptions were dispensed between 15 and 240 days before presentation date, and any hospital in-patient stay from 5 to 14 days before presentation date. 
-
+<!---
 # Cohort analysis of the shielding list
 The case-control study can estimate only rate ratios.  To investigate the absolute rates of severe disease in those listed as clinically extremely vulnerable, we undertook a separate cohort study of all individuals who had ever been on the shielding list. At the time of this study  the dates of addition and removal from the shielding list, and linkage of the full cohort to vaccination status and mortality were not available to us, so this analysis is only provisional.  A Poisson regression model was fitted to a dataset formatted with one observation per 28-day person-time interval, and individuals censored at first event.  The event was defined as severe COVID-19 presenting within the person-time interval, and the covariates were sex, age, and shielding eligibility group.  The baseline hazard rate was specified as a natural spline function with 4 degrees of freedom.  Similar models were fitted with event indicator defined as hospitalized or fatal cases, or as any diagnosed case.  
+--->
 
 # Results
-## Time course of the epidemic and associations with risk factors 
-Fig \ref{fig:plotcases} shows the daily numbers of severe cases (averaged over 3-day sliding windows) by risk category.  From mid-January to early March 2021 there was a rapid decline in the incidence of severe cases, followed by a slight increase from early June to early July.  
+## Time course of vaccine efficacy against severe disease 
+Fig \ref{fig:plotcases} shows the daily numbers of severe cases (averaged over 3-day sliding windows) by risk category.  In the first half of July the average daily number of severe cases among the 200,000 people still on the shielded list was about 4, equating to an incidence rate of about 0.6 per 1000 per month.  
 
-Fig \ref{fig:plotrateratios} shows the time course of rate ratios (computed over 42-day sliding windows) for risk category, vaccination dose (coded as 0, 1, 2 doses), and recent (5 to 14 days before presentation date) hospital exposure as inpatient.  These rate ratios are computed from a model that includes all variables shown, together with care home residence. 
-
-The rate ratio for severe disease associated with shielding eligibility did not decline as the winter peak declined, and increased from May 2020 onwards.  The efficacy of vaccination against severe disease (modelled as the rate ratio per 2 doses) remained high, despite the rapid replacement of the Alpha by the Delta variant during May 2020.   
+Fig \ref{fig:plotrateratios} shows the time course of rate ratios (computed over 42-day sliding windows) for risk category and vaccination status, in a model that includes both these variables together with care home residence and recent hospital stay as covariates.  This shows that the rate ratio for severe disease associated with shielding eligibility, adjusted for vaccination status, has increased since 1 May, even though the absolute rate of severe disease in this group remains much lower than in December-January.  The rate ratios for severe disease associated with 1 dose and 2 doses of vaccine at least 14 days earlier (with unvaccinated as reference category) declined  steadily from January to June, implying that the efficacy increased despite the rapid replacement of the Alpha variant by the Delta variant during May 2020 [@sheikh_sarscov2_2021].   
 
 ## Relation of vaccine efficacy to risk conditions
 Table \ref{tab:freqsvaxgr} tabulates risk/shielding group, vaccination status by product, and other risk factors in severe cases and controls with presentation dates from 1 December 2020 to 14 July 2021. Table \ref{tab:hospfreqsvaxgr} shows the same tabulation with case definition broadened to include all hospitalised cases and their matched controls. 
@@ -139,7 +136,6 @@ Table \ref{tab:casesnoriskchnums} tabulates severe cases and matched controls ag
 
 # Discussion
 ## Statement of principal findings
-
 1. Although the efficacy of vaccination against severe disease in those without risk conditions remains high (at least 90%), it is now clear that the efficacy in clinically extremely vulnerable individuals is considerably lower (about 70%).  There is however a dose-response effect in this group: two doses are more effective than one.  
 
 2. Solid organ transplant recipients remain at very high risk of severe disease even after two doses of vaccine: approximately 70-fold for severe disease and 30-fold for hospitalisation in comparison with double-vaccinated individuals of the same age and sex without risk conditions. 
@@ -222,7 +218,8 @@ knitr::kable(table.riskgr[7:12, ],
 
 ```{r rateratiosshieldgroups, echo=FALSE, message=FALSE}
 
-knitr::kable(table.shieldgr[14:21, ], 
+table.shieldgr[, effect := gsub("vax", "vaccine", effect)] 
+knitr::kable(table.shieldgr[14:19, ], 
              escape=FALSE, 
              booktabs=TRUE,
 			 label="rateratiosshieldgroups",
@@ -313,7 +310,8 @@ p.byelig
 
 ```
 
-```{r plotrateratios, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.width=6, fig.asp=0.8, fig.cap="\\label{fig:plotrateratios} Rate ratios by 42-day sliding window. For each time window, the conditional logistic regression model includes all variables shown in the plot, together with care home residence. Line thickness is inversely proportional to standard error"}
+
+```{r plotrateratios, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.width=6, fig.asp=0.8, fig.cap="\\label{fig:plotrateratios} Rate ratios by 42-day sliding window. For each time window, the conditional logistic regression model includes all variables shown in the plot, together with care home residence and recent hospital stay. Line thickness is inversely proportional to standard error"}
 
 theme_set(theme_gray(base_size = 10))
 
@@ -373,7 +371,8 @@ column_spec(3, width="3cm") %>%
 
 ```{r hosprateratiosshieldgroups, echo=FALSE, message=FALSE}
 
-knitr::kable(table.hosp.shieldgr[13:20, ], 
+table.hosp.shieldgr[, effect := gsub("vax", "vaccine", effect)] 
+knitr::kable(table.hosp.shieldgr[14:19, ], 
              escape=FALSE, 
              booktabs=TRUE,
 			 label="hosprateratiosshieldgroups",

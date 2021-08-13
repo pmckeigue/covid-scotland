@@ -3,7 +3,7 @@ library(ggplot2)
 library(survival)
 
 datadir <- "data/2021-07-28/"
-lastdate <- as.Date("2021-07-14")
+lastdate <- as.Date("2021-07-25")
 interval.length <- 28
     
 load(paste0(datadir, "shielded.full.RData"))
@@ -55,31 +55,12 @@ shielded.tsplit[, date := as.Date(tstart, origin=as.Date("1970-01-01"))]
 shield.anycase  <- shielded.tsplit[, .(riskyear=mean(anycase.prob, na.rm=TRUE)), by=date]
 shield.severe <- shielded.tsplit[, .(riskyear=mean(severe.prob, na.rm=TRUE)), by=date]
 
-save(anycase.summary, severe.summary, shield.anycase, shield.severe,
-     file=paste0(datadir, "shieldcohort.models.RData"))
 rm(shielded.tsplit)
 gc()
 
-########### plots ##################################
-p.anycase <- ggplot(data=shield.anycase, aes(x=date, y=riskyear)) +
-    geom_line() +
-        labs(x=paste0("Presentation date: start of ", interval.length, "-day interval"),
-             y="Rate per year") + 
-    scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
-                                   to = lastdate, by = "month"),
-                 expand=c(0, 10), 
-                 labels=gsub("^0", "", 
-                             format.Date(seq.Date(from = as.Date("2020-03-01"),
-                                                  to = lastdate, by = "month"),
-                                         "%d %b")
-                             ),
-                 limits=c(as.Date("2020-12-01"), lastdate)) 
-p.anycase
+shield.all <- rbind(shield.anycase[, casegr := "All cases"],
+                    shield.severe[, casegr := "Severe cases"])
 
-p.severe <- ggplot(data=shield.severe, aes(x=date, y=riskyear)) +
-    geom_line()
-p.severe
+save(anycase.summary, severe.summary, shield.all,
+     file=paste0(datadir, "shieldcohort.models.RData"))
 
-png("shieldedrisk.png")
-gridExtra::grid.arrange(p.anycase, p.severe, nrow=2)
-dev.off()

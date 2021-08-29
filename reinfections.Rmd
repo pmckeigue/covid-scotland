@@ -1,0 +1,183 @@
+---
+title: "Risk factors for reinfection with SARS-CoV-2 in Scotland"
+author:
+  - name: Paul M McKeigue\textsuperscript{\getAff{Usher}}
+    affiliation: HPS
+    corresponding: yes
+    email: paul.mckeigue@ed.ac.uk
+  - name: David A McAllister\textsuperscript{\getAff{Glasgow}}  
+    affiliation: HPS 
+  - name: Helen M Colhoun\textsuperscript{\getAff{IGMM}}
+    affiliation: HPS
+  - name: for the PHS COVID-19 Epidemiology and Research Cell
+    affiliation: HPS
+address: 
+- code: Usher
+  address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland.
+- code: IGMM
+  address: Institute of Genetics and Cancer, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland. 
+- code: Glasgow
+  address: Institute of Health and Wellbeing, University of Glasgow, 1 Lilybank Gardens, Glasgow G12 8RZ.
+- code: HPS
+  address: Public Health Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+header-includes:
+  \usepackage{newunicodechar}
+  \usepackage[T1]{fontenc}
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{geometry}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \floatplacement{figure}{H}
+  \usepackage{array}
+  \usepackage{threeparttable}
+  \usepackage{longtable}
+output: 
+  rticles::nejm_article:
+    includes:
+      in_header: ./preamble.tex
+    latex_engine: lualatex
+    keep_tex: true
+    fig_caption: yes
+    md_extensions: -autolink_bare_uris
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+bibliography: ./covid.bib
+#csl: ./f1000.csl 
+csl: ./plos.csl
+always_allow_html: true
+urlcolor: blue
+linenumbers: false
+linkcolor: cyan
+---
+
+```{r vax, echo=FALSE, warning=FALSE, message=FALSE}
+library(kableExtra)
+
+options(knitr.kable.NA = '.')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+```
+
+# Abstract 
+  
+**Objectives** - To estimate the risk of reinfection and risk factors for reinfection in people who had a positive nucleic acid test for SARS-CoV-2. 
+  
+**Design** - Cohort study  
+
+**Setting** - Population of Scotland from June 2020 to 28 July 2021. 
+
+**Main outcome measure** - Reinfection with COVID-19, defined as a positive nucleic acid test at least 90 days after first positive test.  
+
+**Results** - There were `r nrow(reinfections)` reinfections over an average of `r round(atleast90day.firstpos[, mean(tobs)] * 12 / 365.25, 1)` months of follow-up. 
+
+
+**Conclusions**  
+Reinfection rates remain low and the proportion of reinfections that lead to hospitalisation or death is low.  The low efficacy of vaccination against reinfection weakens the rationale for mandatory vaccination in occupational settings of people who have evidence of previous infection with SARS-CoV-2. 
+
+# Introduction
+
+
+# Methods
+A cohort of all individuals in Scotland at risk of reinfection was formed from the `r nrow(atleast90day.firstpos)` individuals in Scotland who survived at least 90 days from the date they first tested positive, based on CDC criteria for reinfection [@centers_for_disease_control_and_prevention_common_2020].  These individuals had already been linked to electronic health records for the REACT-SCOT case-control study as described elsewhere [@mckeigue_rapid_2020;@mckeigue_relation_2021b]. 
+
+Entry date was 90 days after first testing positive, exit date was the earliest of: (1) date of testing positive (reinfection date), (2) date of death, (3) end of the follow-up period (28 July 2021). 
+The follow-up time was split by calendar time into 7-day person-time intervals.  With this time-split dataset, a Cox regression model was used to estimate rate ratios. Baseline covariates included were those that we have previously reported to be associated with severe COVID-19 in this population [@mckeigue_rapid_2020;@mckeigue_relation_2021b]: age, sex, care home residence, occuptation, number of adults in household, number of children in household, and risk category as a factor with three levels: no risk condition, moderate risk condition, eligible for shielding   Vaccination status was assigned as the number of doses administered at least 14 days before presentation date. Vaccination status at the start of each person-time interval and months since first infection were encoded as time-updated covariates. 
+
+Cox regression estimates only rate ratios. To model the baseline hazard rate as a function of calendar time, a Poisson regression model was fitted with the covariates that were associated with reinfection in the Cox model, plus calendar time as a natural spline function with 6 degrees of freedom. 
+
+# Results
+Table \ref{tab:fatal} shows the number of reinfections by age group and by fatality within 28 days of testing positive. Of the 24 reinfections that were fatal within 28 days of a positive test, only 9 were coded with COVID-19 as underlying cause and 8 of these were in people aged 75 years and over.  
+
+Table \ref{tab:reinf} shows the frequencies of risk factors over all person-time intervals in the cohort, together with the coefficients from a Cox-regression fitted to this dataset. Most of the variables that we have previously reported to be associated with severe COVID-19 in this population -- age, male sex, care home residence, number of adults in household, risk conditions -- were not associated with reinfection.  Reinfection rates were higher in women than in men, and higher in teacher and patient-facing health care workers than in other occupations. With unvaccinated as reference category, the  rate ratios associated with vaccination were 1.05 and 0.81 for one dose and two doses respectively. WThe effect of time since first infection, estimated within strata of calendar time, was aWithin each stratum of person-time interval each The rate 
+
+Figure \ref{fig:bycalendartime} shows the fitted incidence rate per month from a Poisson regression model fitted to the dataset, with the same covariates as the Cox regression model together with spline terms for the effect of calendar time.  In unvaccinated individuals, the rate of reinfection follows the course of the epidemic, with no obvious effect of the replacement of the original strain by the Alpha strain in December 2020.  The model predicts  reinfection rates to be higher in the vaccinated than in the unvaccinated in early 2021 because at this time the vaccinated group contained a high proportion of health care workers. 
+
+# Discussion
+## Statement of principal findings
+
+* The incidence of reinfection so far is about 3 per 1000 per month. The very few cases with fatal outcome are almost all in those aged over 75 years and COVID-19 is not the underlying cause in most of these deaths. 
+
+* Most of the risk factors for severe first infection with COVID-19 are not risk factors for reinfection: the strongest associations with reinfection identified in this study are female sex and occupation as a teacher or patient-facing health-care worker:
+
+* The protection against reinfection conferred by natural infection appears to wane at about 3% per month
+
+* The efficacy of two doses of vaccine against reinfection is only about 23%. 
+
+## Strengths and limitations
+Strengths are the establishment of a cohort based on all test-positive cases arising in the population since the beginning of the epidemic followed till July 2021, the comprehensive linkage to electronic health records and demographic factors including relevant occupations, and a formal cohort analysis based on splitting into short person-time intervals.  This  eliminates confounding by calendar time, but still allows the effect of vaccination and time since first infection to be modelled as time-updated covariates.  
+
+One limitation is that ascertainment of both first infections and reinfections may be biased by with respect to factors such as occupation where frequent testing is mandated. 
+
+## Comparison with other studies
+The results of this study, showing an odds ratio of 0.77 for reinfection in those with 2 doses of vaccine versus none, differ from the results of a case-control study in Kentucky [@cavanaugh_reduced_2021].  In that study the odds ratio for reinfection in fully vaccinated versus unvaccinated individuals was 0.43, equivalent to 57% efficacy. The explanation for this  difference is not clear. The Kentucky dataset was restricted to first infections in 2020, and follow-up was restricted to May-June 2021.  In contrast our analysis included the entire follow-up period, stratified by calendar time, with vaccination status as a time-updated covariate.  
+
+An Israeli study [@gazit_comparing_2021] reported an odds ratio of 0.53 in previously infected and vaccinated versus previously infected and unvaccinated individuals.  However the temporal sequence of infection and vaccination was not given. 
+
+
+## Policy implications
+
+, -- abo The low efficacy of vaccination against reinfection weakens the rationale for mandatory vaccination in occupational settings of people who have evidence of previous infection with SARS-CoV-2. 
+
+# Declarations
+## Ethics approval
+This study was performed within Public Health Scotland as part of its statutory duty to monitor and investigate public health problems.  Under the [UK Policy Framework for Health and Social Care Research](https://www.hra.nhs.uk/planning-and-improving-research/policies-standards-legislation/uk-policy-framework-health-social-care-research/) set out by the NHS Health Research Authority, this does not fall within the definition of research and ethical review is not required.  Individual consent is not required for Public Health Scotland staff to process personal data to perform specific tasks in the public interest that fall within its statutory role.  The statutory basis for this is set out in Public Health Scotland's [privacy notice](https://www.publichealthscotland.scot/our-privacy-notice/personal-data-processing/).  
+
+# References 
+<div id="refs"></div>
+
+# Figures
+```{r bycalendartime, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.width=6, fig.asp=0.8, fig.cap="\\label{fig:bycalendartime} Fitted values for incidence of reinfection, based on Poisson regression model with spline terms for calendar time and other covariates as in Table 2.  Vaccination status is defined by number of doses received at least 14 days before."}
+
+theme_set(theme_gray(base_size = 10))
+
+p.reinf
+
+```
+
+
+```{r fatal, echo=FALSE, message=FALSE}
+
+knitr::kable(table.fatal, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="fatal",
+             row.names=TRUE, 
+			 #align=c('r', 'r'), 
+             caption="Reinfections by death within 28 days of positive test and underlying cause of death") %>%
+    column_spec(1, width="3.5cm") %>%
+    column_spec(2, width="3.5cm") %>%
+    column_spec(3, width="3.5cm") %>%
+    column_spec(4, width="3.5cm") %>%
+   kable_styling(latex_options=c("HOLD_position")) 
+
+```
+
+
+
+```{r reinf, echo=FALSE, message=FALSE}
+
+knitr::kable(table.reinf.coeffs, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="reinf",
+             row.names=FALSE, 
+             col.names=c(colnames(table.reinf.coeffs)[1:3],
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+			 #align=c('r', 'r'), 
+             caption="Rate ratios for reinfection in cohort of all individuals who survived at least 90 days after first positive test") %>%
+    add_footnote(label=c("Vaccination status defined as number of doses received at least 14 days before presentation date.",
+                         "Multivariable model includes all covariates in the table"), 
+                 notation="none") %>%
+    group_rows("Occupation", 4, 7, bold=FALSE) %>%
+    group_rows("Vaccination status", 14, 16, bold=FALSE) %>%
+    column_spec(1, width="5cm") %>%
+    column_spec(2, width="2.5cm") %>%
+    column_spec(3, width="2.5cm") %>%
+    column_spec(4, width="3cm") %>%
+    column_spec(5, width="2cm") %>%
+   kable_styling(latex_options=c("HOLD_position", "scale_down")) 
+
+```

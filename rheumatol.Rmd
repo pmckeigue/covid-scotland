@@ -1,0 +1,260 @@
+---
+title: "Concise Report: COVID-19 in patients on biological and targeted synthetic disease-modifying antirheumatic drugs"
+author:
+  - name: Paul M McKeigue\textsuperscript{\getAff{Usher}}
+    affiliation: HPS
+    corresponding: yes
+    email: paul.mckeigue@ed.ac.uk
+  - name: Duncan Porter
+    affiliation: Gart
+  - name: Rosemary Hollick
+    affiliation: Aberdeen
+  - name: Stuart Ralston 
+    affiliation: IGMM
+  - name: David A McAllister\textsuperscript{\getAff{Glasgow}}  
+    affiliation: HPS 
+  - name: Helen M Colhoun\textsuperscript{\getAff{IGMM}}
+    affiliation: HPS
+  - name: PHS COVID-19 Epidemiology and Research Cell
+    affiliation: HPS
+address: 
+  - code: Usher
+    address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG  
+  - code: Gart
+    address: Gartnavel General Hospital, 1053 Gt Western Rd, Glasgow G12 0YN
+  - code: Aberdeen
+    address: University of Aberdeen, Aberdeen AB25 2ZN
+  - code: Glasgow
+    address: Institute of Health and Wellbeing, University of Glasgow, 1 Lilybank Gardens, Glasgow G12 8RZ 
+  - code: IGMM
+    address: Institute of Genetics and Cancer, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland.
+  - code: HPS
+    address: Public Health Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+header-includes:
+  \usepackage{newunicodechar}
+  \usepackage[T1]{fontenc}
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{geometry}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \floatplacement{figure}{H}
+  \usepackage{array}
+  \usepackage{threeparttable}
+  \usepackage{longtable}
+output: 
+  rticles::nejm_article:
+    includes:
+      in_header: ./preamble.tex
+    latex_engine: lualatex
+    keep_tex: true
+    fig_caption: yes
+    md_extensions: -autolink_bare_uris
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+bibliography: ./covid.bib
+csl: ./f1000.csl # ./plos.csl
+always_allow_html: true
+urlcolor: blue
+linenumbers: false
+linkcolor: cyan
+---
+
+```{r vax, echo=FALSE, warning=FALSE, message=FALSE}
+library(kableExtra)
+
+options(knitr.kable.NA = '.')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+```
+
+Main text 1497 words excluding Declarations
+
+\newpage
+
+# Abstract  
+
+**Objectives** - To investigate the association of hospitalized COVID-19 to treatment with disease-modifying antirheumatic drugs (DMARDs). 
+
+**Methods**  - A list of rheumatology clinic patients on biologic DMARDs or janus kinase (JAK) inhibitors in March 2020 was linked to the REACT-SCOT case-control study which includes all cases of COVID-19 diagnosed in Scotland since the start of the epidemic.   
+
+**Main outcome measure** - Hospitalised or fatal COVID-19
+
+**Results** - By July 2021 201 of the 4633 patients on the original list had been diagnosed with COVID-19, of whom 42 had been hospitalised and the outcome was fatal in 5. The adjusted rate ratios for hospitalised COVID-19 associated with conventional synthetic DMARDs ranged from `r astext.or.ci(table.rheumatol.drugs["methotrexate", 5])` for methotrexate to `r astext.or.ci(table.rheumatol.drugs["prednisolone", 5])` for prednisolone.  B cell depletion (rate ratio `r astext.or.ci(table.rheumatol.drugs["B cell depletion", 5])`) and janus kinase inhibitors (rate ratio `r astext.or.ci(table.rheumatol.drugs["JAK inhibitors", 5])`) were associated with increased risk of hospitalisation but tumour necrosis factor(TNF) inhibitors were not (rate ratio `r astext.or.ci(table.rheumatol.drugs["TNF inhibitors", 5])`.   
+
+**Conclusion** - On the basis of these results, patients on TNF inhibitors can be reassured that they are not at increased risk of severe COVID-19 in comparison with the general population.  
+
+\newpage
+
+# Introduction
+Early in the COVID-19 epidemic in the UK, people on "immunosuppression therapies sufficient to increase risk of infection" were designated by public health agencies as clinically extremely vulnerable and thus eligible for shielding.  Because biologic drugs and targeted synthetic immunosuppressants are prescribed only in hospital and these prescriptions are not held in electronic form, Public Health Scotland (PHS) requested  clinicians in relevant specialties to provide lists of patients on these drugs  [@health_protection_scotland_search_2020; @kanani_caring_2020].  
+
+The objective of this study was to investigate the association of hospitalized or fatal COVID-19 with disease-modifying antirheumatic drugs (DMARDs) 
+
+# Methods
+Rheumatologists in three centres covering about one-third of the Scottish population, including the health boards of Lothian, Grampian, Highland, and part of Greater Glasgow and Clyde, sent lists of patients on biologic agents and targeted synthetic DMARDS to PHS in March 2020.  For this study the merged list, hereafter the "biologics list" was linked to the REACT-SCOT case-control study to take advantage of data linkages already established in this study, which now includes about 44% of the Scottish population and all incident cases of COVID-19 in Scotland diagnosed since the start of the epidemic. 
+
+The design of the REACT-SCOT study has been described in detail previously [@mckeigue_rapid_2020]. In brief, for every incident case of COVID-19 in the population ten controls matched for one-year age, sex and primary care practice and alive on the day of presentation of the case that they were matched to were selected using the Community Health Index database.  COVID-19 cases are those with a positive nucleic acid test, a hospital discharge diagnosis or death with COVID-19 as underlying cause. The REACT-SCOT case-control dataset is linked to national data on vaccinations, hospital discharges and outpatient consultations in the last 5 years before presentation date, dispensed prescriptions written in primary care in the last 240 days, and the list of individuals eligible for shielding.  The dataset used for this study was based on cases presenting up to 28 July 2021 and their matched controls.  The main outcome measure cases of COVID-19 with hospitalisation within 28 days of a positive test or fatal outcome. 
+
+ICD-10 codes (as main condition or other condition) for autoimmune rheumatic diseases in hospital discharge records were grouped into three broad categories: rheumatoid arthritis (M05 to M09, M12.3, M13); axial spondyloarthropathies (M07, M45, M46); and connective tissue disorders (M30 to M35).  Rheumatology patients were defined in the case-control study as individuals with any of these discharge diagnoses or an outpatient consultation (face to face or remote) with specialty code AR in the last five years. From drug prescribing records, patients who had received conventional synthetic DMARDs -- methotrexate, hydroxychloroquine, sulfasalazine, leflunomide or prednisolone -- in the last 240 days were identified. 
+
+Rate ratios for hospitalised / fatal COVID-19 were estimated by conditional logistic regression. To investigate associations of COVID-19 with use of antirheumatic drugs, the analysis was undertaken: (1) with the entire case-control dataset, comparing rates of hospitalisation for COVID-19 between patients on the drug with individuals sampled from the population who were not on that drug; (2) with restriction of the dataset to rheumatology patients, thus comparing disease rates in rheumatology patients on the drug to disease rates in rheumatology patients not on that drug. 
+
+# Results
+The biologics list comprised 4633 individuals: the diagnostic category was rheumatoid arthritis in 2702, axial spondyloarthropathies or other diagnoses in 1765, connective tissue disorder in 141, and other conditions in 25.  Of the 4633 individuals on the list, 201 had been diagnosed with COVID-19 by 28 July 2021.  Of these 201 cases, 42 were hospitalized, 5 entered critical care and 5 were fatal. Of the 4633, 2527 had been added by PHS to the shielding list baed on based on criteria laid down in guidance from the British Society of Rheumatology [@british_society_for_rheumatology_covid19_2020].  Of those added to the shielding list 30 (1.2%) were hospitalised with COVID-19, compared with 12 (0.5%) of those not added to the list.  The algorithm used by PHS to identify those eligible for shielding thus discriminated between low-risk and high-risk patients. 
+
+Of the 4633 on the biologics list, 1962 were sampled in the REACT-SCOT case-control study.  Of these 1962, all but 3 had a rheumatology outpatient consultation within the last 5 years, but only 550 had a hospital discharge diagnosis with a rheumatology code.  
+
+Table \ref{tab:diagnosis}, based on the full case-control dataset, shows that with those with no rheumatologic diagnosis as reference category, the rate ratio for hospitalized or fatal COVID-19 was elevated 2- to 3-fold in all three diagnostic categories.  
+
+
+```{r diagnosis, echo=FALSE, message=FALSE}
+
+knitr::kable(table.rheumatol.diagnosis[4:7, ], 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="diagnosis",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             col.names=c(clean.header(colnames(table.rheumatol.diagnosis)[1:2]),
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Rate ratios for hospitalized or fatal COVID-19 by rheumatology diagnosis") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    add_footnote(label=c("Presentation dates up to 28 July 2021",
+                         "This analysis includes all hospitalized or fatal COVID-19 cases and their matched controls, irrespective of whether they were on the biologics list", 
+                         "Reference category is those without a rheumatology diagnosis: not on the biologics list and without a hospital discharge diagnosis of a rheumatic disease in last 5 years.", 
+                         "Multivariable model includes all variables shown together with vaccination status, coded as number of doses received at least 14 days before presentation date."), 
+                 notation="none") %>%
+    column_spec(1, width="4.5cm") %>%
+    column_spec(2, width="3cm") %>%
+    column_spec(3, width="3cm") %>%
+    column_spec(4, width="3cm") %>%
+    column_spec(5, width="2cm") %>%
+    column_spec(6, width="3cm") %>%
+    column_spec(7, width="2cm") %>%
+    kable_styling(latex_options=c("HOLD_position", "scale_down")) 
+
+```
+
+Table \ref{tab:drugs} shows the rate ratios for hospitalized or fatal COVID-19 associated with each drug class based on the full case-control dataset. In this analysis the reference category for each drug is all those in the population who are not taking the drug.  All conventional synthetic DMARDS prescribed in primary care were associated with modest rate ratios (around twofold) for hospitalisation for COVID-19.  The highest rate ratio was associated with prednisolone (rate ratio `r astext.or.ci(table.rheumatol.drugs["prednisolone", 5])`. Tumour necrosis factor (TNF) inhibitors were not associated with increased risk (rate ratio `r astext.or.ci(table.rheumatol.drugs["TNF inhibitors", 5])`, but B cell depletion and janus kinase (JAK) inhibitors were associated with elevated rate ratios (`r astext.or.ci(table.rheumatol.drugs["B cell depletion", 5])` and `r astext.or.ci(table.rheumatol.drugs["JAK inhibitors", 5])`) respectively.    For IL-17 and IL-6 inhibitors there was no evidence of elevated risk but the  confidence intervals were wide.  
+
+
+```{r drugs, echo=FALSE, message=FALSE}
+
+knitr::kable(table.rheumatol.drugs[-(1:3), ],
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="drugs",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             col.names=c(clean.header(colnames(table.rheumatol.drugs)[1:2]),
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Rate ratios for hospitalized or fatal COVID-19 associated with use of disease-modifying anti-rheumatic drugs in the population") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    add_footnote(label=c("Presentation dates up to 28 July 2021.",
+                        "This analysis includes all hospitalized or fatal COVID-19 cases and their matched controls", 
+                         "Rate ratios are estimated by conditional logistic regression", 
+                         "Multivariable model includes all variables shown together with vaccination status, coded as number of doses received at least 14 days before presentation date."), 
+                 notation="none") %>%
+    group_rows("Drugs prescribed in primary care", 1, 5) %>%
+    group_rows("Drugs reported on the biologics list", 6, 10) %>%
+     column_spec(1, width="3.5cm") %>%
+    column_spec(2, width="3cm") %>%
+    column_spec(3, width="3cm") %>%
+    column_spec(4, width="3cm") %>%
+    column_spec(5, width="2cm") %>%
+    column_spec(6, width="3cm") %>%
+    column_spec(7, width="2cm") %>%
+    kable_styling(latex_options=c("HOLD_position", "scale_down")) 
+
+```
+
+Supplementary Table \ref{tab:diagdrugs} shows the same analysis based on restricting the dataset to those with a rheumatology outpatient consultation or discharge diagnosis. The confidence intervals are wider because cases without a matched control contribute no information. With the exception of prednisolone, conventional synthetic DMARDs were not associated with elevated rates of hospitalisation for COVID-19 in this analysis.  The increased risk associated with B cell depleting agents was still evident. 
+
+# Discussion
+## Statement of principal findings
+We have shown that:  
+
+* The risk of hospitalised or fatal COVID-19 is about two-fold higher in people with autoimmune rheumatic diseases. However the absolute risk of mortality from COVID-19 in patients on biologics has remained low: about 1 in 1000 over 16 months. 
+
+* In comparison with those treated with conventional synthetic DMARDs, patients treated with TNF inhibitors are at lower risk but patients treated with prednisolone, B cell depleting agents or JAK inhibitors are at higher risk. 
+
+## Strengths and limitations
+Strengths of this study are the complete ascertainment of cases, the comprehensive linkage to electronic health records, and the incidence density sampling design that controls for general practice and calendar time.  One limitation is that the clinics that provided the biologics list cover only about one third of the Scottish population.  Although individuals prescribed biologics in other centres are misclassified as not on biologics, the effect on the rate ratio will be small because the proportion of the general population who are on biologics is low and because matching on general practice ensures that patients on biologics are compared with others from the catchment population of the clinics that provided the biologics list. In the unrestricted analysis, associations with glucocorticoids may be confounded by other conditions such as asthma that increase the risk of severe COVID-19. However we have shown that the key findings -- increased risk associated with glucocorticoids and B cell depleting agents but not with TNF inhibitors -- do not change when the dataset is restricted to those who have had rheumatology outpatient consultations.  
+
+## Comparison with other studies
+Others have reported that hospitalisation for COVID-19 is associated with use of glucocorticoids and B cell depleting agents but not with TNF inhibitors. In a registry of 600 rheumatology patients diagnosed with COVID-19, the odds ratio for hospitalisation (with methotrexate use as reference category) was 2.1 for glucocorticoid use equivalent to >10mg/day predisone, and 0.4 for TNF inhibitors [@gianfrancesco_characteristics_2020].  In a later analysis based on 2869 patients with rheumatoid arthritis the odds ratios (with TNF inhibitors as reference category) were 4.5 for rituximab and 2.1 for JAK inhibitors [@sparks_associations_2021].  In a French series of 694 patients the odds ratio for fatal disease was 2.8 for any glucocorticoid, 0.2 for TNF inhibitors and 3.1 for  rituximab.  [@fai2r_/sfr/snfmi/sofremip/cri/imidiate_consortium_and_contributors_severity_2020].  In an Israeli cohort of 6112 psoriasis patients  the rate ratio for hospitalisation associated with TNF inhibitors, with methotrexate as reference category, was 0.08 [@kridin_tumor_2021]. 
+
+As patients treated with TNF inhibitors generally have more severe rheumatic disease than those treated only with conventional synthetic DMARDs, the low risk of severe COVID-19 in TNF inhibitors users compared with conventional synthetic DMARD users suggests a possible protective effect.  As B cell depleters and JAK inhibitors are generally used as third-line therapy in patients who have not responded to TNF inhibitors, associations of these drug classes with severe COVID-19 may be attributable to pre-existing morbidity.  
+
+## Clinical implications
+On the basis of these results, patients on TNF inhibitors can be reassured that they are not at increased risk of severe COVID-19 in comparison with the general population.  A larger study is required to investigate the association of severe COVID-19 with B cell depleting agents and JAK inhibitors.   
+
+# Declarations
+## Public and Patient Involvement statement:
+This study was conducted under approvals from the [Public Benefit and Privacy Panel for Health and Social Care](https://www.informationgovernance.scot.nhs.uk/pbpphsc/) which includes public and patient representatives. 
+
+## Ethics approval and information governance
+This study was performed within Public Health Scotland as part of its statutory duty to monitor and investigate public health problems.  Under the [UK Policy Framework for Health and Social Care Research](https://www.hra.nhs.uk/planning-and-improving-research/policies-standards-legislation/uk-policy-framework-health-social-care-research/) set out by the NHS Health Research Authority, this does not fall within the definition of research and ethical review is not required.  Individual consent is not required for Public Health Scotland staff to process personal data to perform specific tasks in the public interest that fall within its statutory role.  The statutory basis for this is set out in Public Health Scotland's [privacy notice](https://www.publichealthscotland.scot/our-privacy-notice/personal-data-processing/).  
+A Data Protection Impact Assessment​ (DPIA) allows Public Health Scotland staff to link existing datasets.  
+
+## Transparency declaration
+PM as the manuscript’s guarantor affirms: that the manuscript is an honest, accurate, and transparent account of the study being reported; that no important aspects of the study have been omitted; and that any discrepancies from the study as originally planned and registered have been explained. This manuscript has been generated directly from the source data by a reproducible research pipeline. 
+
+## Funding 
+No specific funding was received for this study.
+
+## Data Availability
+The component datasets used here are available via the Public Benefits and Privacy Panel for Health and Social Care at https://www.informationgovernance.scot.nhs.uk/pbpphsc/ for researchers who meet the criteria for access to confidential data. All source code used for derivation of variables, statistical analysis and generation of this manuscript is available on  https://github.com/pmckeigue/covid-scotland_public.
+
+## Competing interest
+All authors have completed and submitted the ICMJE Form for Disclosure of Potential Conflicts of Interest.
+
+## Contributors
+All authors provided substantial contributions to the conception of the study and the drafting of the manuscript. PM undertook the statistical analysis. All authors contributed to revising the manuscript critically for important intellectual content and approved the final manuscript. 
+
+## Acknowledgements
+??
+
+# References
+<div id="refs"></div>
+
+\beginsupplement
+
+# Supplementary Table
+
+```{r diagdrugs, echo=FALSE, message=FALSE}
+
+knitr::kable(table.rheumatoldiag.drugs[-(1:3), ],
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="diagdrugs",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             col.names=c(clean.header(colnames(table.rheumatoldiag.drugs)[1:2]),
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Rate ratios for hospitalized or fatal COVID-19 associated with use of DMARDs, restricted to those with a rheumatology outpatient consultation or discharge diagnosis") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    add_footnote(label=c("Presentation dates up to 28 July 2021.",
+                         "Restricted to individuals with a rheumatology outpatient consultation, hospital discharge diagnosis of an autoimmune rheumatic disease, or on the biologics list.",
+                         "Rate ratios are estimated by conditional logistic regression", 
+                         "Multivariable model includes all variables shown together with vaccination status, coded as number of doses received at least 14 days before presentation date."), 
+                 notation="none") %>%
+    group_rows("Drugs prescribed in primary care", 1, 5) %>%
+    group_rows("Drugs reported on the biologics list", 6, 10) %>%
+     column_spec(1, width="3.5cm") %>%
+    column_spec(2, width="3cm") %>%
+    column_spec(3, width="3cm") %>%
+    column_spec(4, width="3cm") %>%
+    column_spec(5, width="2cm") %>%
+    column_spec(6, width="3cm") %>%
+    column_spec(7, width="2cm") %>%
+    kable_styling(latex_options=c("HOLD_position", "scale_down")) 
+
+```
+

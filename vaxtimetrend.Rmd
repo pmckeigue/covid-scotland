@@ -1,0 +1,84 @@
+---
+title: "Time course of efficacy of vaccination against severe COVID-19 in Scotland"
+author:
+  - name: Paul M McKeigue\textsuperscript{\getAff{Usher}}
+    affiliation: HPS
+  - name: Helen M Colhoun\textsuperscript{\getAff{IGMM}}
+#    corresponding: yes
+#    email: helen.colhoun@igmm.ed.ac.uk
+    affiliation: HPS
+address: 
+- code: Usher
+  address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland. PM - Professor of Genetic Epidemiology and Statistical Genetics. NL - Clinical Senior Lecturer in Critical Care  
+- code: IGMM
+  address: Institute of Genetics and Cancer, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland. HC - AXA Chair in Medical Informatics and Epidemiology
+- code: HPS
+  address: Public Health Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+
+header-includes:
+  \usepackage{newunicodechar}
+  \usepackage[T1]{fontenc}
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{geometry}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \floatplacement{figure}{H}
+  \usepackage{array}
+  \usepackage{threeparttable}
+  \usepackage{longtable}
+output: 
+  rticles::nejm_article:
+    includes:
+      in_header: ./preamble.tex
+    latex_engine: lualatex
+    keep_tex: true
+    fig_caption: yes
+    md_extensions: -autolink_bare_uris
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+bibliography: ./covid.bib
+csl: ./f1000.csl # ./plos.csl
+always_allow_html: true
+urlcolor: blue
+linenumbers: false
+linkcolor: cyan
+---
+
+```{r vax, echo=FALSE, warning=FALSE, message=FALSE}
+library(kableExtra)
+
+options(knitr.kable.NA = '.')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+```
+\newpage
+
+# Vaccine efficacy against Delta variant (or while Delta was the predominant variant)
+
+| Study | Infection | Hospitalisation |  
+| ----  | --------- | --------------- |  
+| @nanduri_effectiveness_2021 | 53% |. | 
+| @tenforde_sustained_2021 | . | 84% |  
+| @rosenberg_new_2021 | 80% during July | 95%  |
+| @lopez_bernal_effectiveness_2021 | Pfizer 88%, AZ 67% | . |  
+| @puranik_comparison_2021 | Pfizer 42%, Moderna 76% | Pfizer 75%, Moderna 81% |  
+| @pouwels_impact_2021 | Pfizer 80%, AZ 67% | . |  
+
+# References
+<div id="refs"></div>
+
+\newpage
+
+# Figures
+
+```{r bycalendartime, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.width=6, fig.asp=0.8, fig.cap="\\label{fig:caseseverity} Time course of efficacy of 1 and 2 doses of each vaccine against severe disease: rate ratios in multivariable model admPoisson regression model for 90-day incidence of any case and severe case in the shielding cohort"}
+
+theme_set(theme_gray(base_size = 10))
+
+gridExtra::grid.arrange(p.rateratio, p.rateratio.hosp)
+
+```
+ 

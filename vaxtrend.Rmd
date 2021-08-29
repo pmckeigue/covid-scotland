@@ -1,0 +1,309 @@
+---
+title: "Efficacy of vaccination against severe COVID-19 in relation to Delta variant and to time since second dose: the REACT-SCOT case-control study"
+author:
+  - name: Paul M McKeigue\textsuperscript{\getAff{Usher}}
+    affiliation: HPS
+    corresponding: yes
+    email: paul.mckeigue@ed.ac.uk
+  - name: David A McAllister\textsuperscript{\getAff{Glasgow}}  
+    affiliation: HPS 
+  - name: Helen M Colhoun\textsuperscript{\getAff{IGMM}}
+    affiliation: HPS
+  - name: for the PHS COVID-19 Epidemiology and Research Cell
+    affiliation: HPS
+address: 
+- code: Usher
+  address: Usher Institute, College of Medicine and Veterinary Medicine, University of Edinburgh, Teviot Place, Edinburgh EH8 9AG, Scotland.
+- code: IGMM
+  address: Institute of Genetics and Cancer, College of Medicine and Veterinary Medicine, University of Edinburgh, Western General Hospital Campus, Crewe Road, Edinburgh EH4 2XUC, Scotland. 
+- code: Glasgow
+  address: Institute of Health and Wellbeing, University of Glasgow, 1 Lilybank Gardens, Glasgow G12 8RZ.
+- code: HPS
+  address: Public Health Scotland, Meridian Court, 5 Cadogan Street, Glasgow G2 6QE
+header-includes:
+  \usepackage{newunicodechar}
+  \usepackage[T1]{fontenc}
+  \let\origquote\quote
+  \def\quote{\origquote\itshape}
+  \usepackage{graphicx}
+  \usepackage{geometry}
+  \usepackage{longtable}
+  \usepackage{booktabs}
+  \usepackage{float}
+  \floatplacement{figure}{H}
+  \usepackage{array}
+  \usepackage{threeparttable}
+  \usepackage{longtable}
+output: 
+  rticles::nejm_article:
+    includes:
+      in_header: ./preamble.tex
+    latex_engine: lualatex
+    keep_tex: true
+    fig_caption: yes
+    md_extensions: -autolink_bare_uris
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+bibliography: ./covid.bib
+#csl: ./f1000.csl 
+csl: ./plos.csl
+always_allow_html: true
+urlcolor: blue
+linenumbers: false
+linkcolor: cyan
+---
+
+```{r vax, echo=FALSE, warning=FALSE, message=FALSE}
+library(kableExtra)
+
+options(knitr.kable.NA = '.')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+```
+\newpage
+
+# Abstract 
+  
+**Objectives** -  To investigate: (1) whether vaccine efficacy against severe COVID-19 has decreased since Delta became the predominant variant; (2) whether efficacy wanes with time since second dose.  
+  
+**Design** - Matched case-control study.  
+
+**Setting** - Population of Scotland from 1 December 2020 to 28 July 2021. 
+
+**Main outcome measure** - Severe COVID-19, defined as cases with entry to critical care or fatal outcome.  
+
+**Results** - Efficacy of vaccination against severe COVID-19 increased up to July 2021, despite a temporary decrease coinciding with the replacement of the B.1.1.7 (Alpha) by the B.1.617.2 (Delta) variant in May 2021.  In the most recent time window, the efficacy of two doses against severe COVID-19 was `r az.efficacy.severe` for the AstraZeneca product and `r mrna.efficacy.severe` for mRNA (Pfizer or Moderna) products.  Efficacy against severe COVID-19 decreased over the first two months since the second dose but stabilized thereafter: the model with best fit was one with a change-point at `r bestfit.cp` weeks since second dose.  Against the broader category of hospitalised or fatal COVID-19, the results were similar except that  efficacy in the most recent time window was lower for the AZ product at `r az.efficacy.hosp` than for mRNA vaccines at `r mrna.efficacy.hosp`. 
+
+**Conclusions** - 
+These results are reassuring with respect to concerns that efficacy against severe COVID-19 might have fallen since the Delta variant became predominant, or that efficacy against severe disease may continue to wane with time since second dose.  This weakens the rationale for policies that offer booster doses to the entire population, rather than to vulnerable individuals for focused protection.  
+
+\newpage
+
+# Introduction
+Recent reports have suggested that efficacy of vaccines against COVID-19 infection may have fallen since the B.1.617.2 (Delta) variant became predominant [@nanduri_effectiveness_2021;@lopez_bernal_effectiveness_2021;@pouwels_impact_2021;@tenforde_sustained_2021; @rosenberg_new_2021;@puranik_comparison_2021].  These reports are summarized below.  
+
+## Vaccine efficacy before and after Delta became the predominant variant
+
+| Study | Setting | Infection || Hospitalisation ||   
+| --  | ------- |----- | -----| ----- | ----- |
+| | | **Before Delta** | **After Delta** | **Before Delta** | **After Delta** |   
+| @nanduri_effectiveness_2021 | Care home residents | Pfizer 74%, Moderna 75% | Pfizer 52%, Moderna 51% | . | 
+| @tenforde_sustained_2021  | IVY Network (hospitals) | . | . | 87% | 84%  |  
+| @rosenberg_new_2021 | New York State| 92%. | 80% | 92% | 95% |
+| @puranik_comparison_2021 | Mayo Clinic Health System | Pfizer 76%, Moderna 86% | Pfizer 42%, Moderna 76% | Pfizer 85%, Moderna 92% | Pfizer 75%, Moderna 81% |  
+| @lopez_bernal_effectiveness_2021  | England | Pfizer 94%, AZ 75% | Pfizer 88%, AZ 67% | . |  
+| @pouwels_impact_2021 | UK ONS Covid-19 Infection Survey | Pfizer 78%, AZ 79% | Pfizer 80%, AZ 67% | . |  
+
+Other studies have raised concerns that efficacy of two doses may wane with time since dose.  A study of individuals registered with an Israeli health-care organization reported lower efficacy of two doses against infection during June-July 2021 among those who had received their second dose in January-February compared with those who had received their second dose in March-April [@mizrahi_correlation_2021].  A study in England reported that efficacy against infection fell with time since second dose by 22% and 7% per 30 days for the AZ and Pfizer vaccines respectively [@puranik_comparison_2021].  These concerns have has led public health agencies in the United States to recommend booster doses [@office_of_the_commissioner_joint_2021a].
+
+The outcomes assessed by these studies -- positive nucleic acid test [@nanduri_effectiveness_2021;@lopez_bernal_effectiveness_2021], positive test with low PCR cycle threshold [@pouwels_impact_2021], or hospitalisation [@tenforde_sustained_2021;@rosenberg_new_2021;@puranik_comparison_2021] -- are subject to ascertainment bias.  Severe COVID-19, defined as cases that are fatal or require critical care, is less susceptible to ascertainment bias and is also the most important outcome for policy purposes, as the original rationale for lockdowns was to prevent critical care services from being overwhelmed. 
+
+The objectives of this study were to investigate for the two main classes of vaccine: (1) whether efficacy against severe COVID-19 has decreased since Delta became the predominant variant; (2) whether efficacy of two doses against severe COVID-19 wanes with time since second dose.  
+
+# Methods
+The design of the REACT-SCOT case-control study has been described in detail previously [@mckeigue_rapid_2020]. In brief, for every incident case of COVID-19 in the Scottish population ten controls matched for one-year age, sex and primary care practice and alive on the day of presentation of the case that they were matched to were selected using the Community Health Index database.  COVID-19 cases are those with a positive nucleic acid test, or a hospital admission or death with COVID-19 ICD-10 codes.  As previously [@mckeigue_rapid_2020], to minimise ascertainment bias we pre-specified the primary outcome measure as severe COVID-19,  defined as diagnosed cases with entry to critical care within 28 days of presentation or fatal outcome (any death within 28 days of a positive test or any death for which COVID-19 was coded as underlying cause).  We also examined the broader category of hospitalised or fatal COVID-19. Analyses reported here are restricted to cases and controls presenting from 1 December 2020 onwards.  
+
+Vaccination status was defined by the number of doses received at least 14 days before presentation date.  Of those who had received two doses of an mRNA vaccine, less than 1% had received the Moderna product. The Pfizer and Moderna products were therefore grouped together as "mRNA vaccine". 
+
+The incidence density sampling design controls not only for the matching factors of age, sex and primary care practice but also for calendar time. Rate ratios for severe COVID-19 were estimated from conditional logistic regression models.  The efficacy of vaccination is 1 minus the rate ratio. Covariates included in each model were those that have been previously identified as strong predictors of severe disease in this population: care home residence, risk category (no risk condition, moderate risk condition, clinically extremely vulnerable), number of non-cardiovascular drug classes dispensed and recent hospital stay [@mckeigue_rapid_2020;@mckeigue_relation_2021a;@mckeigue_relation_2021b].  
+
+To investigate the effect of the Delta variant we examined how efficacy varied with calendar time, and to investigate possible waning we examined how the efficacy varied with time since last dose.  To allow the data to speak for themselves, the initial analysis presents line plots of rate ratios estimated within sliding 42-day time windows against calendar time and against time since last dose.  For a formal comparison between time periods before and after Delta became the predominant variant, we estimated rate ratios before and after 19 May 2021: the date on which Delta became the main variant in Scotland [@sheikh_sarscov2_2021].  For modelling the relation of efficacy to time since dose, the results of the line plots led us to adopt the modelling approach described in the Results section.  
+
+# Results
+Tables \ref{tab:severe} and \ref{tab:hosp} show the distributions of risk factors in cases and their matched controls, for severe cases and the broader category of hospitalised or fatal cases respectively. These results are provided for reference only: the reader is cautioned that unconditional odds ratios calculated from these tables cannot be used to estimate rate ratios because of the matched design [@breslow_estimation_1978;@greenland_need_1982].   
+
+## Vaccine efficacy before and after the Delta variant became predominant
+Figure \ref{fig:bycalendartime} (a) shows that the rate ratio for severe COVID-19 associated with a single dose of vaccine declined (and thus efficacy increased) from March to July 2021. This trend was briefly interrupted during May 2021, corresponding to the period when the Alpha variant was replaced by the Delta variant.  The rate ratios for severe COVID-19 associated with two doses of vaccine show a similar trend, but the estimates of rate ratios for time windows before May 2021 lack precision (represented in the plot by line thicknesses) because at this time few individuals at risk of severe disease had received their second dose.  To compare the rate ratio before and after the date that the Delta variant became predominant, a conditional logistic regression model was fitted with the effect of two doses nested within each level of an indicator variable defined as presentation date on or after 19 May 2021.   The rate ratio for severe disease associated with two doses did not differ between the periods before and after this cutoff date: `r estcipv.severe.before19may` before 19 May and `r estcipv.severe.after19may` from 19 May onwards.  
+
+Figure \ref{fig:bycalendartime} (b) shows that the rate ratio for the broader category of hospitalised or fatal disease associated with two doses of vaccine increased (and thus efficacy was lower) after the Delta variant became predominant.  The rate ratio was estimated as `r estcipv.hosp.before19may` before 19 May and `r estcipv.hosp.after19may` from 19 May onwards
+
+Figure \ref{fig:bycalendartime} (a) shows that against severe COVID-19, the efficacy of the AZ and mRNA vaccines did not differ after May 2021, but Figure \ref{fig:bycalendartime} (b) shows that against the broader category of hospitalised or fatal COVID-19 the AZ vaccine had lower efficacy than the mRNA vaccines.   
+
+## Vaccine efficacy by time since second dose 
+Figure \ref{fig:bytimesincedose} (a) shows that the rate ratio for severe COVID-19 increases (and thus efficacy decreased) up to about 12 weeks after the second dose for both AZ and mRNA vaccines, but that there is no clear trend after that time point. The slope of the increase in rate ratio is less steep for the AZ vaccine than for the mRNA vaccines, so that the difference in efficacy narrows with time since second dose.  Figure \ref{fig:bytimesincedose} (b) shows the same analysis for the broader category of hospitalized or fatal COVID-19.  As for severe COVID-19 the rate ratio associated with vaccine increases up to about 12 weeks and there is no clear trend or even a decreasing rate ratio (increasing efficacy) thereafter.  As in Figure \ref{fig:bycalendartime} (b), efficacy against hospitalisation remains higher for the mRNA than for the AZ vaccine. 
+
+These results led us to test formally for a change-point in the slope of the relationship of log rate ratio for severe disease associated with vaccination to time since second dose.  For this we compared the fit of models with change points from 8 to 16 weeks after the second dose.  In each model the slopes before and after the change-point were encoded as interaction terms for vaccination status (2 doses versus none) \ensuremath{\times} weeks since second dose.  Models with a change-point were compared to a model with no change-point. These models included the same covariates as before.  
+
+The results of this model comparison are shown in Table \ref{tab:changepoints}. The best-fitting model was one with a change-point at  `r bestfit.cp` weeks since second dose, with deviance `r 2 * max(loglik.changepoints$loglik)` units lower (_p_=`r pvalue.latex(1 - pchisq(2 * max(loglik.changepoints$loglik), df=1))`) than the model with no change point.  The slope of the relationship, expressed as a multiplicative effect on the rate ratio associated with two doses of vaccine,  was `r bestfit.effectbefore` per week since second dose up to the `r bestfit.cp`-week change-point and `r bestfit.effectafter` per week thereafter.  
+
+This procedure was repeated for efficacy against the broader outcome of hospitalized or fatal COVID-19 ( Table \ref{tab:changepointshosp}).  Again the best-fitting model was one with a change-point at  `r bestfit.cp.hosp` weeks since second dose, with deviance `r 2 * max(loglik.changepoints.hosp$loglik)` units lower (_p_=`r pvalue.latex(1 - pchisq(2 * max(loglik.changepoints.hosp$loglik), df=1))`) than the model with no change point.  
+
+# Conclusions
+## Statement of principal findings
+* Efficacy of vaccination against severe COVID-19 has increased from March to July 2021 despite the replacement of the Alpha by the Delta variant in May 2021. 
+
+* Efficacy of a second dose against severe COVID-19 declines during the first `r bestfit.cp` weeks since vaccination but stabilizes thereafter.  This early decline of efficacy is faster for the mRNA vaccines than for the AZ product.   
+
+*  The efficacy of two doses against severe COVID-19 in the most recent time windows is around 95% and does not differ between AZ and mRNA products.  Efficacy against the broader category of hospitalised or fatal COVID-19 remains lower for the AZ than the mRNA products (85% versus 91%). 
+
+## Strengths and limitations
+Strengths of this study are the focus on severe COVID-19 as main outcome measure, the elimination of confounding by calendar time in the matched case-control design, and the ability to control for multiple comorbidities through linkage to electronic health records including prescribing.  A limitation of the incidence density case-control design is that it excludes reinfections: the sampling of cases and controls excludes those who have previously tested positive for COVID-19.  For investigating the possible effect of the Delta variant on efficacy, a limitation is that we do not have direct measurements of variant type; however in Scotland the Alpha variant was almost completely replaced by Delta during over a few weeks in May 2021 [@sheikh_sarscov2_2021], and we were able to detect the effect of this as a temporary interruption of the upward trend in vaccine efficacy seen in the plot of efficacy against calendar time.  
+
+The effects of calendar time and time since second dose are confounded with each other and with other factors not considered in this analysis including seasonality, the build-up of natural immunity, and the changing demographic and morbidity profile of cases.  We would expect the build-up of natural immunity to decrease vaccine efficacy by lowering risk in the unvaccinated. On the basis of recent analyses (to be reported elsewhere) showing lower efficacy against severe COVID-19 in those designated as clinically extremely vulnerable, we would expect the efficacy to decrease where these groups are exposed to infection. Investigating these factors is important but is not necessarily relevant to the immediate policy issue addressed by this paper. For this it is sufficient to show that the efficacy of two doses has not decreased with calendar time and that efficacy does not continue to wane with time since second dose.  
+
+## Comparison with other studies
+We have previously reported that efficacy of vaccines is higher against severe COVID-19 than against the broader category of hospitalised or fatal COVID-19.  Other studies have reported that efficacy against hospitalisation in turn is higher than efficacy against all test-positive infections [@puranik_comparison_2021;@lopez_bernal_effectiveness_2021].  
+
+In three recent studies from the UK [@lopez_bernal_effectiveness_2021; @pouwels_impact_2021;@sheikh_sarscov2_2021] the efficacy against infection with the Delta variant, or against any infection since Delta became the predominant variant, was estimated to be lower for the AZ product than for the Pfizer product.  Only one of these studies, based on Scottish data up to 6 June 2021, was able to examine  efficacy against hospitalisation [@sheikh_sarscov2_2021]; the efficacy against hospitalisation with an S gene positive PCR result (a proxy for Delta) was 62%, 95% CI 42% to 76%). 
+
+The ONS study reported that vaccine efficacy against test-positive cases with PCR cycle threshold < 30 or against symptomatic cases declined faster from 14 days after second vaccination for the Pfizer mRNA vaccine than for the AZ vaccine [@pouwels_impact_2021].  The authors suggested that if these results were extrapolated, these two vaccines would have equal efficacy against these outcomes after 16-20 weeks.  We have extended this finding by showing that efficacy against severe COVID-19 and hospitalisation declines faster for mRNA vaccines than for the AZ product, and we show that the two classes of vaccine have about equal efficacy against severe disease after about 12 weeks.  However for efficacy against hospitalisation, the difference in efficacy persists: the gap between the two vaccines (on the scale of log rate ratio) narrows only up to about 6 weeks since second dose.  
+
+## Policy implications
+A joint CDC/FDA statement on 18 August asserted that [@office_of_the_commissioner_joint_2021a]:
+
+> The available data make very clear that protection against SARS-CoV-2 infection begins to decrease over time following the initial doses of vaccination, and in association with the dominance of the Delta variant, we are starting to see evidence of reduced protection against mild and moderate disease. 
+
+On this basis, the statement concluded that "a booster shot will be needed to maximize vaccine-induced protection and prolong its durability", reversing an earlier position [@office_of_the_commissioner_joint_2021].  Our results are more reassuring, in that the decrease in efficacy against severe COVID-19 or hospitalised / fatal COVID-19 is limited to the first 9 weeks since second dose, and the efficacy thereafter appears to stabilize.  We also find no evidence that the replacement of the Alpha by the Delta variant has done more than temporarily interrupt the trend of vaccine efficacy against severe COVID-19 to increase with calendar time.  On this basis the rationale for offering booster doses to the entire population, rather than to vulnerable individuals for focused protection, is open to question.   
+
+# Declarations
+## Ethics approval
+This study was performed within Public Health Scotland as part of its statutory duty to monitor and investigate public health problems.  Under the [UK Policy Framework for Health and Social Care Research](https://www.hra.nhs.uk/planning-and-improving-research/policies-standards-legislation/uk-policy-framework-health-social-care-research/) set out by the NHS Health Research Authority, this does not fall within the definition of research and ethical review is not required.  Individual consent is not required for Public Health Scotland staff to process personal data to perform specific tasks in the public interest that fall within its statutory role.  The statutory basis for this is set out in Public Health Scotland's [privacy notice](https://www.publichealthscotland.scot/our-privacy-notice/personal-data-processing/).  
+
+# References 
+<div id="refs"></div>
+
+# Figures
+```{r bycalendartime, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.width=6, fig.asp=1.3, fig.cap="\\label{fig:bycalendartime} Relation of  vaccine efficacy to calendar time: (a) severe COVID-19; (b) hospitalised or fatal COVID-19.  Vaccination status is defined by number of doses received at least 14 days before. Rate ratios in conditional logistic regression model, adjusted for covariates. Thickness of each line is proportional to precision of estimate"}
+
+theme_set(theme_gray(base_size = 10))
+
+gridExtra::grid.arrange(p.rateratio + labs(tag="(a)"),
+                        p.rateratio.hosp + labs(tag="(b)") +
+                        theme(legend.position = "none"))
+
+```
+
+```{r bytimesincedose, echo=FALSE, warning=FALSE, message=FALSE, fig.pos = "H", fig.width=6, fig.asp=1.3, fig.cap="\\label{fig:bytimesincedose} Relation of vaccine efficacy to time since last dose: (a) severe COVID-19; (b) hospitalised or fatal COVID-19.  Rate ratios in conditional logistic regression model, adjusted for covariates. Thickness of each line is proportional to precision of estimate"}
+
+theme_set(theme_gray(base_size = 10))
+
+gridExtra::grid.arrange(p.rateratio.sincedose + labs(tag="(a)"),
+                        p.rateratio.sincedose.hosp + labs(tag="(b)") +
+                        theme(legend.position = "none"))
+
+```
+ 
+# Supplementary Tables
+\beginsupplement
+
+
+```{r severe, echo=FALSE, message=FALSE}
+
+knitr::kable(table.severe, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="severe",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             col.names=c(clean.header(colnames(table.severe)[1:2]),
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Rate ratios for severe COVID-19") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    add_footnote(label=c("Presentation dates from 1 December 2020 to 28 July 2021.",
+                         "Vaccination status defined as number of doses received at least 14 days before presentation date.",
+                         "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                         "Multivariable model includes all covariates in the table"), 
+                 notation="none") %>%
+    group_rows("Vaccination status", 7, 11, bold=FALSE) %>%
+    column_spec(1, width="4cm") %>%
+    column_spec(2, width="3cm") %>%
+    column_spec(3, width="3cm") %>%
+    column_spec(4, width="3cm") %>%
+    column_spec(5, width="2cm") %>%
+    column_spec(6, width="3cm") %>%
+    column_spec(7, width="2cm") %>%
+    kable_styling(latex_options=c("HOLD_position", "scale_down")) 
+
+```
+
+```{r hosp, echo=FALSE, message=FALSE}
+
+knitr::kable(table.hosp, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="hosp",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             col.names=c(clean.header(colnames(table.hosp)[1:2]),
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value",
+                         "Rate ratio (95\\% CI)", "\\ensuremath{p}-value"), 
+             caption="Rate ratios for hospitalised or fatal COVID-19") %>%
+    add_header_above(c(" "=3, "Univariate"=2, "Multivariable"=2)) %>%
+    add_footnote(label=c("Presentation dates from 1 December 2020 to 28 July 2021.",
+                         "Vaccination status defined as number of doses received at least 14 days before presentation date.",
+                         "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                         "Multivariable model includes all covariates in the table"), 
+                 notation="none") %>%
+    group_rows("Vaccination status", 7, 11, bold=FALSE) %>%
+    column_spec(1, width="4cm") %>%
+    column_spec(2, width="3cm") %>%
+    column_spec(3, width="3cm") %>%
+    column_spec(4, width="3cm") %>%
+    column_spec(5, width="2cm") %>%
+    column_spec(6, width="3cm") %>%
+    column_spec(7, width="2cm") %>%
+    kable_styling(latex_options=c("HOLD_position", "scale_down")) 
+
+```
+
+```{r changepoints, echo=FALSE, message=FALSE}
+
+knitr::kable(loglik.changepoints[, .(week.changepoint, deviance, effect.before, effect.after)],
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="changepoints",
+             row.names=FALSE, 
+			 # align=c('r', 'r'), 
+             col.names=c("Change-point (weeks since second dose)",
+                         "Deviance of model",
+                         "Before change-point",
+                         "After change-point"),
+             caption="Relationship of efficacy of two doses of vaccine against severe COVID-19 to time since second dose: comparison of models with change-points at 8 to 16 weeks since second dose") %>%
+    add_header_above(c(" "=2, "Effect (95% CI) per week on rate ratio"=2)) %>%
+    add_footnote(label=c("Presentation dates from 1 December 2020 to 28 July 2021.",
+                         "Restricted to those who had received 0 doses or 2 doses at least 14 days before presentation date.",
+			 "Variables in model: care home residence + risk category + number of drug classes + vaccination status (0 doses, 2 doses mRNA, 2 doses AZ) + any vaccine x weeks since dose", 
+                         "Slopes of relationship before and after changepoint are encoded as  interaction terms for vaccination status x weeks since second dose.",
+                         "Effects shown are multiplicative effects on the rate ratio associated with vaccination status, obtained by taking exponents of the coefficients for the interaction terms.",
+                         "Deviance is scaled to have value zero for a model with no changepoint.",
+                         "Model with best fit (lowest deviance) is shown in bold."),
+                 notation="none") %>%
+    column_spec(1, width="3cm") %>%
+    column_spec(2, width="2cm") %>%
+    column_spec(3, width="3cm") %>%
+    column_spec(4, width="3cm") %>%
+    row_spec(2, bold=TRUE)
+
+```
+
+```{r changepointshosp, echo=FALSE, message=FALSE}
+
+knitr::kable(loglik.changepoints.hosp[, .(week.changepoint, deviance, effect.before, effect.after)],
+             escape=TRUE, 
+             booktabs=TRUE,
+			 label="changepointshosp",
+             row.names=FALSE, 
+			 # align=c('r', 'r'), 
+              col.names=c("Change-point (weeks since second dose)",
+                         "Deviance of model",
+                         "Before change-point",
+                         "After change-point"),
+             caption="Relationship of efficacy of two doses of vaccine against hospitalised or fatal COVID-19 to time since second dose: comparison of models with change-points at 8 to 16 weeks since second dose") %>%
+    add_header_above(c(" "=2, "Effect (95% CI) per week on rate ratio"=2)) %>%
+    add_footnote(label=c("Presentation dates from 1 December 2020 to 28 July 2021.",
+                         "Restricted to those who had received 0 doses or 2 doses at least 14 days before presentation date.",
+			 "Variables in model: care home residence + risk category + number of drug classes + vaccination status (0 doses, 2 doses mRNA, 2 doses AZ) + any vaccine x weeks since dose", 
+                         "Slopes of relationship before and after changepoint are encoded as  interaction terms for vaccination status x weeks since second dose.",
+                         "Effects shown are multiplicative effects on the rate ratio associated with vaccination status, obtained by taking exponents of the coefficients for the interaction terms.",
+                         "Deviance is scaled to have value zero for a model with no changepoint.",
+                         "Model with best fit (lowest deviance) is shown in bold."),
+                 notation="none") %>%
+    column_spec(1, width="3cm") %>%
+    column_spec(2, width="2cm") %>%
+    column_spec(3, width="3cm") %>%
+    column_spec(4, width="3cm") %>%
+    row_spec(2, bold=TRUE)
+
+
+```

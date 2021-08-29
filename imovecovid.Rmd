@@ -1,0 +1,169 @@
+---
+title: "Risk factors for severe COVID-19 in the Scottish population: the REACT-SCOT Study"
+author: Paul McKeigue 
+date: "`r gsub('^0', '', format(Sys.Date(), '%d %B %Y'))`"
+output: 
+  beamer_presentation:
+    slide_level: 1
+    includes:
+      in_header: ../beamer_header.tex
+    latex_engine: lualatex
+    keep_tex: yes
+---
+
+# REACT-SCOT Study
+
+* Case-control study of all diagnosed cases of COVID-19 in Scotland since March 2020
+
+  - Cases include those without a positive test, ascertained through hospital discharge diagnosis or death certificates. 
+  
+  - Ten controls per case, not previously diagnosed and matched for age, sex and general practice
+
+  - linkage to household composition, medical records including hospital admissions, prescribing in primary care
+
+* Main outcome variable: **severe COVID-19** defined as entry to critical care within 21 days of presentation date, or fatal outcome
+
+  - definition ensures that case ascertainment is not affected by triage of those assessed as unlikely to benefit from critical care  
+
+# Studies based on REACT-SCOT
+
+* Co-morbidity and construction of a risk score ("COVID age")
+
+* Pharmacoepidemiology: medications compromising COVID
+
+* Effectiveness of shielding clinically extremely vulnerable individuals
+
+* Hospital transmission
+
+* Other studies published, under review or in progress: 
+  - associations with occupation: patient-facing health care workers, teachers (inverse association), 
+  - (inverse) association with living with children
+  - vaccine efficacy in clinically vulnerable individuals 
+
+# Laporte & Healy (April 2020): "Medications compromising COVID"
+
+Drug classes associated with community-acquired pneumonia
+
+* proton pump inhibitors
+
+* hypnotics, sedatives 
+
+* antipsychotics, drugs used in nausea and vertigo 
+
+* opioid analgesics 
+
+* gabapentinoids 
+
+* non-steroidal anti-inflammatory drugs.
+
+* anticholinergic effects likely to increase risk of pneumonia: 
+
+  - H1 antihistamines, antidepressants, urinary antispasmodics, gastrointestinal antispasmodics, drugs for vertigo, antimuscarinic drugs used for parkinsonism, and antiepileptic drugs
+  
+Predictions of associations with severe COVID-19 were confirmed in REACT-SCOT.  
+
+# Conditions designated as eligible for shielding (~4% of population)
+
+1. Solid organ transplant recipient
+
+2. Cancer of blood or bone marrow, or cancer treatments that affect immune system 
+
+3. Severe respiratory conditions: cystic fibrosis, asthma, chronic obstructive airway disease, bronchiectasis, pulmonary hypertension
+
+4. Rare diseases that increase risk of infections: severe combined immunodeficiency, sickle-cell disease. 
+
+5. Immunosuppression therapies sufficient to increase risk of infection
+
+7. Other conditions including dialysis, splenectomy
+
+First batch of shielding letters sent on 4 April 2020 advised strict isolation, offered support with home delivery of food and medication. 
+ 
+# Severe cases by risk category and date of presentation: ribbon plot
+```{r plotcasesbydate, echo=FALSE, warning=FALSE, message=FALSE, fig.width=4.5,fig.asp=0.6, fig.cap="Care home residents excluded"}
+
+options(knitr.kable.NA = '')
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+theme_set(theme_gray(base_size = 10))
+
+p.byelig + theme(legend.position = c(0.4, 0.7)) + theme(legend.text=element_text(size=8)) 
+
+```
+
+# Rate ratios for severe COVID-19 associated with shielding and moderate risk condition 
+```{r plotrateratio, echo=FALSE, warning=FALSE, message=FALSE, fig.width=4.8,fig.asp=0.58, fig.cap="Care home residents excluded. Line thickness is proportional to precision of estimate. Arrows indicate dates that shielding advice letters were sent."}
+
+theme_set(theme_gray(base_size = 10))
+
+p.rateratio + theme(plot.title = element_blank())  + 
+labs(caption = element_blank(), tag = element_blank()) +   
+theme(legend.position = c(0.48, 0.87)) + theme(legend.text=element_text(size=8)) + 
+theme(legend.title = element_blank())
+
+```
+
+# Risk factors for severe COVID-19 in those eligible for shielding 
+\scriptsize
+\setbeamertemplate{caption}{\raggedright\insertcaption\par}
+
+```{r riskfactorsshieldedonly, echo=FALSE, warning=FALSE, message=FALSE}
+
+library(knitr)
+library(kableExtra)
+
+options(knitr.table.format = "latex") # adds tab: prefix to labels
+
+knitr::kable(table.shieldedonly.severecases.nocare[7:15, c(1:2, 5:6)], 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="coxfatal",
+             row.names=TRUE,
+             align=c("r", "r", "l", "l"), 
+   col.names=c(clean.header(colnames(table.shieldedonly.severecases.nocare)[1:2]),
+                "Rate ratio (95\\% CI)", "p-value")) %>%
+    kableExtra::group_rows("School-age children in household", 2, 4, bold=FALSE) %>%
+    kableExtra::group_rows("Adults in household", 5, 7, bold=FALSE) %>%
+    column_spec(column=1, width="2.3cm") %>%
+    column_spec(column=2, width="1.7cm") %>%
+    column_spec(column=3, width="1.5cm") %>%
+    column_spec(column=4, width="2.2cm") %>%
+    column_spec(column=5, width="1.3cm")
+ 
+```
+
+# Prevalence of recent hospital exposure by risk category 
+
+```{r plotexphosp, echo=FALSE, warning=FALSE, message=FALSE, fig.width=4.25, fig.asp=0.7, fig.cap="Prevalence in controls not resident in care homes"}
+p.hosp + theme(plot.title = element_blank()) + 
+labs(caption = element_blank(), tag = element_blank()) + 
+theme(legend.position = c(0.4, 0.82))  
+
+```
+
+# Fraction of severe COVID-19 attributable to recent hospital exposure 
+
+```{r plotfrac, echo=FALSE, warning=FALSE, message=FALSE, fig.width=4.25, fig.asp=0.7, fig.cap="Care home residents excluded"}
+p.fracattr + theme(plot.title = element_blank())+ 
+labs(caption = element_blank(), tag = element_blank())
+
+```
+
+# Conclusions
+
+* Protection of vulnerable individuals was limited by their inability to avoid transmission in hospital and from other adults in the household. 
+
+  - Efficacy of single dose vaccine ~ 70% in shielded but a larger study is required to estimate efficacy in solid organ transplant recipients. 
+
+* Hospital-acquired infection accounted for more than half of severe cases in early December 2020. 
+
+* Role of nosocomial transmission was recognized early in the epidemic: 
+
+  - Wang (2020 Feb) JAMA: 41% of hospitalized cases in Wuhan in January 2020
+  - Boccia (2020 Apr) JAMA Int Med: "largely a nosocomial infection" in Lombardy 
+
+* Lessons to be learned: physically separate hospitals, surveillance, epidemic modelling. 
+
+
+
+

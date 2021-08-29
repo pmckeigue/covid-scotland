@@ -1,0 +1,76 @@
+
+```{r freqsriskgroups, echo=FALSE, message=FALSE}
+if(FALSE) {
+knitr::kable(freqs.riskgroups, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="freqsriskgroups",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             caption="Numbers of controls and cases of severe COVID-19 from April to July 2021 by risk group and vaccination status") %>%
+    add_header_above(c(" "=1, "Age 0-49 years"=2, "Age 50 years and over"=2)) %>%
+    add_footnote(label=c("Presentation dates from 1 April 2021 to 14 July 2021.",
+                         "Severe COVID-19 defined as entry to critical care or death within 28 days of presentation.", 
+                         "Controls matched for age, sex, and primary care practice on date of presentation of case.", 
+                         "Vaccination status is number of doses administered at least 14 days before presentation date"), 
+                 notation="none") %>%
+    kableExtra::group_rows("Vaccination status", 9, 11, bold=TRUE) %>% 
+    column_spec(1, width="6cm") %>%
+    column_spec(2, width="3cm") %>%
+    column_spec(3, width="2.5cm") %>%
+    column_spec(4, width="3cm") %>%
+    column_spec(5, width="2.5cm") %>%
+   kable_styling(latex_options=c("HOLD_position", "scale_down")) 
+
+##```
+
+##```{r severebyagevax, echo=FALSE, message=FALSE}
+
+knitr::kable(severe.byagevax, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="severeagevax",
+             row.names=TRUE, 
+			 align=c('r', 'r'), 
+             caption="Severe cases from April to July 2021 by age group and vaccination status") %>%
+        add_header_above(c("Age group"=1, "Vaccine doses"=3)) %>%
+
+    kable_styling(latex_options=c("HOLD_position")) 
+
+##```
+
+##``{r casesnoriskchnums, echo=FALSE, message=FALSE}
+
+knitr::kable(chnum.table, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="casesnoriskchnums",
+             row.names=FALSE, 
+			 align=c('r', 'l', 'r', 'r'), 
+             caption="Severe cases and controls aged under 50 without risk conditions presenting from April to July 2021: ICD-10 chapters represented at least once in discharge diagnoses  from 5 years to 25 days before presentation date") %>%
+    column_spec(2, width="7cm") %>%
+    add_footnote(label=c("Presentation dates from 1 April 2021 to 14 July 2021.",
+                         "Table filtered to retain only ICD-10 chapters represented by at least 20 individuals.",
+                         "The most frequent ICD subchapter in cases was F00 (alcohol-related disorders): 7 cases."),
+                             notation="none") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+
+##```
+
+##```{r casesnoriskbnfchnums, echo=FALSE, message=FALSE}
+
+knitr::kable(bnfchnum.table, 
+             escape=FALSE, 
+             booktabs=TRUE,
+			 label="casesnoriskbnfchnums",
+             row.names=FALSE, 
+			 align=c('r', 'l', 'r', 'r'), 
+             caption="Severe cases and controls aged under 50 without risk conditions presenting after March 2021: BNF chapters represented at least once in prescriptions dispensed during 240 to 15 days before presentation date") %>%
+    column_spec(2, width="7cm") %>%
+    add_footnote(label=c("Presentation dates from 1 April 2021 to 14 July 2021.",
+                         "Table filtered to retain only BNF chapters represented by at least 20 individuals."),
+                             notation="none") %>%
+    kable_styling(latex_options=c("HOLD_position")) 
+}
+```
+

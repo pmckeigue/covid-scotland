@@ -1,5 +1,67 @@
 ## helperfunctions for COVID analyses
 
+## rollmean.dtN returns a data.table with columns date, avdaily (rolling mean) 
+rollmean.bydate.grouped <- function(dt, datevar, groupvar, xvar, k) {
+
+    ## add rows for missing dates by a left join
+    all.dates <- data.table(date=seq(from=min(dt[[datevar]]),
+                                     to=max(dt[[datevar]]),
+                                     by=1))
+    setkey(all.dates, date)
+    setkeyv(dt, eval(datevar))
+    all.dates <- dt[all.dates]
+
+    rmeans <- dt[, list(date=get(datevar), avdaily=zoo::rollmean(get(xvar), k=k, fill=NA)),
+                        by=groupvar]
+            
+    return(rmeans)
+}
+
+
+## generate table of effect.names, keeping reference level for > 2 levels
+levels.toshow <- function(varnames, dt) {
+    levels.list <- sapply(dt[, ..varnames], levels)
+    effect.names <- NULL
+    line.hascoeff <- NULL
+    for(i in 1:length(levels.list)) {
+        if(is.null(levels.list[[i]])) {
+            effect.names <- c(effect.names, names(levels.list)[i])
+            line.hascoeff <- c(line.hascoeff, TRUE)
+        } else if(length(levels.list[[i]]) == 2) {
+            effect.names <- c(effect.names, levels.list[[i]][2])
+            line.hascoeff <- c(line.hascoeff, TRUE)
+        } else {
+            effect.names <- c(effect.names, levels.list[[i]])
+            line.hascoeff <- c(line.hascoeff, FALSE, rep(TRUE, length(levels.list[[i]]) - 1))
+        }
+    }
+    line.integer <- as.integer(line.hascoeff)
+    line.integer[line.hascoeff] <- cumsum(line.integer[line.hascoeff])
+    return(data.table(effect.names, line.integer))
+}
+
+## pad coeffs table with empty lines for dropped reference level for factors with > 2 levels
+## FIXME: wrap levels.toshow inside this
+pad.coeffs <- function(coeffs, levels.coeffs) {
+    coeffs.padded <- NULL
+    coeffs.empty <- coeffs[NA]
+    line.integer <- levels.coeffs$line.integer
+    for(i in 1:length(line.integer)) {
+        if(line.integer[i] == 0) {
+            coeffs.padded <- rbind(coeffs.padded, coeffs.empty)
+        } else {
+            coeffs.padded <- rbind(coeffs.padded, coeffs[line.integer[i], ])
+        }
+    }
+    coeffs.padded[, effect := levels.coeffs$effect.names]
+    return(coeffs.padded)
+}
+
+grepv <- function(x, v) {
+    return(grep(x, v, ignore.case=TRUE, value=TRUE))
+}
+
+
 median.iqr <- function(x, dec=NULL) {
     xq <- quantile(x, probs=c(0.5, 0.25, 0.75), na.rm=TRUE)
     if(is.null(dec)) {
@@ -9,7 +71,6 @@ median.iqr <- function(x, dec=NULL) {
     return(paste0(xq[1], " (", xq[2], " to ", xq[3], ")"))
 }
                         
-
 add.index <- function(dt)  { # why does this return NA values for ANON_ID? 
     dt$case.index <- 1:nrow(dt)
     dt$case.interval <- c(NA, as.integer(diff(dt$SPECIMENDATE)))
@@ -393,7 +454,11 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                      "inpat.recent",
                                      "numdrugs.notcv",
                                      "numicdchapters",
-                                     "numdrugs"
+                                     "numdrugs",
+                                     "TNFi",
+                                     "IL6i",
+                                     "IL17i",
+                                     "JAKi"
                                 ),
                            longname=c("Age", "Males",
                                       "Death within 28 days of test",
@@ -442,7 +507,11 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                       "Recent hospital stay",
                                       "Number of non-cardiovascular drug classes",
                                       "Number of hospital diagnoses", 
-                                      "Number of drug classes"
+                                      "Number of drug classes",
+                                      "TNF inhibitors",
+                                      "IL6 inhibitors",
+                                      "IL17 inibitors",
+                                      "JAK inhibitors"
                                       ))
 
 clean.header <- function(x) {
@@ -957,6 +1026,49 @@ or.ci <- function(coeff, se, ndigits=2) {
   x <- sprintf("%.*f (%.*f, %.*f)", ndigits, exp(coeff), ndigits, ci.lo, ndigits, ci.up)
   x[is.na(coeff)] <- ""
   return(x)
+}
+
+## create and format for text a 95% confidence interval around an odds/hazard ratio 
+or.ci.text <- function(coeff, se, ndigits=2) {
+  ci.lo <- exp(coeff - 1.96 * se)
+  ci.up <- exp(coeff + 1.96 * se)
+  ndigits <- rep(2, length(coeff))
+  ndigits[exp(coeff) > 5] <- 1
+  x <- sprintf("%.*f (95%% CI %.*f to %.*f)",
+               ndigits, exp(coeff), ndigits, ci.lo, ndigits, ci.up)
+  x[is.na(coeff)] <- ""
+  return(x)
+}
+
+## reformat odds ratio and ci for text
+astext.or.ci <- function(or.ci) {
+    or.ci <- gsub("\\(", "\\(95% CI ", or.ci)
+    or.ci <- gsub(",", " to ", or.ci)
+    return(or.ci)
+}
+
+## report odds ratio as percent efficacy
+pctefficacy.ci.text <- function(coeff, se, ndigits=0) {
+  ci.lo <- round(100 * (1 - exp(coeff - 1.96 * se)), ndigits)
+  ci.up <- round(100 * (1 - exp(coeff + 1.96 * se)), ndigits)
+  efficacy <- round(100 * (1 - exp(coeff)), ndigits)
+  x <- sprintf("%.*f%% (95 percent CI %.*f%% to %.*f%%)",
+               ndigits, efficacy, ndigits, ci.up, ndigits, ci.lo)
+  x[is.na(coeff)] <- ""
+  return(x)
+}
+
+pctefficacy.or.ci <- function(or.ci) {
+    or.ci <- gsub("\\(|\\)|,", "", or.ci)
+    or.ci <- as.numeric(unlist(strsplit(or.ci, split=" ")))
+    if(length(or.ci)==3) { 
+        efficacy <- round(100 * (1 - or.ci))
+        x <-  sprintf("%.*f%% (95 percent CI %.*f%% to %.*f%%)",
+                      0, efficacy[1], 0, efficacy[3], 0, efficacy[2])
+    } else {
+        x <- ""
+    }
+    return(x)
 }
 
 paste.vectortomatrix <- function(x, y) {

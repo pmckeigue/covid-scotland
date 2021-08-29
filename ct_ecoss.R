@@ -104,35 +104,7 @@ ecoss.pos[, interval := diff0(SpecimenDate), by=anon_id]
 
 reinfections <- ecoss.pos[interval >=90] # CDC criterion - 3076 reinfections
 setnames(reinfections, "SpecimenDate", "specimen_date")
-reinfections.daily <- reinfections[, .N, by=specimen_date]
-reinfections.rollmean <- reinfections.daily[, rollmean.dtN(dt=.SD, k=21)]
-
-ecoss.90days <- copy(ecoss.firstpos)
-ecoss.90days[, date.90days := SpecimenDate + 90]
-setorder(ecoss.90days, date.90days)
-ecoss.90days.daily <- ecoss.90days[, .N, by=date.90days]
-ecoss.90days.dates <- data.table(date.90days=seq.Date(from=min(reinfections$specimen_date),
-                                                      to=max(reinfections$specimen_date),
-                                                      by=1))
-setkey(ecoss.90days.dates, date.90days)
-setkey(ecoss.90days.daily, date.90days)
-ecoss.90days.daily <- ecoss.90days.daily[ecoss.90days.dates]
-setnafill(ecoss.90days.daily, fill=0, cols="N")
-ecoss.90days.daily[, N := cumsum(N)]
-## FIXME: subtract cumulative deaths of test-positive cases 
-setnames(ecoss.90days.daily, "date.90days", "specimen_date")
-ecoss.90days.rollmean <- ecoss.90days.daily[, rollmean.dtN(dt=.SD, k=21)]
-setnames(ecoss.90days.rollmean, "avdaily", "atrisk")
-setkey(ecoss.90days.rollmean, date)
-setkey(reinfections.rollmean, date)
-reinfections.rollmean <- reinfections.rollmean[ecoss.90days.rollmean]
-reinfections.rollmean[, incidence := 10^5 * avdaily / atrisk]
-
-## fill missing dates with popatrisk = 0
-## then compute rolling mean by 14-day time window
-
-ggplot(data=reinfections.rollmean, aes(x=date, y=incidence)) +
-    geom_line()
+save(reinfections, file=paste0(datadir, "reinfections.RData"))
 
 #############################################################
 

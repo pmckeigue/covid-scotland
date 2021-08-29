@@ -425,20 +425,16 @@ model.hosp.shieldonly.vax2 <-
                                            vax14.dose==1 & 
                                specimen_date >= as.Date("2020-12-01")],
                    formula=CASE ~ shield.any + strata(stratum)))
-##################################################
-
 
 ########### plots ##################################
 
 load(paste0(datadir, "shieldcohort.models.RData"))
 
-shield.all[, rateper1000 := 1000 * riskyear]
-
-p.anycase <- ggplot(data=shield.all, aes(x=date, y=rateper1000, color=casegr)) +
+p.anycase <- ggplot(data=shield.all, aes(x=date, y=probmonth, color=casegr)) +
     geom_line() +
     labs(x=paste0("Presentation date: start of ", interval.length, "-day interval"),
-         y="Rate per 1000 per year") +
-    scale_y_continuous(breaks=seq(0, 100, by=10), expand=c(0, 0)) +  
+         y="Incidence rate per month") +
+    scale_y_continuous(breaks=seq(0, 0.01, by=0.002), limits=c(0, 0.01), expand=c(0, 0)) +  
     scale_x_date(breaks = seq.Date(from = as.Date("2020-03-01"),
                                    to = as.Date("2021-07-25"), by = "month"),
                  expand=c(0, 10), 
@@ -453,5 +449,33 @@ p.anycase <- ggplot(data=shield.all, aes(x=date, y=rateper1000, color=casegr)) +
 
 p.anycase
 
-rmarkdown::render("vaxshieldupdate.Rmd")
+load(paste0(datadir, "severe2vax.RData")) 
 
+rmarkdown::render("vaxshield230821.Rmd")
+rmarkdown::render("vaxtrend.Rmd")
+
+########################################################
+
+table.riskgr16March <- summary(clogit(data=cc.all[casegroup=="A" & #care.home=="Independent" & 
+                           specimen_date <= as.Date("2021-03-16")& 
+                           specimen_date >= as.Date("2020-12-01")],
+                           formula=CASE ~ care.home + hh.over18 + numdrugs + inpat.recent +
+                               listedgr3/vax14.dose + strata(stratum)))
+table.riskgr16March <- table.riskgr16March$coefficients
+effect <- rownames(table.riskgr16March)
+table.riskgr16March <- as.data.table(table.riskgr16March)
+table.riskgr16March[, rateratio := or.ci(coef, `se(coef)`)]
+table.riskgr16March[, pvalue := format.pvalue(z, `Pr(>|z|)`)]
+table.riskgr16March <- table.riskgr16March[, .(rateratio, pvalue)]
+table.riskgr16March <- data.table(effect=effect, # freqs.riskgr,
+                               table.riskgr16March)
+table.riskgr16March[, effect := gsub("^care.home", "", effect)]
+table.riskgr16March[, effect := gsub("^listedgr3", "", effect)]
+table.riskgr16March[, effect := gsub("TRUE$", "", effect)]
+table.riskgr16March[, effect := gsub(":vax14\\.factor", ": vax dose ", effect)]
+table.riskgr16March[, effect := replace.names(effect)]
+table.riskgr16March <- table.riskgr16March[c(1:6, 7, 10, 8, 11, 9, 12), ]
+
+png("p,rateratio.png")
+p.rateratio
+dev.off()

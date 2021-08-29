@@ -54,8 +54,6 @@ if(linkdate=="jul12") {
       scrips.filename <- paste0(datadir, "CC_PIS_ANON_2021-07-28.rds")
 }
 
-scripsobject.filename <- paste0(datadir, "scrips.pruned.RData")
-
 scrips <- RDStodt(scrips.filename) # 8.95 GB in memory
 
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
@@ -77,8 +75,9 @@ objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
 ## scrips now reduced to 6.4 GB
-
+scripsobject.filename <- paste0(datadir, "scrips.pruned.RData")
 save(scrips, file=scripsobject.filename)
+
 scripsbnf <- scrips[, .(anon_id, dispensed_date, bnf_item_code)]
 save(scripsbnf,
      file=paste0(datadir, "scripsbnf.RData"))

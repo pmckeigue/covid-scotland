@@ -9,10 +9,35 @@ batches$Date.Sent <- gsub("Friday ", "", batches$Date.Sent)
 batches$Date.Sent <- gsub("^([[:digit:]]+)([stndrdth]{2} )", "\\1 ", batches$Date.Sent)
 batches$Date.Sent <- as.Date(batches$Date.Sent, "%d %B %Y")
 
-datadir <- "./data/2021-07-28/"
-shielding.full.filename <- paste0(datadir,
+linkdate <- "sep22"
+
+if(linkdate=="jul28") {
+    datadir <- "./data/2021-07-28/"
+    shielding.full.filename <- paste0(datadir,
                                   "CC_shielding_patients_anon_2021-07-28.csv")
-shielded.full <- fread(shielding.full.filename)
+    shielded.full <- fread(shielding.full.filename)
+} else if(linkdate=="sep02") {
+    datadir <- "./data/2021-09-02/"
+    shielding.full.filename <- paste0(datadir,
+                                  "CC_shielding_patients_anon_2021-09-02.rds")
+    shielding.deaths.filename <- paste0(datadir,
+                                  "shielding_deaths_anon_2021-09-02.rds")
+    shielded.full <- RDStodt(shielding.full.filename)
+    shielded.deaths <- RDStodt(shielding.deaths.filename)
+    vaxshield.filename <- paste0(datadir, "shielding_vacc_anon_2021-09-02.rds")
+    vax.shield <- RDStodt(vaxshield.filename)
+} else if(linkdate=="sep22") {
+    datadir <- "./data/2021-09-22/"
+    shielding.full.filename <- paste0(datadir,
+                                  "CC_shielding_patients_anon_2021-09-22.rds")
+    shielding.deaths.filename <- paste0(datadir,
+                                  "shielding_deaths_anon_2021-09-22.rds")
+    shielded.full <- RDStodt(shielding.full.filename)
+    shielded.deaths <- RDStodt(shielding.deaths.filename)
+    ## FIXME: no current vaxshield table
+    vaxshield.filename <- "data/2021-09-02/shielding_vacc_anon_2021-09-02.rds"
+    vax.shield <- RDStodt(vaxshield.filename)
+}    
 
 setnames(shielded.full, "group", "shield.group", skip_absent=TRUE)
 setnames(shielded.full, "batch", "shield.batch", skip_absent=TRUE)
@@ -20,7 +45,7 @@ setnames(shielded.full, "age", "age_years", skip_absent=TRUE)
 shielded.full[, sex := as.factor(car::recode(sex, "1='Male'; 2='Female'"))]
 setkey(shielded.full, shield.batch)
 shielded.full <- batches[shielded.full]
-shielded.full[, removal := nchar(removal)]
+shielded.full[, removal := nchar(as.character(removal))]
 shielded.full <- unique(shielded.full, by="anon_id") # only 2 duplicated ids
 
 shielded.full[, shield.group := car::recode(shield.group,
@@ -52,8 +77,6 @@ save(shielded.full, file=paste0(datadir, "shielded.full.RData")) # this will be 
 ######################################################################
 
 ## import deaths into shielded.full
-shielded.deaths <- fread(paste0(datadir,
-                                 "shielding_deaths_anon_2021-07-28.csv"))
 shielded.deaths[, date_of_death := as.Date(date_of_death)]
 shielded.deaths <- shielded.deaths[, .(anon_id, date_of_death)]
 setkey(shielded.deaths, anon_id)
@@ -61,7 +84,9 @@ setkey(shielded.deaths, anon_id)
 setkey(shielded.full, anon_id)
 shielded.full <- shielded.deaths[shielded.full]
 
-load(paste0(datadir, "cc.all.RData"))
+if(!exists("cc.all")) {
+    load(paste0(datadir, "cc.all.RData"))
+}
 
 ## import case status into shielded.full
 cases <- cc.all[CASE==1, .(anon_id, specimen_date, casegr, casegr2, casegr3)]
@@ -92,7 +117,6 @@ shielded.full[, severecase := as.integer(casegr2=="Severe")]
 shielded.full[, shield.group := car::recode(shield.group, recode="'Pregnant with heart disease'='Additional conditions'")]
 shielded.full[, shield.group := relevel(shield.group, "Severe respiratory")]
 
-
 ## assign entry and exit dates
 shielded.full[, exitdate := specimen_date]
 shielded.full[is.na(exitdate) & !is.na(date_of_death),
@@ -109,7 +133,6 @@ table.casegr.shielded <- cbind(table.casegr.shielded, rowsums.table.casegr.shiel
 print(table.casegr.shielded)
 
 ## import vaccine data into shielded.full
-vax.shield <- fread(paste0(datadir, "shielding_vacc_anon_2021-07-28.csv"))
 vax.shield <- vax.shield[vacc_status == "completed"]
 setnames(vax.shield, "vacc_occurence_time", "vaxdate")
 vax.shield[, vaxdate := as.Date(vaxdate)]
@@ -138,14 +161,16 @@ rm(shielded.full)
 
 ####### rheumatology ######################################
 
-glasgow <- fread(paste0(datadir, "Glasgow_data_rheum_2021-07-28.csv"))
+datadir <- "data/2021-09-22/"
+
+glasgow <- RDStodt(paste0(datadir, "Glasgow_data_rheum_2021-09-22.rds"))
 setnames(glasgow, "main_diagnosis_text", "diagnosis")
 setnames(glasgow, "umbrella", "diagnosis_recoded")
 setnames(glasgow, "drug_class", "drug_recoded")
-grampian1 <- fread(paste0(datadir, "Grampian_data1_rheum_2021-07-28.csv"))
-grampian2 <- fread(paste0(datadir, "Grampian_data2_rheum_2021-07-28.csv")) # 39 of 198 in grampian1 are in grampian2
-lothian <- fread(paste0(datadir, "Lothian_data_rheum_2021-07-28.csv"))
-setnames(lothian, "diseases", "diagnosis_recoded")
+grampian1 <- RDStodt(paste0(datadir, "Grampian_data1_rheum_2021-09-22.rds"))
+grampian2 <- RDStodt(paste0(datadir, "Grampian_data2_rheum_2021-09-22.rds")) # 39 of 198 in grampian1 are in grampian2
+lothian <- RDStodt(paste0(datadir, "Lothian_data_rheum_2021-09-22.rds"))
+setnames(lothian, "diseases", "diagnosis_recoded", skip_absent=TRUE)
 setnames(lothian, "drugs", "drug_recoded")
 
 rheumatol <- rbind(glasgow, grampian1, grampian2, lothian, fill=TRUE)

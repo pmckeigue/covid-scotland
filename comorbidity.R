@@ -1,9 +1,18 @@
 library(data.table)
+library(readxl)
+source("helperfunctions.R")
 
-datadir <- "data/2021-07-28/"
+## datadir should already be set when this script is sourced from casecontrol.R
+datadir <- "data/2021-09-22/"
+smr06.filename <- paste0(datadir, "CC_SMR06_ICD10_ANON_2021-09-22.rds")
 
 # source("cc.scrips.R")
+load(paste0(datadir, "cc.specimendate.RData"))
 load(paste0(datadir, "cc.scripsbnf.RData"))
+load(paste0(datadir, "cc.diagnoses.RData"))
+load(paste0(datadir, "cc.procedures.RData"))
+
+## cc.specimendate, cc.diagnoses and cc.procedures should be loaded in memory
 
 ## BNF chapter codes: up to 2 digits, leading 0 may be stripped
 ## section codes: 2 digits
@@ -65,9 +74,10 @@ cc.numdrugs <- merge(cc.numdrugs.cv, cc.numdrugs.notcv, all=TRUE)
 rm(cc.numdrugs.cv)
 rm(cc.numdrugs.notcv)
 
-## extract comorbid conditions from diagnoses and bnf item codes 
-
-dt.diagorscrip <- function(diag.regex=NULL, bnf.regex=NULL, diag.name) {
+## extract comorbid conditions from diagnoses, bnf item codes and procedures 
+## FIXME: dayslookback should apply to diagnotes and bnf codes argument also
+dt.diagorscrip <- function(diag.regex=NULL, bnf.regex=NULL, procedure.regex=NULL, dayslookback=NULL,
+                           diag.name) {
     ## cc.specimendate keyed on anon_id, specimendate
     ## cc.diagnoses keyed on anon_id, specimendate
     ## extract records from cc.diagnoses that are unique on key, where icd10 matches regex
@@ -75,20 +85,32 @@ dt.diagorscrip <- function(diag.regex=NULL, bnf.regex=NULL, diag.name) {
     ## left join cc.specimendate with these records, creating a new column 
     diag.matched <- NULL
     scrips.matched <- NULL
+    procedures.matched <- NULL
     if(!is.null(diag.regex)) {
-       diag.matched <- unique(cc.diagnoses[grep(diag.regex, icd10), .(anon_id, specimen_date)])
+        diag.matched <- unique(cc.diagnoses[grep(diag.regex, icd10), .(anon_id, specimen_date)])
     }
     if(!is.null(bnf.regex)) {
         scrips.matched <- unique(cc.scripsbnf[grep(bnf.regex, substr(bnf_item_code, 1, 6)),
                                               .(anon_id, specimen_date)])
     }
-    diagorscrip <- unique(rbind(diag.matched, scrips.matched))
+    if(!is.null(procedure.regex)) {
+        if(!is.null(dayslookback)) {
+            cc.procedures.lookback <- cc.procedures[specimen_date - discharge_date <= dayslookback &
+                                                    specimen_date - discharge_date >= 0]
+        } else cc.procedures.lookback <- cc.procedures
+        procedures.matched <- unique(cc.procedures.lookback[grep(procedure.regex, main_operation),
+                                                            .(anon_id, specimen_date)])
+        
+    }
+    ## rbind but retain only records unique on anon_id, specimen_date
+    diagorscrip <- unique(rbind(diag.matched, scrips.matched, procedures.matched))
     setkey(diagorscrip, anon_id, specimen_date)
     diagorscrip[, eval(diag.name) := 1]
     cc.diagorscrip <- diagorscrip[cc.specimendate[, .(anon_id, specimen_date)]]
     setnafill(cc.diagorscrip, fill=0, cols=3)
     diagorscrip[, eval(diag.name) := as.integer(eval(diag.name))]
     setkey(cc.diagorscrip, anon_id, specimen_date)
+    cc.diagorscrip <- unique(cc.diagorscrip, by=key(cc.diagorscrip))
     return(cc.diagorscrip)
 }
 
@@ -110,33 +132,47 @@ setkey(cc.smr06, anon_id, specimen_date)
 cc.diabetes <- dt.diagorscrip(diag.regex="^E1[0-4]", bnf.regex="^0601", diag.name="diabetes")
 
 ################  IHD ###################################
-cc.ihd <- dt.diagorscrip(diag.regex="^I2[0-5]", bnf.regex="^020601", diag.name="ihd")
+cc.ihd <- dt.diagorscrip(diag.regex="^I2[0-5]", bnf.regex="^020601",
+                         procedure.regex="^K4[012349]|^K50",  diag.name="ihd")
 
 ## nitrates are BNF code 020601
-## FIXME: procedure codes for CABG and PTCA
-                                        #ids.procedures.IHD <- unique(procedures$ANON_ID[grep("^K4[012349]|^K50", procedures$MAIN_OPERATION)])
+## procedure codes for CABG and PTCA
 
 ##### other heart disease ####################################
 ## heart disease is I05 to I52
 ## 02023 anti-arrythmics
 cc.heart.other <- dt.diagorscrip(diag.regex="^I0[01256789]|^I1[0-5]|^I2[6-8]|^I3[0-9]|^I4[0-9]|^I5[0-2]",
-                                 bnf.regex="^0203", 
+                                 bnf.regex="^0203",  procedure.regex="^K57", 
                                  diag.name="heart.other")
-
-## ids.procedures.heart.other <- unique(procedures$ANON_ID[grep("^K57", procedures$MAIN_OPERATION)])
 
 #######################################################################
 
 ## other circulatory disease is I60 to I99
 cc.circulatory.other <- dt.diagorscrip(diag.regex="^I[6-9]|^Z95", diag.name="circulatory.other")
-    
+
+###############################################
+
+## codes for solid organ transplants https://datadictionary.nhs.uk/Covid19PRA
+## not M011 which is autotransplantation of kidney
+
+solidtransplant.regex <- "^M01[23459]?|^B17[18]?|^E53[12389]?|^G26[19]?|^G688?|^G788|^J01[123589]?|^J54[12489]?|^K01[12]?|^K02[123489]?|^Y01[45689]"
+
+cc.solidtransplants <- cc.procedures[grep(solidtransplant.regex, main_operation)]
+setorder(cc.solidtransplants, -discharge_date)
+cc.lastsolidtransplant <- unique(cc.solidtransplants, by=c("anon_id", "specimen_date"))
+rm(cc.solidtransplants)
+cc.lastsolidtransplant <- cc.lastsolidtransplant[, .(anon_id, specimen_date, discharge_date, main_operation)]
+setnames(cc.lastsolidtransplant, "discharge_date", "date.lasttransplant")
+setnames(cc.lastsolidtransplant, "main_operation", "code.lasttransplant")
+setkey(cc.lastsolidtransplant, anon_id, specimen_date)
+
+cc.solidtransplant <- dt.diagorscrip(procedure.regex=solidtransplant.regex,
+                                     diag.name="solidtransplant")
+
 ############# chronic kidney disease ##########################
 ## includes CKD stage 4
-cc.ckd <- dt.diagorscrip(diag.regex="^N18[45]|^Z49[0-2]|^Z94[02]", diag.name="ckd")
-
-## FIXME
-#ids.kidneytransplant <- unique(procedures$ANON_ID[grep("^M01[1234589]",
-#                                                       procedures$MAIN_OPERATION)])
+cc.ckd <- dt.diagorscrip(diag.regex="^N18[45]|^Z49[0-2]|^Z94[02]",
+                         procedure.regex="^X40[12]", diag.name="ckd")
 
 ##### asthma and chronic lower respiratory disease #################
 
@@ -155,11 +191,9 @@ cc.neuro <- dt.diagorscrip(diag.regex="^F03|^G[1236789]",
                            bnf.regex="^(409)|(411)",
                            diag.name="neuro")
 
-## these drugs listed by HPS pharmacist as used for multiple sclerosis
+## drugs listed by HPS pharmacist as used for multiple sclerosis
 ## interferon beta 080204M, Glatiramer acetate 0802040U0, Natalizumab 0802040W0
 ## Dimethyl fumar 0802040AK, Teriflunomide 0802040AL, Alemtuzumab 0802030
-## no records in scrips for these drugs
-## 526 records in scrips[substr(scrips$bnf_paragraph_code, 1, 5) == "08020", ]
 
 ############## Liver disease #############################################
 
@@ -247,13 +281,21 @@ cc.prednisolone <- cc.prednisolone[cc.specimendate[, .(anon_id, specimen_date)]]
 setnafill(cc.prednisolone, fill=0, cols=3)
 setkey(cc.prednisolone, anon_id, specimen_date)
 
-## sulfasalazine 1001040P0
+## sulfasalazine 1001040E0, mesalazine 0105010B0, Olsalazine 105010C0
 cc.sulfasalazine <- unique(cc.scripsbnf[grep("^0105010E0", substr(bnf_item_code, 1, 9)),
                                        .(anon_id, specimen_date)])
 cc.sulfasalazine[, sulfasalazine := 1]
 cc.sulfasalazine <- cc.sulfasalazine[cc.specimendate[, .(anon_id, specimen_date)]]
 setnafill(cc.sulfasalazine, fill=0, cols=3)
 setkey(cc.sulfasalazine, anon_id, specimen_date)
+
+## any 5-ASA
+cc.aminosalicylate <- unique(cc.scripsbnf[grep("^0105010B0|^0105010C0|^0105010E0", substr(bnf_item_code, 1, 9)),
+                                       .(anon_id, specimen_date)])
+cc.aminosalicylate[, aminosalicylate := 1]
+cc.aminosalicylate <- cc.aminosalicylate[cc.specimendate[, .(anon_id, specimen_date)]]
+setnafill(cc.aminosalicylate, fill=0, cols=3)
+setkey(cc.aminosalicylate, anon_id, specimen_date)
 
 ############# IBD
 
@@ -284,24 +326,49 @@ cc.esoph.stomach.duod <-  dt.diagorscrip(diag.regex="^K2[0-9]|^K3[01]",
                                          diag.name="esoph.stomach.duod")
 
 ###################################################################
-
+cat(nrow(cc.ihd), nrow(cc.heart.other), "\n")
 cc.comorbid <- cc.heart.other[cc.ihd]
+
+cat(nrow(cc.comorbid), nrow(cc.circulatory.other), "\n") 
 cc.comorbid <- cc.circulatory.other[cc.comorbid]
+
+cat(nrow(cc.comorbid), nrow(cc.ckd), "\n") 
 cc.comorbid <- cc.ckd[cc.comorbid]
+
+cat(nrow(cc.comorbid), nrow(cc.chronresp), "\n") 
 cc.comorbid <- cc.chronresp[cc.comorbid]
+cat(nrow(cc.comorbid), "\n")
+
 cc.comorbid <- cc.neuro[cc.comorbid]
 cc.comorbid <- cc.liver[cc.comorbid]
 cc.comorbid <- cc.immune[cc.comorbid]
+
+cat(nrow(cc.comorbid), nrow(cc.neoplasm), "\n") 
 cc.comorbid <- cc.neoplasm[cc.comorbid]
+
 cc.comorbid <- cc.bloodcancer[cc.comorbid]
+
+cat(nrow(cc.comorbid), nrow(cc.esoph.stomach.duod), "\n") 
 cc.comorbid <- cc.esoph.stomach.duod[cc.comorbid]
+
+cat(nrow(cc.comorbid), nrow(cc.rheumatol), "\n") 
 cc.comorbid <- cc.rheumatol[cc.comorbid]
+
+cat(nrow(cc.comorbid), nrow(cc.methotrexate), "\n") ## duplicate key rows in cc.methotrexate
+cc.methotrexate <- unique(cc.methotrexate, by=key(cc.methotrexate))
+cat(nrow(cc.comorbid), nrow(cc.methotrexate), "\n") 
 cc.comorbid <- cc.methotrexate[cc.comorbid]
+
+cat(nrow(cc.comorbid), nrow(cc.hydroxychloroquine), "\n") 
 cc.comorbid <- cc.hydroxychloroquine[cc.comorbid]
+
 cc.comorbid <- cc.sulfasalazine[cc.comorbid]
+cc.comorbid <- cc.aminosalicylate[cc.comorbid]
 cc.comorbid <- cc.leflunomide[cc.comorbid]
 cc.comorbid <- cc.prednisolone[cc.comorbid]
 cc.comorbid <- cc.ibd[cc.comorbid]
+cc.comorbid <- cc.lastsolidtransplant[cc.comorbid]
+cc.comorbid <- cc.solidtransplant[cc.comorbid]
                             
 rm(cc.ihd)
 rm(cc.heart.other)
@@ -319,5 +386,10 @@ rm(cc.ibd)
 rm(cc.smr06)
 rm(cc.methotrexate)
 rm(cc.hydroxychloroquine)
+rm(cc.sulfasalazine)
+rm(cc.solidtransplant)
 rm(cc.leflunomide)
 gc()
+
+save(cc.comorbid, file=paste0(datadir, "cc.comorbid.RData"))
+save(cc.numdrugs, file=paste0(datadir, "cc.numdrugs.RData"))

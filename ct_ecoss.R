@@ -13,8 +13,9 @@ year.to2021 <- function(x) {
     return(x)
 }
 
-linkdate <- "jul12"
-linkdate <- "jul28"
+#linkdate <- "jul12"
+#linkdate <- "jul28"
+linkdate <- "sep22"
 
 if(linkdate == "jul12") {
         datadir <- "./data/2021-07-12/"
@@ -25,7 +26,54 @@ if(linkdate == "jul12") {
     ct.filename <-  paste0(datadir, "CC_CT_Test_Results_2021-07-28.rds")
     ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-07-28.rds")
     lastdate <- as.Date("2021-07-28")
+} else if(linkdate=="sep02") {
+    datadir <- "./data/2021-09-02/"
+    ct.filename <-  paste0(datadir, "CC_CT_Test_Results_2021-09-02.rds")
+    ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-09-02.rds")
+    lastdate <- as.Date("2021-09-02")
+} else if(linkdate=="sep22") {
+    datadir <- "./data/2021-09-22/"
+    ct.filename <-  paste0(datadir, "CC_CT_Test_Results_2021-09-22.rds")
+    ecoss.tests.filename <- paste0(datadir, "CC_ecoss_tests_2021-09-22.rds")
+    lastdate <- as.Date("2021-09-22")
 }
+
+############### read ECOSS tests table ####################
+
+ecoss <- RDStodt(ecoss.tests.filename, keyname="anon_id")
+ecoss <- unique(ecoss) ## about 1% of rows are duplicated
+setnames(ecoss, "SPECIMENDATE", "SpecimenDate_ecosswrong", skip_absent=TRUE) # where did this field come from? 
+setnames(ecoss, "date_ecoss_specimen", "SpecimenDate", skip_absent=TRUE)
+setnames(ecoss, "Type", "ecoss.result", skip_absent=TRUE)
+setnames(ecoss, "test_result", "ecoss.result", skip_absent=TRUE)
+setnames(ecoss, "ecoss_submitting_laboratory", "SourceLab", skip_absent=TRUE)
+ecoss[, SpecimenDate := as.Date(SpecimenDate)]
+
+ecoss[SpecimenDate > lastdate &
+   lubridate::month(SpecimenDate) >= lubridate:: month(lastdate),
+   SpecimenDate := year.to2020(SpecimenDate)]
+
+ecoss[SpecimenDate < as.Date("2020-03-01") &
+   lubridate::month(SpecimenDate) < 3,
+   SpecimenDate := year.to2021(SpecimenDate)]
+
+ecoss[SpecimenDate > Sys.Date() | SpecimenDate < as.Date("2020-03-01"),
+   SpecimenDate := NA]
+
+## SpecimenType field is tissue / compartment sampled
+## Tests field is free text comments
+## Category field contains occupational groups care home etc. 
+ecoss[, ecoss.result := car::recode(ecoss.result,
+                   recode="c('INCONCLUSIVE', 'INSUFFICIENT', 'VOID', 'VARI', 'X2101015')=NA;
+                              'NEGATIVE'='Negative';
+                              'POSITIVE'='Positive'", 
+                   levels=c("Positive", "Negative"))]
+## order levels Positive before Negative so that sorting in ascending order of level and dropping duplicated anon_ids will drop negatives
+## how many with only negative results are test-positive cases 
+#ecoss[!(anon_id %in% cc.all$anon_id), .N, by=ecoss.result]
+#ecoss <- ecoss[anon_id %in% cc.all$anon_id] # all unmatched IDs have negative or missing result
+ecoss[SourceLab=="", SourceLab := "Not recorded in ECOSS"]
+ecoss[, ecoss_organism := NULL]
 
 ################## read Ct table ####################################
 
@@ -56,57 +104,6 @@ ct[date_appointment < as.Date("2020-08-01") | date_appointment > lastdate,
 ct[date_onset_of_symptoms < as.Date("2020-03-01"), date_onset_of_symptoms := NA]
 
 ct[TRUE, ct.id := .I] # set an ID for the record in the Ct table
-
-############### read ECOSS tests table ####################
-
-ecoss <- RDStodt(ecoss.tests.filename, keyname="anon_id")
-ecoss <- unique(ecoss) ## about 1% of rows are duplicated
-setnames(ecoss, "SPECIMENDATE", "SpecimenDate_ecosswrong", skip_absent=TRUE) # where did this field come from? 
-setnames(ecoss, "date_ecoss_specimen", "SpecimenDate", skip_absent=TRUE)
-setnames(ecoss, "Type", "ecoss.result", skip_absent=TRUE)
-setnames(ecoss, "test_result", "ecoss.result", skip_absent=TRUE)
-setnames(ecoss, "ecoss_submitting_laboratory", "SourceLab", skip_absent=TRUE)
-ecoss[, SpecimenDate := as.Date(SpecimenDate)]
-
-ecoss[SpecimenDate > lastdate &
-   lubridate::month(SpecimenDate) >= lubridate:: month(lastdate),
-   SpecimenDate := year.to2020(SpecimenDate)]
-
-ecoss[SpecimenDate < as.Date("2020-03-01") &
-   lubridate::month(SpecimenDate) < 3,
-   SpecimenDate := year.to2021(SpecimenDate)]
-
-ecoss[SpecimenDate > Sys.Date() | SpecimenDate < as.Date("2020-03-01"),
-   SpecimenDate := NA]
-
-## SpecimenType field is tissue / compartment sampled
-## Tests field is free text comments
-## Category field contains occupational groups care home etc. 
-ecoss[, ecoss.result := car::recode(ecoss.result,
-                                    "'INSUFFICIENT'=NA;
-                                         'VOID'=NA;
-                                         'NEGATIVE'='Negative';
-                                         'POSITIVE'='Positive'", 
-                                    levels=c("Positive", "Negative"))]
-## order levels Positive before Negative so that sorting in ascending order of level and dropping duplicated anon_ids will drop negatives
-## many of those with only negative results are test-positive cases 
-#ecoss[!(anon_id %in% cc.all$anon_id), .N, by=ecoss.result]
-#ecoss <- ecoss[anon_id %in% cc.all$anon_id] # all unmatched IDs have negative or missing result
-ecoss[SourceLab=="", SourceLab := "Not recorded in ECOSS"]
-
-ecoss.pos <- ecoss[ecoss.result=="Positive"]
-setkey(ecoss.pos, SpecimenDate)
-ecoss.firstpos <- ecoss.pos[!duplicated(anon_id)]
-setkey(ecoss.firstpos, anon_id, SpecimenDate)
-
-diff0 <- function(x) c(0, diff(x))
-ecoss.pos[, interval := diff0(SpecimenDate), by=anon_id]
-
-reinfections <- ecoss.pos[interval >=90] # CDC criterion - 3076 reinfections
-setnames(reinfections, "SpecimenDate", "specimen_date")
-save(reinfections, file=paste0(datadir, "reinfections.RData"))
-
-#############################################################
 
 cat(nrow(ct), "records in Ct table\n")
 cat(length(unique(ct$anon_id)), "unique anon_ids\n")
@@ -173,7 +170,7 @@ p.dropoutct <- ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" &
     geom_segment(aes(x=31, y=31, xend=10, yend=31), linetype=3, color="black") +
     geom_abline(slope=1, intercept=-1, color="green") +
     ggtitle("Relation of S gene dropout (original definition with both other channels < 31) to ORF and N gene Ct values")
-p.dropoutct
+#p.dropoutct
 
 ## sgtf.fix1 restricts definite dropout to those with N - ORF > -1.5
 ct[, sgtf.fix1 := sgtf.orig]
@@ -195,7 +192,7 @@ p.sepline <- ggplot(data=ct[ORF1ab_result=="POSITIVE" & N_result=="POSITIVE" & !
     geom_segment(aes(x=31, y=31, xend=31, yend=10), linetype=3, color="black") +
     geom_segment(aes(x=29.5, y=31, xend=8.5, yend=10), linetype=3, color="black") +
     ggtitle("Separation line at N - ORF = 1.5")
-p.sepline
+#p.sepline
 
 ## use sgtf.fix1 to assign true neg / pos status using replicates where possible 
 ct[, max.sgtf := max(as.integer(sgtf.fix1), na.rm=TRUE), by=anon_id]
@@ -222,7 +219,7 @@ p.testvalid <-ggplot(data=ct[sgtf.fix1=="Undetermined" & !is.na(truepos)],
     geom_segment(aes(x=33, y=31, xend=33, yend=10), color="green") +
     geom_segment(aes(x=28, y=31, xend=7, yend=10), color="green") +
     ggtitle("Tests with S gene dropout classified as Undetermined with separation line at N - ORF = 1.5, by status at repeat test. New separation lines at N - ORF = 3 and ORF = 33")
-p.testvalid
+#p.testvalid
 
 ## assign S_gene dropout using difference between N and ORF signals
 ## refine this by restricting diff2channels to <=2 and N Ct to < 30
@@ -250,18 +247,21 @@ ct[is.infinite(-min.Sgene.dropout), min.Sgene.dropout := NA]
 ct[max.Sgene.dropout==3, truepos := "Other test definite dropout"]
 ct[min.Sgene.dropout==1, truepos := "Other test no dropout"]
 
+
 ########################  merge Ct with ECOSS ###########################################
 
+## 334353 records in Ct
+## 1259 missing date_appointment
 ## this renames the date_appointment field in Ct with SpecimenDate
 # cat("Table of missingness status for original date_appointment in Ct table: \n")
 # print(table(is.na(ct$date_appointment)))
 ## 177 appointment dates are missing
 
+## FIXME: do an overlap join 
 ct.nodate <- ct[is.na(date_appointment), .(anon_id, ct.id, date_appointment, date_reporting)]
 ecoss.withdate <- ecoss[SourceLab == "NHS:COV", .(anon_id, SpecimenDate, SourceLab)]
 setkey(ecoss.withdate, anon_id)
 setkey(ct.nodate, anon_id)
-
 ## left join ct.nodate with ecoss.withdate
 ct.nodate <- ecoss.withdate[ct.nodate] 
 
@@ -287,27 +287,69 @@ print(table(is.na(ct$date_appointment)))
 setnames(ct, "date_appointment", "SpecimenDate") 
 maxdate.ct <- max(ct$SpecimenDate, na.rm=TRUE)
 
+##########################################################################################
+
+## note few lighthouse lab tests in Apr/May 2021
+ct[, ct.lt30.2genes := as.integer(ORF1ab_Ct < 30 & N_Ct < 30)]
+table.ctlt30 <- with(ct,
+                     table(ct.lt30.2genes,
+                           paste(lubridate::year(SpecimenDate),
+                                 sprintf("%02d",
+                                         lubridate::month(SpecimenDate,
+                                                          label=FALSE)),
+                                 sep="/"),
+                           exclude=NULL)
+                     )
+table.ctlt30 <- cbind(table.ctlt30, rowSums(table.ctlt30))
+colsums.table.ctlt30 <- colSums(table.ctlt30)
+table.ctlt30 <- paste.colpercent(table.ctlt30)
+table.ctlt30 <- rbind(table.ctlt30, colsums.table.ctlt30)
+table.ctlt30
+
+ct[, ct.lt30.anygene := as.integer(ORF1ab_Ct < 30 & N_Ct < 30)]
+table.anyctlt30 <- with(ct,
+                     table(ct.lt30.anygene,
+                           paste(lubridate::year(SpecimenDate),
+                                 sprintf("%02d",
+                                         lubridate::month(SpecimenDate,
+                                                          label=FALSE)),
+                                 sep="/"),
+                           exclude=NULL)
+                     )
+table.anyctlt30 <- cbind(table.anyctlt30, rowSums(table.anyctlt30))
+colsums.table.anyctlt30 <- colSums(table.anyctlt30)
+table.anyctlt30 <- paste.colpercent(table.anyctlt30)
+table.anyctlt30 <- rbind(table.anyctlt30, colsums.table.anyctlt30)
+table.anyctlt30
+
+##################################################################
+
 setkey(ct, anon_id, SpecimenDate) ## ct contains only unique values of key
 setkey(ecoss, anon_id, SpecimenDate) ## about 1% of key values are duplicated
 
-## this step imports the flag_lighthouse_labs_testing variable into ecoss
-ecoss <- ct[, .(anon_id, SpecimenDate, flag_lighthouse_labs_testing, ct.result)][ecoss]
+## this step imports ct values into ecoss
+ecoss <- ct[, .(anon_id, SpecimenDate, flag_lighthouse_labs_testing,
+                ct.result, ct.lt30.2genes, ct.lt30.anygene)][ecoss]
 
 ecoss[, flag_lighthouse_labs_testing := factor(car::recode(flag_lighthouse_labs_testing, 
                                                       "NA='NHS test';
-                                                       0='Ct record, not Lighthouse';
+                                                       0='Ct record, not flagged Lighthouse';
                                                        1='Lighthouse test'"))]
 
-cat("ECOSS results by lighthouse / NHS status and month\n") 
-ecoss.table <-
-    with(ecoss, 
-         table(flag_lighthouse_labs_testing, lubridate::month(SpecimenDate, label=TRUE))
-         )
-print(paste.colpercent(ecoss.table)[, c(9:12, 1:7)])
+numpostests <- ecoss[ecoss.result=="Positive", .N,
+                     by=c("SpecimenDate", "flag_lighthouse_labs_testing")]
 
+ggplot(data=numpostests, aes(x=SpecimenDate, y=N, color=flag_lighthouse_labs_testing)) +
+                         geom_line()
+    
+save(ecoss, file=paste0(datadir, "ecoss.alltests.RData"))
+
+ecoss.firstpos <- ecoss[ecoss.result=="Positive" & !is.na(SpecimenDate)]
+setorder(ecoss.firstpos, "SpecimenDate")
+ecoss.firstpos <- unique(ecoss.firstpos, by="anon_id")
 save(ecoss.firstpos, file=paste0(datadir, "ecoss.firstpos.RData"))
-save(ct, file=paste0(datadir, "ct.RData"))
 
+##############################################################################
 
 #rm(ecoss.withdate)
 

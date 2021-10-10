@@ -4,13 +4,16 @@ library(survival)
 
 source("helperfunctions.R")
 
-datadir <- "data/2021-07-28/"
-lastdate <- as.Date("2021-07-25")
+datadir <- "data/2021-09-02/"
+lastdate <- as.Date("2021-08-19")
 interval.length <- 28
     
 load(paste0(datadir, "shielded.linked.RData"))
 
 shielded.full[, anycase := as.integer(!is.na(specimen_date))]
+shielded.full <- shielded.full[!is.na(sex)] # 30 records with sex coded as empty string
+shielded.full[, sex := factor(sex, levels=c("Male", "Female"))]
+
 min.time <- min(as.integer(shielded.full$entrydate), na.rm=TRUE)
 max.time <- max(as.integer(shielded.full$exitdate), na.rm=TRUE)
 
@@ -18,8 +21,10 @@ shielded.2vax <- shielded.full[!is.na(vaxdate_2)]
 shielded.2vax[, entrydate := vaxdate_2 + 14]
 shielded.2vax <- shielded.2vax[is.na(specimen_date) | specimen_date > entrydate]
 
+## casegr has 5 categories
 paste.rowpercent(with(shielded.2vax, table(shield.group, casegr)), digits=2)
 
+## casegr2 has 2 categories
 severe.2vax <- with(shielded.2vax, table(shield.group, casegr2))
 severe.2vax <- data.table(shield.group=rownames(severe.2vax),
                                severe=severe.2vax[, 3])
@@ -30,8 +35,23 @@ names(personmonths.2vax)[2] <- "personmonths"
 setkey(personmonths.2vax, shield.group)
 
 severe.2vax <- severe.2vax[personmonths.2vax]
-severe.2vax[, rateper1000 := round(1000 * severe / personmonths, 2)]
 
+sumcols <- c("severe", "personmonths")
+severe.2vax.sumcols <-
+    severe.2vax[shield.group=="Additional conditions" |
+                shield.group=="Rare diseases",
+                lapply(.SD, sum),
+                .SDcols = sumcols]
+print(severe.2vax.sumcols)
+
+severe.2vax[shield.group=="Additional conditions", severe := severe.2vax.sumcols[1, 1]]
+severe.2vax[shield.group=="Additional conditions", personmonths := severe.2vax.sumcols[1, 2]]
+severe.2vax <- severe.2vax[shield.group != "Rare diseases"]
+severe.2vax[, shield.group := gsub("Additional conditions",
+                                   "Additional / rare conditions", shield.group)]
+
+severe.2vax[, rateper1000 := round(1000 * severe / personmonths, 2)]
+setorder(severe.2vax, -rateper1000)
 save(severe.2vax, file=paste0(datadir, "severe2vax.RData"))
      
 shielded.tsplit <-

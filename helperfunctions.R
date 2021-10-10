@@ -1,6 +1,36 @@
 ## helperfunctions for COVID analyses
 
+format.estci <- function(x.ci) {
+    x <- gsub(" \\(", " \\(95\\% CI ", as.character(x.ci))
+    x <- gsub(", ", " to ", x)
+    #x <- gsub("\\)", paste0(", _p_=\\", x.pval, "\\)"), x)
+    #x <- gsub("times", "\\\\times", x)
+    return(x)
+}
+
+firstup <- function(x) {
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
+}
+
 ## rollmean.dtN returns a data.table with columns date, avdaily (rolling mean) 
+rollmean.dtN <- function(dt, k, datevar="SPECIMENDATE") {
+    ## FIXME: add a by= argument
+    N.dates <- dt[, .N, by=get(datevar)]
+    setnames(N.dates, "get", datevar)
+    setkeyv(N.dates, datevar)
+    all.dates <- data.table(date=seq(from=min(N.dates[[datevar]]),
+                                     to=max(N.dates[[datevar]]),
+                                     by=1))
+    setkey(all.dates, date)
+
+    ## add rows for missing dates by a left join
+    all.dates <- N.dates[all.dates]
+    all.dates[is.na(N), N := 0]
+    return(data.table(date=dt[[datevar]],
+                      avdaily=zoo::rollmean(dt$N, k=k, fill=NA)))
+}
+
 rollmean.bydate.grouped <- function(dt, datevar, groupvar, xvar, k) {
 
     ## add rows for missing dates by a left join
@@ -42,7 +72,8 @@ levels.toshow <- function(varnames, dt) {
 
 ## pad coeffs table with empty lines for dropped reference level for factors with > 2 levels
 ## FIXME: wrap levels.toshow inside this
-pad.coeffs <- function(coeffs, levels.coeffs) {
+pad.coeffs <- function(coeffs, varnames, dt) {
+    levels.coeffs <- levels.toshow(varnames, dt)
     coeffs.padded <- NULL
     coeffs.empty <- coeffs[NA]
     line.integer <- levels.coeffs$line.integer
@@ -216,7 +247,6 @@ RDStodt <- function(rds.filename, keyname=NULL) {
         for (col in factor.cols) {
             set(dt, j=col, value=as.factor(dt[[col]]))
         }
-        #dt[, (factor.cols) := lapply(.SD, as.factor), .SDcols = factor.cols]
     }
     gc()
     
@@ -230,7 +260,6 @@ RDStodt <- function(rds.filename, keyname=NULL) {
             for (col in integer.cols) {
                 set(dt, j=col, value=as.integer(dt[[col]]))
             }
-            #dt[, (integer.cols) := lapply(.SD, as.integer), .SDcols = integer.cols]
         }
     }
     
@@ -458,7 +487,14 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                      "TNFi",
                                      "IL6i",
                                      "IL17i",
-                                     "JAKi"
+                                     "JAKi",
+                                     "hh.schoolage",
+                                     "weeks.vaxdose2",
+                                     "months.sincefirstinfection",
+                                     "prednisolone.gt5mgday",
+                                     "AXSPA",
+                                     "aminosalicylate",
+                                     "age_years"
                                 ),
                            longname=c("Age", "Males",
                                       "Death within 28 days of test",
@@ -511,7 +547,14 @@ lookup.names <- data.frame(varname=c("AGE", "sex",
                                       "TNF inhibitors",
                                       "IL6 inhibitors",
                                       "IL17 inibitors",
-                                      "JAK inhibitors"
+                                      "JAK inhibitors",
+                                      "Number of school-age children in household",
+                                      "Weeks since 14 days after 2nd dose",
+                                      "Months since first infection",
+                                      "Prednisolone equiv. \\ensuremath{> 5} mg/day",
+                                      "Psoriasis / other seronegative",
+                                      "5-aminosalicylate",
+                                      "Age (years)"
                                       ))
 
 clean.header <- function(x) {
@@ -1020,9 +1063,10 @@ pvalue.latex <- function(x, n=1, nexp=1) {
 ## create and format a 95% confidence interval around an odds/hazard ratio
 or.ci <- function(coeff, se, ndigits=2) {
   ci.lo <- exp(coeff - 1.96 * se)
-  ci.up <- exp(coeff + 1.96 * se)
-  ndigits <- rep(2, length(coeff))
+  ci.up <- ifelse(se < 100, exp(coeff + 1.96 * se), Inf)
+  ndigits <- rep(ndigits, length(coeff))
   ndigits[exp(coeff) > 5] <- 1
+  ndigits[exp(coeff) > 50] <- 0
   x <- sprintf("%.*f (%.*f, %.*f)", ndigits, exp(coeff), ndigits, ci.lo, ndigits, ci.up)
   x[is.na(coeff)] <- ""
   return(x)
@@ -1031,8 +1075,8 @@ or.ci <- function(coeff, se, ndigits=2) {
 ## create and format for text a 95% confidence interval around an odds/hazard ratio 
 or.ci.text <- function(coeff, se, ndigits=2) {
   ci.lo <- exp(coeff - 1.96 * se)
-  ci.up <- exp(coeff + 1.96 * se)
-  ndigits <- rep(2, length(coeff))
+  ci.up <- ifelse(se < 100, exp(coeff + 1.96 * se), Inf)
+  ndigits <- rep(ndigits, length(coeff))
   ndigits[exp(coeff) > 5] <- 1
   x <- sprintf("%.*f (95%% CI %.*f to %.*f)",
                ndigits, exp(coeff), ndigits, ci.lo, ndigits, ci.up)
@@ -1065,6 +1109,19 @@ pctefficacy.or.ci <- function(or.ci) {
         efficacy <- round(100 * (1 - or.ci))
         x <-  sprintf("%.*f%% (95 percent CI %.*f%% to %.*f%%)",
                       0, efficacy[1], 0, efficacy[3], 0, efficacy[2])
+    } else {
+        x <- ""
+    }
+    return(x)
+}
+
+pctefficacyonly.or.ci <- function(or.ci) {
+    or.ci <- gsub("\\(|\\)|,", "", or.ci)
+    or.ci <- as.numeric(unlist(strsplit(or.ci, split=" ")))
+    if(length(or.ci)==3) { 
+        efficacy <- round(100 * (1 - or.ci))
+        x <-  sprintf("%.*f%%",
+                      0, efficacy[1])
     } else {
         x <- ""
     }

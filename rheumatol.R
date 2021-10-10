@@ -4,7 +4,7 @@ library(survival)
 library(data.table)
 source("helperfunctions.R")
 
-datadir <- "data/2021-07-28/"
+datadir <- "data/2021-09-22/"
 
 if(!exists("cc.all")) {
     load(paste0(datadir, "cc.all.RData"))
@@ -14,6 +14,7 @@ load(paste0(datadir, "shielded.full.RData"))
 load(paste0(datadir, "drugdoses.RData"))
 
 smr00.filename <- paste0(datadir, "CC_SMR00_2021-07-28.rds")
+smr00.filename <- paste0(datadir, "CC_SMR00_2021-09-22.rds")
 smr00 <- RDStodt(smr00.filename, keyname="anon_id") # outpatients
 smr00[, clinic_date := as.Date(clinic_date)] # convert PosixCT
 smr00.rheumatol <- smr00[specialty=="AR", .(anon_id, clinic_date)]
@@ -21,6 +22,8 @@ smr00.rheumatol <- smr00[specialty=="AR", .(anon_id, clinic_date)]
 
 setkey(cc.all, anon_id, specimen_date)
 cc.all <- drugdoses[cc.all]
+cc.all[, prednisolone.gt5mgday := as.integer(prednisolone.equiv / 7 > 5)]
+
 
 setkey(cc.all, anon_id)
 cc.all <- rheumatol.wide[cc.all]
@@ -62,8 +65,10 @@ cc.all[, ar.outpatient := as.integer(anon_id %in% smr00.rheumatol$anon_id)]
 rheumatol.wide[, ar.outpatient := as.integer(anon_id %in% smr00.rheumatol$anon_id)]
 with(rheumatol.wide, table(ar.outpatient))
 
+rheumatol.wide[, sampled := as.integer(anon_id %in% cc.all$anon_id)]
+rheumatol.wide[, hosp.diag := as.integer(anon_id %in% cc.all[rheumatol.diag != "No rheumatologic diagnosis", anon_id])]
 
-cases <- cc.all[CASE==1, .(anon_id, specimen_date, casegroup, fatal.casegroup, fatalcase, casegr, casegr2, casegr3)]
+cases <- cc.all[CASE==1, .(anon_id, specimen_date, casegroup, fatal.casegroup, fatalcase, casegr, casegr2, casegr3, adm.within14, critical.within21)]
 setkey(cases, anon_id)
 setkey(rheumatol.wide, anon_id)
 rheumatol.wide <- cases[rheumatol.wide]
@@ -90,35 +95,37 @@ table.rheumatol.shielded
 
 ## 2. case-control analysis of those with rheumatology diagnoses, on or off shielding list
 table.rheumatol.diagnosis <-
-    tabulate.freqs.regressions(varnames=c("vax14.factor",
+    tabulate.freqs.regressions(varnames=c("vax14.factor", "care.home", "inpat.recent",
                                           "diagnosis.group"),
                                data=cc.all[(casegroup=="A" | casegroup=="B")])
+rownames(table.rheumatol.diagnosis)[7:9] <- c("Rheumatoid", "Connective tissue disease", "Psoriasis / other seronegative")
 
 ## 3. case-control analysis of associations with DMARDS, biologic and otherwise.  
 # exclude ibd and specific cancers from this analysis
 table.rheumatol.drugs <-
-    tabulate.freqs.regressions(varnames=c("vax14.factor", "methotrexate",
+    tabulate.freqs.regressions(varnames=c("vax14.factor", "care.home", "inpat.recent",
+                                          "methotrexate",
                                           "hydroxychloroquine", "sulfasalazine",
-                                          "leflunomide", "prednisolone", 
+                                          "leflunomide", "prednisolone.gt5mgday", 
                                           "TNFi", "B cell depletion", "IL6i", "IL17i", "JAKi"),
-                               data=cc.all[(casegroup=="A" | casegroup=="B") # &
-                                       #    ibd==0 & 
-                                       #    shield.group != "Specific cancers" &
-                                       #    shield.group != "Severe respiratory" &
-                                       #    chronresp==0
-                                           ])
+                               data=cc.all[(casegroup=="A" | casegroup=="B")])
+rownames(table.rheumatol.drugs) <- firstup(rownames(table.rheumatol.drugs))
 
 table.rheumatoldiag.drugs <-
-    tabulate.freqs.regressions(varnames=c("vax14.factor", "methotrexate",
+    tabulate.freqs.regressions(varnames=c("vax14.factor", "care.home", "inpat.recent",
+                                          "methotrexate",
                                           "hydroxychloroquine", "sulfasalazine",
-                                          "leflunomide", "prednisolone", 
-                                          "TNFi", "B cell depletion", "IL6i", "IL17i", "JAKi"),
+                                          "leflunomide", "prednisolone.gt5mgday"),
                                data=cc.all[(casegroup=="A" | casegroup=="B") &
-                                           (diagnosis.group != "No rheumatologic diagnosis" |
-                                            ar.outpatient==1)])
-
+                                           ar.outpatient==1])
+rownames(table.rheumatoldiag.drugs) <- firstup(rownames(table.rheumatoldiag.drugs))
  
                                
 ###############################################
 
+table.shielded.hosp <- paste.rowpercent(with(rheumatol.wide,
+                                             table(shielded,
+                                                   adm.within14, exclude=NULL)), digits=1)
+ 
 rmarkdown::render("rheumatol.Rmd")
+rmarkdown::render("ssr.Rmd")

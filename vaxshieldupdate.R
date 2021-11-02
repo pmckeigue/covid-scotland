@@ -19,7 +19,7 @@ objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
 
 interval.length <- 28  # for poisson regression of shielding cohort
-lastdate.cases <- as.Date("2021-09-08")
+lastdate.cases <- as.Date("2021-09-19")
 
 ## tabulate case groups by vax status in shielding cohort
 paste.colpercent(with(cc.all[CASE==1 & specimen_date >= as.Date("2020-12-01") &
@@ -420,7 +420,22 @@ table.hosp.vaxgr <- table.hosp.vaxgr[c(6, 5, 4, 3, 2, 1), ]
 table.hosp.vaxgr <- table.hosp.vaxgr[, c(1, 2, 4, 3, 5)]
 
 ###########################################################
+riskgr.severe.vax2 <- with(cc.all[CASE==1 & casegroup=="A" & vax14.dose==1 & 
+                                  specimen_date >= as.Date("2020-12-01")],
+                           table(listedgr3))
+pct.riskgr.severe.vax2 <- round(100 * (1 - (riskgr.severe.vax2[1]) / sum(riskgr.severe.vax2)))
+pct.noriskgr.severe.vax2 <- round(100 * (riskgr.severe.vax2[1]) / sum(riskgr.severe.vax2))
+pct.modriskgr.severe.vax2 <- round(100 * (riskgr.severe.vax2[2]) / sum(riskgr.severe.vax2))
+pct.cev.severe.vax2 <- round(100 * (riskgr.severe.vax2[3]) / sum(riskgr.severe.vax2))
 
+riskgr.hosp.vax2 <- with(cc.all[CASE==1 & (casegroup=="A" | casegroup=="B")
+                                  & vax14.dose==1 & 
+                                  specimen_date >= as.Date("2020-12-01")],
+                           table(listedgr3))
+pct.riskgr.hosp.vax2 <- round(100 * (1 - (riskgr.hosp.vax2[1]) / sum(riskgr.hosp.vax2)))
+
+cc.all[, months.sincetransplant := as.integer(specimen_date - date.lasttransplant) * 12 / 365.25]
+    
 table.severe.vax2 <-
     tabulate.freqs.regressions(data=cc.all[casegroup=="A" & vax14.dose==1 & 
                                            specimen_date >= as.Date("2020-12-01")],
@@ -453,6 +468,7 @@ model.hosp.shieldonly.vax2 <-
 ########### plots ##################################
 
 load(paste0(datadir, "shieldcohort.models.RData"))
+## this should load data shield.all
 
 p.anycase <- ggplot(data=shield.all, aes(x=date, y=probmonth, color=casegr)) +
     geom_line() +
@@ -498,7 +514,6 @@ severe.vax2.pct
 severe.byvax.pct
 
 load(paste0(datadir, "severe2vax.RData")) 
-
 
 rmarkdown::render("vaxshieldupdate.Rmd")
 rmarkdown::render("vaxtrend.Rmd")

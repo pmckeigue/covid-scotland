@@ -45,7 +45,7 @@ weeklydose <- function(chemsubstcode.arg, drugname, lookback.days=120) {
     setnames(drug.dose.weekly, "weeklymg", paste0(drugname, ".weeklymg"))
     setkey(drug.dose.weekly, anon_id, specimen_date)
     return(drug.dose.weekly)
-}
+e}
 
 #bnf.lookup[, chemsubstcode := substr(bnf_item_code, 1, 9)]
 #bnf.chemsubst <- unique(bnf.lookup, by="chemsubstcode")

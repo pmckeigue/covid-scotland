@@ -4,7 +4,7 @@ library(survival)
 
 source("helperfunctions.R")
 
-datadir <- "data/2021-09-02/"
+datadir <- "data/2021-09-22/"
 lastdate <- as.Date("2021-08-19")
 interval.length <- 28
     
@@ -24,7 +24,6 @@ shielded.2vax <- shielded.2vax[is.na(specimen_date) | specimen_date > entrydate]
 ## casegr has 5 categories
 paste.rowpercent(with(shielded.2vax, table(shield.group, casegr)), digits=2)
 
-## casegr2 has 2 categories
 severe.2vax <- with(shielded.2vax, table(shield.group, casegr2))
 severe.2vax <- data.table(shield.group=rownames(severe.2vax),
                                severe=severe.2vax[, 3])
@@ -53,7 +52,7 @@ severe.2vax[, shield.group := gsub("Additional conditions",
 severe.2vax[, rateper1000 := round(1000 * severe / personmonths, 2)]
 setorder(severe.2vax, -rateper1000)
 save(severe.2vax, file=paste0(datadir, "severe2vax.RData"))
-     
+
 shielded.tsplit <-
     as.data.table(survSplit(formula=Surv(time=as.integer(entrydate),
                                          time2=as.integer(exitdate),	

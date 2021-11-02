@@ -16,16 +16,6 @@ if(linkdate=="jul28") {
     shielding.full.filename <- paste0(datadir,
                                   "CC_shielding_patients_anon_2021-07-28.csv")
     shielded.full <- fread(shielding.full.filename)
-} else if(linkdate=="sep02") {
-    datadir <- "./data/2021-09-02/"
-    shielding.full.filename <- paste0(datadir,
-                                  "CC_shielding_patients_anon_2021-09-02.rds")
-    shielding.deaths.filename <- paste0(datadir,
-                                  "shielding_deaths_anon_2021-09-02.rds")
-    shielded.full <- RDStodt(shielding.full.filename)
-    shielded.deaths <- RDStodt(shielding.deaths.filename)
-    vaxshield.filename <- paste0(datadir, "shielding_vacc_anon_2021-09-02.rds")
-    vax.shield <- RDStodt(vaxshield.filename)
 } else if(linkdate=="sep22") {
     datadir <- "./data/2021-09-22/"
     shielding.full.filename <- paste0(datadir,
@@ -35,7 +25,7 @@ if(linkdate=="jul28") {
     shielded.full <- RDStodt(shielding.full.filename)
     shielded.deaths <- RDStodt(shielding.deaths.filename)
     ## FIXME: no current vaxshield table
-    vaxshield.filename <- "data/2021-09-02/shielding_vacc_anon_2021-09-02.rds"
+    vaxshield.filename <- "data/2021-09-22/shielding_vacc_anon_2021-09-02.rds"
     vax.shield <- RDStodt(vaxshield.filename)
 }    
 

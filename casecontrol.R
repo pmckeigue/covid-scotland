@@ -576,7 +576,7 @@ cc.nexthosp <- unique(cc.nexthosp, by=key(cc.nexthosp))
 
 setkey(cc.all, anon_id, specimen_date)
 cc.all <- cc.nexthosp[, .(anon_id, AdmissionDate.rapid, specimen_date,
-                          daystoadmission)][cc.all]
+                          daystoadmission, specialty)][cc.all]
 dim(cc.all)
 
 cc.all[, censoringdays.admission := as.integer(
@@ -1254,7 +1254,6 @@ cc.all[, listedgr3 := car::recode(listedgr3,
                                                 "Moderate risk condition",
                                                 "Eligible for shielding"))]
 
-
 recodecancers <- FALSE
 if(recodecancers) {
     cc.all[, shield.group := as.character(shield.group)]
@@ -1281,6 +1280,11 @@ gc()
 rm(cc.specimendate)
 rm(cc.procedures)
 
+covid.specialtycodes <- "^A[16BQ]"
+noncovid.specialtycodes <- "^A[289DGHMR]|^[CEFHJ]"
+
+with(cc.all[CASE==1 & !is.na(specialty)], table(grepl(noncovid.specialtycodes, specialty)))
+with(cc.all[CASE==1 & !is.na(specialty)], table(grepl(covid.specialtycodes, specialty)))
 
 objmem <- 1E-6 * sort( sapply(ls(), function(x) {object.size(get(x))}))
 print(tail(objmem))
